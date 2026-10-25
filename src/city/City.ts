@@ -120,13 +120,6 @@ export class City {
         this.group.add(cw1, cw2);
       }
     }
-
-    // 4. Stunt Ramps in selected intersections
-    const ramp1 = Building.createRamp(0, 40, 10, 14, 4, 0);
-    this.group.add(ramp1.mesh);
-
-    const ramp2 = Building.createRamp(88, -40, 10, 14, 4, Math.PI / 2);
-    this.group.add(ramp2.mesh);
   }
 
   public getRoofHeightAt(x: number, z: number, radius: number = 0): number {

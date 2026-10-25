@@ -67,14 +67,6 @@ export class WaterSystem {
     dock.castShadow = true;
     dock.receiveShadow = true;
     this.group.add(dock);
-
-    // Wooden Stunt Water Ramp
-    const rampGeo = new THREE.BoxGeometry(8, 2.5, 8);
-    rampGeo.rotateX(-Math.PI / 8);
-    const rampMat = new THREE.MeshStandardMaterial({ color: 0xb45309 });
-    const ramp = new THREE.Mesh(rampGeo, rampMat);
-    ramp.position.set(-210, 0.6, 60);
-    this.group.add(ramp);
   }
 
   private spawnCrates(): void {

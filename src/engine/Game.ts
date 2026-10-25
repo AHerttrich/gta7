@@ -459,18 +459,6 @@ export class Game {
               : new THREE.Vector3(this.player.x, this.player.y, this.player.z);
 
     if (this.mode === 'IN_CAR') {
-      // Check Stunt Ramps in city
-      const ramp1Dist = Math.hypot(this.car.physics.x - 0, this.car.physics.z - 40);
-      const ramp2Dist = Math.hypot(this.car.physics.x - 88, this.car.physics.z - -40);
-
-      if (
-        (ramp1Dist < 6.0 || ramp2Dist < 6.0) &&
-        this.car.physics.speed > 12 &&
-        !this.car.physics.isAirborne
-      ) {
-        this.car.physics.launchJump(12.5);
-      }
-
       // DeLorean Hover Mode toggle trigger
       const wasHover = this.car.physics.isHoverMode;
       const hoverToggled = this.input.hoverToggle;

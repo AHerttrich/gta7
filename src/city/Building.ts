@@ -187,15 +187,7 @@ export class Building {
       }
     }
 
-    // 4. Rooftop AC & Generator Units
-    const acGeo = new THREE.BoxGeometry(width * 0.28, 2.2, depth * 0.28);
-    const acMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.7 });
-    const acMesh = new THREE.Mesh(acGeo, acMat);
-    acMesh.position.set(x + width * 0.2, topY + 1.1, z - depth * 0.2);
-    acMesh.castShadow = true;
-    group.add(acMesh);
-
-    // 5. Helipad on selected wide buildings
+    // 4. Helipad on selected wide buildings
     if (width > 30 && height < 45) {
       const padGeo = new THREE.CylinderGeometry(width * 0.35, width * 0.35, 0.1, 24);
       const padMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
