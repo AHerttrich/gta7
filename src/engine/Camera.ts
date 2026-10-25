@@ -1,0 +1,91 @@
+import * as THREE from 'three';
+import { CAMERA_CONFIG } from '../utils/Constants';
+
+export type CameraMode = 'CHASE' | 'CLOSE' | 'TOP_DOWN';
+
+export class GameCamera {
+  private camera: THREE.PerspectiveCamera;
+  public mode: CameraMode = 'CHASE';
+
+  private currentTargetPos: THREE.Vector3 = new THREE.Vector3();
+  private currentCameraPos: THREE.Vector3 = new THREE.Vector3();
+
+  constructor(camera: THREE.PerspectiveCamera) {
+    this.camera = camera;
+  }
+
+  public cycleMode(): CameraMode {
+    if (this.mode === 'CHASE') this.mode = 'CLOSE';
+    else if (this.mode === 'CLOSE') this.mode = 'TOP_DOWN';
+    else this.mode = 'CHASE';
+    return this.mode;
+  }
+
+  public updateVehicle(carPos: THREE.Vector3, heading: number, speed: number, dt: number): void {
+    let dist: number = CAMERA_CONFIG.CHASE_DISTANCE;
+    let height: number = CAMERA_CONFIG.CHASE_HEIGHT;
+
+    if (this.mode === 'CLOSE') {
+      dist = 5.5;
+      height = 2.2;
+    } else if (this.mode === 'TOP_DOWN') {
+      dist = 1.0;
+      height = 28.0;
+    }
+
+    // Dynamic FOV speed zoom effect
+    const speedRatio = Math.min(1.0, Math.abs(speed) / 45.0);
+    this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, 65 + speedRatio * 15, 0.1);
+    this.camera.updateProjectionMatrix();
+
+    // Calculate ideal camera position behind the car
+    const forwardX = Math.sin(heading);
+    const forwardZ = Math.cos(heading);
+
+    let targetCamX = carPos.x - forwardX * dist;
+    let targetCamZ = carPos.z - forwardZ * dist;
+    let targetCamY = carPos.y + height;
+
+    if (this.mode === 'TOP_DOWN') {
+      targetCamX = carPos.x;
+      targetCamZ = carPos.z + 0.1;
+      targetCamY = carPos.y + height;
+    }
+
+    // Smooth interpolation with delta time
+    const lerpFactor = Math.min(1.0, CAMERA_CONFIG.SMOOTH_FACTOR * 60 * dt);
+    this.currentCameraPos.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), lerpFactor);
+    this.camera.position.copy(this.currentCameraPos);
+
+    // Look slightly ahead of the car
+    const lookAheadDist = this.mode === 'TOP_DOWN' ? 0 : CAMERA_CONFIG.LOOK_AHEAD_DISTANCE;
+    const lookTarget = new THREE.Vector3(
+      carPos.x + forwardX * lookAheadDist,
+      carPos.y + 1.2,
+      carPos.z + forwardZ * lookAheadDist,
+    );
+
+    this.currentTargetPos.lerp(lookTarget, lerpFactor);
+    this.camera.lookAt(this.currentTargetPos);
+  }
+
+  public updateOnFoot(playerPos: THREE.Vector3, playerRotationY: number, dt: number): void {
+    const dist = CAMERA_CONFIG.FOOT_DISTANCE;
+    const height = CAMERA_CONFIG.FOOT_HEIGHT;
+
+    const forwardX = Math.sin(playerRotationY);
+    const forwardZ = Math.cos(playerRotationY);
+
+    const targetCamX = playerPos.x - forwardX * dist;
+    const targetCamZ = playerPos.z - forwardZ * dist;
+    const targetCamY = playerPos.y + height;
+
+    const lerpFactor = Math.min(1.0, 0.15 * 60 * dt);
+    this.currentCameraPos.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), lerpFactor);
+    this.camera.position.copy(this.currentCameraPos);
+
+    const lookTarget = new THREE.Vector3(playerPos.x, playerPos.y + 1.5, playerPos.z);
+    this.currentTargetPos.lerp(lookTarget, lerpFactor);
+    this.camera.lookAt(this.currentTargetPos);
+  }
+}

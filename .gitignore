@@ -1,0 +1,45 @@
+# ─── Dependencies ─────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+
+# ─── Build Output ─────────────────────────────────────────────
+dist/
+build/
+*.tsbuildinfo
+
+# ─── Test & Coverage ──────────────────────────────────────────
+coverage/
+*.lcov
+
+# ─── Environment Variables ────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ─── IDE & Editor ─────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ─── OS Files ─────────────────────────────────────────────────
+.DS_Store
+Desktop.ini
+ehthumbs.db
+
+# ─── Logs ─────────────────────────────────────────────────────
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# ─── Docker ───────────────────────────────────────────────────
+.dockerignore
+
+# ─── Misc ─────────────────────────────────────────────────────
+*.tgz
+.cache/
