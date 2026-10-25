@@ -38,42 +38,6 @@ export class TrainSystem {
     this.subwayGroup = this.buildSubwayTrain();
     this.freightTrainGroup = this.buildFreightTrain();
     this.group.add(this.subwayGroup, this.freightTrainGroup);
-
-    this.buildElevatedPylons();
-    this.buildTunnelPortals();
-  }
-
-  private buildElevatedPylons(): void {
-    // Support columns for elevated Sky-Train along the avenue route
-    const pylonMat = new THREE.MeshStandardMaterial({
-      color: 0x334155,
-      metalness: 0.8,
-      roughness: 0.3,
-    });
-    const pylonGeo = new THREE.CylinderGeometry(0.8, 1.0, 9.0, 8);
-
-    const railMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
-
-    for (let i = 0; i < this.subwayWaypoints.length; i++) {
-      const p1 = this.subwayWaypoints[i];
-      const p2 = this.subwayWaypoints[(i + 1) % this.subwayWaypoints.length];
-      const steps = 4;
-      for (let s = 0; s <= steps; s++) {
-        const px = THREE.MathUtils.lerp(p1.x, p2.x, s / steps);
-        const pz = THREE.MathUtils.lerp(p1.z, p2.z, s / steps);
-        const pylon = new THREE.Mesh(pylonGeo, pylonMat);
-        pylon.position.set(px, 4.5, pz);
-        this.group.add(pylon);
-      }
-
-      // Continuous luminous elevated monorail track along avenue circuit
-      const segLen = Math.hypot(p2.x - p1.x, p2.z - p1.z);
-      const segGeo = new THREE.BoxGeometry(1.4, 0.5, segLen);
-      const rail = new THREE.Mesh(segGeo, railMat);
-      rail.position.set((p1.x + p2.x) / 2, 8.2, (p1.z + p2.z) / 2);
-      rail.rotation.y = Math.atan2(p2.x - p1.x, p2.z - p1.z);
-      this.group.add(rail);
-    }
   }
 
   private buildSubwayTrain(): THREE.Group {
@@ -84,6 +48,7 @@ export class TrainSystem {
       roughness: 0.1,
     });
     const windowMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff }); // Cyan glass
+    const maglevMat = new THREE.MeshBasicMaterial({ color: 0x00d4ff }); // Cyber Maglev glow
 
     // 3 Linked Metro Wagons
     for (let i = 0; i < 3; i++) {
@@ -97,6 +62,12 @@ export class TrainSystem {
       const win = new THREE.Mesh(winGeo, windowMat);
       win.position.y = 2.4;
       w.add(win);
+
+      // Magnetic Levitation Emitter Strip (Under-wagon Cyber Glow)
+      const maglevGeo = new THREE.BoxGeometry(2.4, 0.15, 11);
+      const maglev = new THREE.Mesh(maglevGeo, maglevMat);
+      maglev.position.y = 0.2;
+      w.add(maglev);
 
       w.position.z = i * -13.5;
       train.add(w);
@@ -134,22 +105,6 @@ export class TrainSystem {
     }
 
     return freight;
-  }
-
-  private buildTunnelPortals(): void {
-    // Concrete Portal Entrance at the Northern Rail Mountain Corridor (z = 218)
-    const portalMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.8 });
-    const archGeo = new THREE.BoxGeometry(24, 10, 4);
-    const portal = new THREE.Mesh(archGeo, portalMat);
-    portal.position.set(0, 5.0, 218);
-    this.group.add(portal);
-
-    // Glowing Cyan Tunnel Direction Sign
-    const signGeo = new THREE.BoxGeometry(16, 1.4, 0.2);
-    const signMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
-    const sign = new THREE.Mesh(signGeo, signMat);
-    sign.position.set(0, 10.5, 216);
-    this.group.add(sign);
   }
 
   public update(dt: number): void {
