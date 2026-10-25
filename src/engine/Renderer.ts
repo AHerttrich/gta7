@@ -11,9 +11,10 @@ export class Renderer {
     this.canvas = canvas;
     this.scene = new THREE.Scene();
 
-    // Night/Sunset neon mood
-    this.scene.background = new THREE.Color(0x0a0f1d);
-    this.scene.fog = new THREE.FogExp2(0x0a0f1d, 0.007);
+    // Vibrant daytime California / Vice City sky
+    this.scene.background = new THREE.Color(0x76b6f0);
+    // Subtle atmospheric distance haze
+    this.scene.fog = new THREE.FogExp2(0xb6d7f8, 0.0025);
 
     this.camera = new THREE.PerspectiveCamera(
       CAMERA_CONFIG.FOV,
@@ -32,35 +33,35 @@ export class Renderer {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.1;
+    this.renderer.toneMappingExposure = 1.25;
 
     this.setupLighting();
     window.addEventListener('resize', () => this.onWindowResize());
   }
 
   private setupLighting(): void {
-    // Ambient moonlight / city ambient
-    const ambientLight = new THREE.AmbientLight(0x2d3a5a, 1.2);
-    this.scene.add(ambientLight);
-
-    // Moonlight / Directional light with shadows
-    const dirLight = new THREE.DirectionalLight(0xa5c4f5, 1.8);
-    dirLight.position.set(60, 100, 40);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
-    dirLight.shadow.camera.near = 10;
-    dirLight.shadow.camera.far = 300;
-    dirLight.shadow.camera.left = -120;
-    dirLight.shadow.camera.right = 120;
-    dirLight.shadow.camera.top = 120;
-    dirLight.shadow.camera.bottom = -120;
-    dirLight.shadow.bias = -0.0005;
-    this.scene.add(dirLight);
-
-    // Warm city glow hemisphere light
-    const hemiLight = new THREE.HemisphereLight(0x406090, 0x101520, 0.8);
+    // Crisp daylight hemisphere (Sky bright blue, Ground subtle asphalt tone)
+    const hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x475569, 1.4);
     this.scene.add(hemiLight);
+
+    // Warm Sun Directional Light with deep shadows
+    const sunLight = new THREE.DirectionalLight(0xfffaed, 2.4);
+    sunLight.position.set(100, 160, 80);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 10;
+    sunLight.shadow.camera.far = 400;
+    sunLight.shadow.camera.left = -160;
+    sunLight.shadow.camera.right = 160;
+    sunLight.shadow.camera.top = 160;
+    sunLight.shadow.camera.bottom = -160;
+    sunLight.shadow.bias = -0.0004;
+    this.scene.add(sunLight);
+
+    // Ambient light fill for clear visibility in all alleyways
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+    this.scene.add(ambientLight);
   }
 
   private onWindowResize(): void {

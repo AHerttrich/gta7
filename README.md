@@ -14,11 +14,22 @@ Once deployed via GitHub Actions, play instantly in any browser:
 
 ---
 
+## 🗺️ Entwicklungs-Roadmap
+
+Unser detaillierter Zukunftsplan für die nächsten Phasen (Waffen, Schusswechsel, Taxi-Fahrgäste, Tuning-Garage & WebRTC-Multiplayer):
+👉 **[Hier geht's zur GTA 7 Roadmap (docs/ROADMAP.md)](file:///c:/Users/ahert/Documents/GTA7/docs/ROADMAP.md)**
+
+---
+
 ## ✨ Features
 
 | Feature | Description | Status |
 |---|---|---|
 | **🏎️ Arcade Driving Physics** | Smooth acceleration, steering, drifting with handbrake, reverse, and suspension bounce | ✅ Included |
+| **☀️ California Sunlight** | Bright daylight with sharp sun shadows, blue sky and clear visibility across districts | ✅ Included |
+| **🚕 Living City Traffic** | NPC cars, yellow cabs, SUVs and coupes driving through streets, braking and reacting to crashes | ✅ Included |
+| **🚶 Pedestrians on Sidewalks** | Civilians walking on sidewalks, panicking and fleeing when honked at or threatened | ✅ Included |
+| **🚨 Real Car-Jacking** | Step up to ANY traffic car or taxi on foot, press `E`, eject the driver and steal it | ✅ Included |
 | **🏙️ Procedural 3D City** | Multi-block metropolis with multi-lane roads, sidewalks, trees, street lights, and illuminated skyscrapers | ✅ Included |
 | **🎥 Dynamic Chase Camera** | Spring-arm camera with smooth follow, corner swing, and multi-angle views (`C` key) | ✅ Included |
 | **⭐ Wanted Level System** | 5-Star wanted system with HUD stars and cop response mechanics | ✅ Included |
