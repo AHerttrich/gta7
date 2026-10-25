@@ -19,6 +19,11 @@ export class Car {
   private headlightRight!: THREE.SpotLight;
   private taillightMaterial!: THREE.MeshStandardMaterial;
 
+  // Nitro twin exhaust flame cones
+  private nitroFlameLeft!: THREE.Mesh;
+  private nitroFlameRight!: THREE.Mesh;
+  private underglowLight!: THREE.PointLight;
+
   // Damage smoke & flame particles
   private smokeParticles!: THREE.Points;
   private smokeGeometry!: THREE.BufferGeometry;
@@ -37,6 +42,7 @@ export class Car {
 
     this.buildCarModel(bodyColor);
     this.initSmokeParticles();
+    this.initNitroAndUnderglow();
   }
 
   private buildCarModel(bodyColor: number): void {
@@ -175,6 +181,30 @@ export class Car {
     return wheelGroup;
   }
 
+  private initNitroAndUnderglow(): void {
+    // Twin Nitro Exhaust Flames
+    const flameGeo = new THREE.ConeGeometry(0.18, 0.9, 8);
+    flameGeo.rotateX(Math.PI / 2);
+    const flameMat = new THREE.MeshBasicMaterial({
+      color: 0x00e5ff,
+      transparent: true,
+      opacity: 0.0,
+    });
+
+    this.nitroFlameLeft = new THREE.Mesh(flameGeo, flameMat);
+    this.nitroFlameLeft.position.set(-0.45, 0.35, -VEHICLE_CONFIG.CAR_LENGTH / 2 - 0.45);
+
+    this.nitroFlameRight = new THREE.Mesh(flameGeo, flameMat);
+    this.nitroFlameRight.position.set(0.45, 0.35, -VEHICLE_CONFIG.CAR_LENGTH / 2 - 0.45);
+
+    this.carBodyGroup.add(this.nitroFlameLeft, this.nitroFlameRight);
+
+    // Cyan Underglow Light
+    this.underglowLight = new THREE.PointLight(0x00d4ff, 2.5, 6);
+    this.underglowLight.position.set(0, 0.15, 0);
+    this.carBodyGroup.add(this.underglowLight);
+  }
+
   private initSmokeParticles(): void {
     const count = 30;
     this.smokePositions = new Float32Array(count * 3);
@@ -204,7 +234,6 @@ export class Car {
 
     this.health = Math.max(0, this.health - amount);
 
-    // Car burned wreck visual
     if (this.health <= 0) {
       this.isDestroyed = true;
       (this.bodyMesh.material as THREE.MeshStandardMaterial).color.setHex(0x1a1a1a);
@@ -231,9 +260,13 @@ export class Car {
     return newState;
   }
 
-  public update(dt: number, input: CarInput): void {
+  public update(
+    dt: number,
+    input: CarInput,
+  ): { stuntCompleted: boolean; distance: number; airtime: number } {
+    let stuntResult = { stuntCompleted: false, distance: 0, airtime: 0 };
     if (!this.isDestroyed) {
-      this.physics.update(dt, input);
+      stuntResult = this.physics.update(dt, input);
     }
 
     // Update positions
@@ -249,11 +282,35 @@ export class Car {
       0.2,
     );
 
+    // Airborne pitch tilt
+    if (this.physics.isAirborne) {
+      this.carBodyGroup.rotation.x = THREE.MathUtils.lerp(
+        this.carBodyGroup.rotation.x,
+        -this.physics.vy * 0.03,
+        0.1,
+      );
+    } else {
+      this.carBodyGroup.rotation.x = THREE.MathUtils.lerp(this.carBodyGroup.rotation.x, 0, 0.2);
+    }
+
     // Taillight glow on brake
     if (input.reverse && this.physics.speed > 0) {
       this.taillightMaterial.emissive.setHex(0xff1111);
     } else {
       this.taillightMaterial.emissive.setHex(0x550000);
+    }
+
+    // Nitro Flame Cones animation
+    const flameMat = this.nitroFlameLeft.material as THREE.MeshBasicMaterial;
+    if (this.physics.isBoosting) {
+      flameMat.opacity = 0.95;
+      const flicker = 0.8 + Math.random() * 0.4;
+      this.nitroFlameLeft.scale.set(flicker, flicker, flicker * 1.4);
+      this.nitroFlameRight.scale.set(flicker, flicker, flicker * 1.4);
+      this.underglowLight.intensity = 5.0;
+    } else {
+      flameMat.opacity = 0;
+      this.underglowLight.intensity = 1.8;
     }
 
     // Front wheels steering
@@ -266,7 +323,7 @@ export class Car {
     this.rearLeftWheel.children.forEach((c) => (c.rotation.x = this.physics.wheelRotation));
     this.rearRightWheel.children.forEach((c) => (c.rotation.x = this.physics.wheelRotation));
 
-    // Damage smoke particles animation
+    // Smoke particles animation
     const smokeMat = this.smokeParticles.material as THREE.PointsMaterial;
     if (this.health < 60) {
       smokeMat.opacity = THREE.MathUtils.lerp(
@@ -275,12 +332,11 @@ export class Car {
         0.1,
       );
       if (this.health < 25) {
-        smokeMat.color.setHex(0xff3300); // Fire flames!
+        smokeMat.color.setHex(0xff3300);
       } else {
-        smokeMat.color.setHex(0x333333); // Grey engine smoke
+        smokeMat.color.setHex(0x333333);
       }
 
-      // Animate smoke rising
       const pos = this.smokePositions;
       for (let i = 0; i < pos.length / 3; i++) {
         pos[i * 3 + 1] += dt * 2.5;
@@ -294,5 +350,7 @@ export class Car {
     } else {
       smokeMat.opacity = 0;
     }
+
+    return stuntResult;
   }
 }

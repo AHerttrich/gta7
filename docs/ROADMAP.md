@@ -57,16 +57,29 @@ Ziel: Den Waffenladen mit echter Action füllen & Pay 'n' Spray Werkstatt einwei
 
 ---
 
-## 🏆 Phase 4: Missionen, Tuning-Garage & Mini-Games (Nächste Phase)
+## 🏆 Phase 4: Missionen, Tuning & Mini-Games (✅ Erledigt & Live)
 
-Ziel: Mehr Missionen, Fahrgäste und noch krassere Tuning-Upgrades!
+Ziel: Mehr Missionen, Fahrgäste, Checkpoint-Rennen und Nitro-Speed!
+
+| Meilenstein | Beschreibung | Status |
+|---|---|---|
+| **M4.1 Checkpoint-Straßenrennen** | Am leuchtenden Torbogen startet das Straßenrennen: 9 leuchtende Neon-Ringe quer durch die Stadt abfahren gegen die Zeit | ✅ Erledigt |
+| **M4.2 Nitro-Boost (`N`-Taste / Shift)** | Zwillings-Flammenschweif aus den Auspuffrohren, Beschleunigung auf 245 km/h, leuchtende Unterbodenbeleuchtung | ✅ Erledigt |
+| **M4.3 Stunt-Schanzen-Highscore** | Weitsprung- & Airtime-Erkennung an den Rampen: Jeder Meter Flugweite wird live auf dem Bildschirm prämiert und in Cash ausgezahlt | ✅ Erledigt |
+| **M4.4 Interaktive Taxi-Fahrgäste** | Taste `J`: Passagier auf dem Bürgersteig abholen, zum grünen 3D-Leuchtstrahl fahren & Fahrpreis + Trinkgeld kassieren | ✅ Erledigt |
+
+---
+
+## 🌐 Phase 5: P2P WebRTC Multiplayer (Nächste Phase — Zusammen spielen!)
+
+Ziel: Wie in *Mattis Abenteuer* können Matti und sein Kumpel gemeinsam über das Internet auf einem Server cruisen!
 
 | Meilenstein | Beschreibung | Priorität |
 |---|---|---|
-| **M4.1 Echte Taxi-Fahrgäste** | Passanten winken am Straßenrand, steigen ins Taxi ein und man fährt sie zum Ziel für fettes Trinkgeld | Hoch |
-| **M4.2 Stunt-Schanzen-Highscore** | Weitsprung-Messung bei den Schanzen: Jeder Meter Airtime wird live auf dem Bildschirm gezählt und bar ausgezahlt | Hoch |
-| **M4.3 Checkpoint-Straßenrennen** | Rote Wegpunkte im City-Grid abfahren gegen die tickende Uhr mit Preisgeld | Hoch |
-| **M4.4 Tuning-Werkstatt (Garage)** | Spoiler montieren, neonfarbene Unterbodenbeleuchtung, Nitro-Boost (Taste `N`) | Hoch |
+| **M5.1 PeerJS WebRTC P2P** | Direkte Peer-to-Peer Verbindung ohne Serverkosten (Host / Join Menü mit 5-stelligem Code) | Hoch |
+| **M5.2 Synchronisierte Autos & Positionen** | Gegenseitiges Sehen der Autos in Echtzeit (Position, Drehung, Farbe, Nitro-Flammen) | Hoch |
+| **M5.3 Gemeinsame Verfolgungsjagden** | Cops verfolgen beide Spieler; gegenseitiges Rammen und Rennen | Hoch |
+| **M5.4 Co-op Jobs** | Gemeinsam Missionen fahren oder sich gegenseitig jagen | Mittel |
 
 ---
 

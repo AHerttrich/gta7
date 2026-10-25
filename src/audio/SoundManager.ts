@@ -40,7 +40,6 @@ export class SoundManager {
     this.engineGain = this.ctx.createGain();
     this.engineGain.gain.setValueAtTime(0.04, this.ctx.currentTime);
 
-    // Filter to muffle harsh frequencies
     const filter = this.ctx.createBiquadFilter();
     filter.type = 'lowpass';
     filter.frequency.setValueAtTime(420, this.ctx.currentTime);
@@ -71,7 +70,7 @@ export class SoundManager {
     return this.isMuted;
   }
 
-  public updateEnginePitch(rpm: number, inCar: boolean): void {
+  public updateEnginePitch(rpm: number, inCar: boolean, isBoosting: boolean = false): void {
     if (!this.ctx || !this.engineOsc || this.isMuted) return;
 
     if (!inCar) {
@@ -79,9 +78,10 @@ export class SoundManager {
       return;
     }
 
-    const freq = 45 + rpm * 110;
+    const boostMultiplier = isBoosting ? 1.4 : 1.0;
+    const freq = (45 + rpm * 110) * boostMultiplier;
     this.engineOsc.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.05);
-    this.engineGain?.gain.setValueAtTime(0.04, this.ctx.currentTime);
+    this.engineGain?.gain.setValueAtTime(isBoosting ? 0.07 : 0.04, this.ctx.currentTime);
   }
 
   public updateSiren(wantedLevel: number, dt: number): void {
@@ -106,8 +106,8 @@ export class SoundManager {
 
     osc1.type = 'triangle';
     osc2.type = 'triangle';
-    osc1.frequency.setValueAtTime(349, this.ctx.currentTime); // F4
-    osc2.frequency.setValueAtTime(440, this.ctx.currentTime); // A4
+    osc1.frequency.setValueAtTime(349, this.ctx.currentTime);
+    osc2.frequency.setValueAtTime(440, this.ctx.currentTime);
 
     gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.35);
@@ -125,7 +125,6 @@ export class SoundManager {
   public playGunshot(): void {
     if (!this.ctx || this.isMuted) return;
 
-    // High frequency pop + quick decay
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
 
@@ -146,7 +145,6 @@ export class SoundManager {
   public playExplosion(): void {
     if (!this.ctx || this.isMuted) return;
 
-    // Deep sub-bass boom + noise
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
 
@@ -182,6 +180,49 @@ export class SoundManager {
 
     osc.start();
     osc.stop(this.ctx.currentTime + 0.4);
+  }
+
+  public playCheckpointChime(): void {
+    if (!this.ctx || this.isMuted) return;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, this.ctx.currentTime); // A5
+    osc.frequency.exponentialRampToValueAtTime(1760, this.ctx.currentTime + 0.18); // A6
+
+    gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.25);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.25);
+  }
+
+  public playFanfare(): void {
+    if (!this.ctx || this.isMuted) return;
+
+    const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
+    notes.forEach((freq, idx) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+
+      const startTime = this.ctx!.currentTime + idx * 0.1;
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, startTime);
+
+      gain.gain.setValueAtTime(0.15, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
+
+      osc.connect(gain);
+      gain.connect(this.ctx!.destination);
+
+      osc.start(startTime);
+      osc.stop(startTime + 0.35);
+    });
   }
 
   public playCrash(): void {

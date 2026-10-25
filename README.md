@@ -61,13 +61,18 @@ Unser detaillierter Zukunftsplan für die nächsten Phasen (Waffen, Schusswechse
 | `S` / `Arrow Down` | Brake / Reverse |
 | `A` / `Arrow Left` | Steer left |
 | `D` / `Arrow Right` | Steer right |
-| `Space` | Handbrake & Drift |
-| `H` | Honk horn |
+| `N` / `Shift` (in car) | **NITRO BOOST** (Twin flame exhaust, 245 km/h) |
+| `Space` | Handbrake & Drift (or Jump on foot) |
+| `Left Click` / `F` | Shoot weapon / Melee attack |
+| `1` – `4` | Quick weapon switch (Fists, Bat, Pistol, RPG) |
+| `E` | Jack traffic car / Enter / Exit vehicle |
+| `G` | Open Garage & Weapon Shop |
+| `J` | Start interactive Taxi passenger job |
+| `H` | Honk horn (scares pedestrians!) |
 | `C` | Switch camera angle |
 | `L` | Toggle headlights |
 | `R` | Reset car orientation |
 | `M` | Mute / Unmute audio |
-| `1` – `5` | Set wanted level stars |
 
 ---
 

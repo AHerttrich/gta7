@@ -10,10 +10,11 @@ import { PoliceSystem } from '../police/PoliceSystem';
 import { TrafficSystem, TrafficCar } from '../traffic/TrafficSystem';
 import { PedestrianSystem } from '../pedestrians/PedestrianSystem';
 import { WeaponSystem } from '../combat/WeaponSystem';
+import { MissionSystem } from '../missions/MissionSystem';
 import { EconomySystem } from '../economy/EconomySystem';
 import { SoundManager } from '../audio/SoundManager';
 import { HUD } from '../ui/HUD';
-import { PLAYER_CONFIG } from '../utils/Constants';
+import { PLAYER_CONFIG, RACE_CIRCUIT } from '../utils/Constants';
 
 export type PlayerMode = 'IN_CAR' | 'ON_FOOT';
 
@@ -29,6 +30,7 @@ export class Game {
   public traffic: TrafficSystem;
   public pedestrians: PedestrianSystem;
   public weapons: WeaponSystem;
+  public missions: MissionSystem;
   public economy: EconomySystem;
   public sound: SoundManager;
   public hud: HUD;
@@ -75,6 +77,7 @@ export class Game {
       this.pedestrians,
     );
 
+    this.missions = new MissionSystem(this.renderer.scene, this.sound, this.economy);
     this.hud = new HUD('hud-overlay', this.economy);
 
     // Number keys 1-4 for quick weapon selection
@@ -100,7 +103,9 @@ export class Game {
   public start(): void {
     this.isRunning = true;
     this.lastTime = performance.now();
-    this.hud.showNotification('Willkommen in GTA 7! Fahre los mit [W][A][S][D]!');
+    this.hud.showNotification(
+      'Willkommen in GTA 7! Gas: [W] | Nitro: [N] | Schießen: [Klick] | Rennen am Tor!',
+    );
     requestAnimationFrame((time) => this.loop(time));
   }
 
@@ -126,7 +131,8 @@ export class Game {
       this.hud.toggleShop();
     }
     if (this.input.startJob) {
-      this.economy.startRandomJob();
+      // Toggle Taxi mission
+      this.missions.startTaxiMission();
     }
     if (this.input.cycleCamera) {
       this.camera.cycleMode();
@@ -161,13 +167,11 @@ export class Game {
       let heading: number;
 
       if (this.mode === 'IN_CAR') {
-        // Drive-by shooting from car
         originX = this.car.physics.x + Math.sin(this.car.physics.heading) * 1.5;
         originY = 1.0;
         originZ = this.car.physics.z + Math.cos(this.car.physics.heading) * 1.5;
         heading = this.car.physics.heading;
       } else {
-        // Shooting on foot
         originX = this.player.x + Math.sin(this.player.rotationY) * 0.6;
         originY = 1.4;
         originZ = this.player.z + Math.cos(this.player.rotationY) * 0.6;
@@ -184,28 +188,47 @@ export class Game {
         : new THREE.Vector3(this.player.x, 0, this.player.z);
 
     if (this.mode === 'IN_CAR') {
+      // Check Stunt Ramps in city (at [0, 40] and [88, -40])
+      const ramp1Dist = Math.hypot(this.car.physics.x - 0, this.car.physics.z - 40);
+      const ramp2Dist = Math.hypot(this.car.physics.x - 88, this.car.physics.z - -40);
+
+      if (
+        (ramp1Dist < 6.0 || ramp2Dist < 6.0) &&
+        this.car.physics.speed > 12 &&
+        !this.car.physics.isAirborne
+      ) {
+        this.car.physics.launchJump(12.5);
+      }
+
       // Car controls
-      this.car.update(dt, {
+      const stuntResult = this.car.update(dt, {
         throttle: this.input.forward,
         reverse: this.input.backward,
         steerLeft: this.input.left,
         steerRight: this.input.right,
         handbrake: this.input.handbrake,
+        nitro: this.input.nitro,
       });
 
-      // Car Collision with Buildings
-      const col = this.city.checkCollision(this.car.physics.x, this.car.physics.z, 2.0);
-      if (col.collided) {
-        const speed = Math.abs(this.car.physics.speed);
-        if (speed > 4.0) {
-          const dmg = Math.round(speed * 1.5);
-          this.car.takeDamage(dmg);
-          this.sound.playCrash();
-          this.police.addCrimeSeverity(dmg);
+      if (stuntResult.stuntCompleted) {
+        this.missions.handleStuntJump(stuntResult.distance, stuntResult.airtime);
+      }
+
+      // Car Collision with Buildings (only when ground bound)
+      if (!this.car.physics.isAirborne) {
+        const col = this.city.checkCollision(this.car.physics.x, this.car.physics.z, 2.0);
+        if (col.collided) {
+          const speed = Math.abs(this.car.physics.speed);
+          if (speed > 4.0) {
+            const dmg = Math.round(speed * 1.5);
+            this.car.takeDamage(dmg);
+            this.sound.playCrash();
+            this.police.addCrimeSeverity(dmg);
+          }
+          this.car.physics.speed = -this.car.physics.speed * 0.4;
+          this.car.physics.x += col.normalX * 0.8;
+          this.car.physics.z += col.normalZ * 0.8;
         }
-        this.car.physics.speed = -this.car.physics.speed * 0.4;
-        this.car.physics.x += col.normalX * 0.8;
-        this.car.physics.z += col.normalZ * 0.8;
       }
 
       // Check Collision with Traffic Cars
@@ -253,14 +276,16 @@ export class Game {
         dt,
       );
 
-      // Audio
-      this.sound.updateEnginePitch(this.car.physics.rpm, true);
+      // Audio (with Nitro scream!)
+      this.sound.updateEnginePitch(this.car.physics.rpm, true, this.car.physics.isBoosting);
 
       // HUD Stats
       this.hud.updateVehicleStats(
         this.car.physics.getSpeedKmh(),
         this.car.physics.gear,
         this.car.health,
+        this.car.physics.nitro,
+        true,
       );
 
       // Exit Car Prompt
@@ -273,15 +298,13 @@ export class Game {
       this.player.update(dt, this.input, this.city);
       this.camera.updateOnFoot(this.player.group.position, this.player.rotationY, dt);
       this.sound.updateEnginePitch(0, false);
-      this.hud.updateVehicleStats(0, 'FUSS', 100);
+      this.hud.updateVehicleStats(0, 'FUSS', 100, 0, false);
 
-      // 1. Distance to own car
       const distToOwnCar = Math.hypot(
         this.player.x - this.car.physics.x,
         this.player.z - this.car.physics.z,
       );
 
-      // 2. Distance to traffic cars (Car-Jacking)
       let nearestTrafficCar: TrafficCar | null = null;
       let nearestDist = 9999;
       for (const tCar of this.traffic.cars) {
@@ -309,6 +332,7 @@ export class Game {
 
     // 4. Update Subsystems
     this.weapons.update(dt);
+    this.missions.update(dt, playerPos.x, playerPos.z, this.mode === 'IN_CAR');
     this.traffic.update(dt, playerPos.x, playerPos.z);
     this.pedestrians.update(
       dt,
@@ -320,7 +344,27 @@ export class Game {
     this.sound.updateSiren(this.police.wantedLevel, dt);
     this.economy.update(dt, playerPos.x, playerPos.z);
 
-    // 5. Update Minimap Radar (Player + Cops + Traffic + Pay 'n' Spray)
+    // 5. Update Minimap Radar with Active Target
+    let activeTarget: { x: number; z: number; color?: string } | null = null;
+    if (this.missions.race.isActive) {
+      const pt = RACE_CIRCUIT[this.missions.race.currentCheckpointIndex];
+      if (pt) activeTarget = { x: pt.x, z: pt.z, color: '#00e5ff' };
+    } else if (this.missions.taxiMission.isActive) {
+      if (!this.missions.taxiMission.hasPickedUp) {
+        activeTarget = {
+          x: this.missions.taxiMission.pickupX,
+          z: this.missions.taxiMission.pickupZ,
+          color: '#facc15',
+        };
+      } else {
+        activeTarget = {
+          x: this.missions.taxiMission.dropoffX,
+          z: this.missions.taxiMission.dropoffZ,
+          color: '#22c55e',
+        };
+      }
+    }
+
     const currentHeading =
       this.mode === 'IN_CAR' ? this.car.physics.heading : this.player.rotationY;
     const copPositions = this.police.copCars.map((c) => ({ x: c.x, z: c.z }));
@@ -331,13 +375,14 @@ export class Game {
       currentHeading,
       copPositions,
       trafficPositions,
+      activeTarget,
     );
   }
 
   private enterCar(): void {
     this.mode = 'IN_CAR';
     this.player.group.visible = false;
-    this.hud.showNotification('Eingestiegen! Gas geben mit [W]!');
+    this.hud.showNotification('Eingestiegen! Gas: [W] | Nitro: [N]!');
   }
 
   private exitCar(): void {

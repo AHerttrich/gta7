@@ -8,6 +8,8 @@ export class HUD {
   private gearElement!: HTMLElement;
   private healthFillElement!: HTMLElement;
   private healthTextElement!: HTMLElement;
+  private nitroFillElement!: HTMLElement;
+  private nitroContainerElement!: HTMLElement;
   private starsContainer!: HTMLElement;
   private cashElement!: HTMLElement;
   private weaponElement!: HTMLElement;
@@ -123,7 +125,7 @@ export class HUD {
           display: flex;
           flex-direction: column;
           align-items: center;
-          min-width: 170px;
+          min-width: 180px;
           box-shadow: 0 8px 32px rgba(0,0,0,0.5);
         }
         .hud-speed-val {
@@ -145,12 +147,40 @@ export class HUD {
           font-weight: 800;
           color: #f59e0b;
         }
+
+        .hud-nitro-container {
+          width: 100%;
+          margin-top: 10px;
+        }
+        .hud-nitro-bar {
+          width: 100%;
+          height: 6px;
+          background: #1e293b;
+          border-radius: 3px;
+          overflow: hidden;
+        }
+        .hud-nitro-fill {
+          height: 100%;
+          width: 100%;
+          background: linear-gradient(90deg, #00d4ff, #38bdf8);
+          box-shadow: 0 0 8px #00d4ff;
+          transition: width 0.1s ease;
+        }
+        .hud-nitro-label {
+          font-size: 10px;
+          font-weight: 800;
+          color: #38bdf8;
+          margin-top: 3px;
+          text-align: right;
+          letter-spacing: 1px;
+        }
+
         .hud-health-bar {
           width: 100%;
           height: 8px;
           background: #1e293b;
           border-radius: 4px;
-          margin-top: 10px;
+          margin-top: 8px;
           overflow: hidden;
         }
         .hud-health-fill {
@@ -302,10 +332,11 @@ export class HUD {
 
       <div class="hud-controls-helper">
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>: Fahren / Laufen</div>
+        <div><kbd>N</kbd> / <kbd>Shift</kbd>: NITRO BOOST 🔥</div>
         <div><kbd>Klick</kbd> / <kbd>F</kbd>: Schießen / Schlagen 💥</div>
         <div><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd>: Waffe wechseln</div>
         <div><kbd>E</kbd>: Auto klauen / Ein-/Aussteigen</div>
-        <div><kbd>G</kbd>: Garage & Waffenladen | <kbd>J</kbd>: Job ($)</div>
+        <div><kbd>G</kbd>: Garage & Shop | <kbd>J</kbd>: Taxi-Job</div>
         <div><kbd>H</kbd>: Hupe | <kbd>C</kbd>: Kamera | <kbd>R</kbd>: Reset</div>
       </div>
 
@@ -334,6 +365,14 @@ export class HUD {
         <div class="hud-speed-val" id="hud-speed">0</div>
         <div class="hud-speed-unit">KM/H</div>
         <div class="hud-gear" id="hud-gear">GANG: P</div>
+
+        <div class="hud-nitro-container" id="hud-nitro-container">
+          <div class="hud-nitro-bar">
+            <div class="hud-nitro-fill" id="hud-nitro-fill"></div>
+          </div>
+          <div class="hud-nitro-label">NITRO BOOST [N]</div>
+        </div>
+
         <div class="hud-health-bar">
           <div class="hud-health-fill" id="hud-health-fill"></div>
         </div>
@@ -361,6 +400,8 @@ export class HUD {
     this.gearElement = document.getElementById('hud-gear')!;
     this.healthFillElement = document.getElementById('hud-health-fill')!;
     this.healthTextElement = document.getElementById('hud-health-label')!;
+    this.nitroFillElement = document.getElementById('hud-nitro-fill')!;
+    this.nitroContainerElement = document.getElementById('hud-nitro-container')!;
     this.starsContainer = document.getElementById('hud-stars')!;
     this.cashElement = document.getElementById('hud-cash')!;
     this.weaponElement = document.getElementById('hud-weapon')!;
@@ -511,9 +552,18 @@ export class HUD {
     };
   }
 
-  public updateVehicleStats(speedKmh: number, gear: string | number, health: number): void {
+  public updateVehicleStats(
+    speedKmh: number,
+    gear: string | number,
+    health: number,
+    nitro: number = 100,
+    inCar: boolean = true,
+  ): void {
     this.speedElement.textContent = String(Math.abs(speedKmh));
     this.gearElement.textContent = `GANG: ${gear}`;
+
+    this.nitroContainerElement.style.display = inCar ? 'block' : 'none';
+    this.nitroFillElement.style.width = `${Math.max(0, Math.min(100, nitro))}%`;
 
     const healthPct = Math.max(0, Math.min(100, health));
     this.healthFillElement.style.width = `${healthPct}%`;
@@ -536,6 +586,7 @@ export class HUD {
     heading: number,
     cops: { x: number; z: number }[],
     trafficCars: { x: number; z: number }[] = [],
+    activeTarget: { x: number; z: number; color?: string } | null = null,
   ): void {
     const ctx = this.minimapCtx;
     const w = this.minimapCanvas.width;
@@ -569,6 +620,28 @@ export class HUD {
     const gz = (CITY_CONFIG.GARAGE_Z - playerZ) * scale;
     ctx.fillStyle = '#22c55e';
     ctx.fillRect(gx - 4, gz - 4, 8, 8);
+
+    // Street Race Start Line (Cyan Diamond 🔷)
+    const rx = (CITY_CONFIG.RACE_START_X - playerX) * scale;
+    const rz = (CITY_CONFIG.RACE_START_Z - playerZ) * scale;
+    ctx.fillStyle = '#00e5ff';
+    ctx.beginPath();
+    ctx.moveTo(rx, rz - 6);
+    ctx.lineTo(rx + 6, rz);
+    ctx.lineTo(rx, rz + 6);
+    ctx.lineTo(rx - 6, rz);
+    ctx.closePath();
+    ctx.fill();
+
+    // Active Mission Target (Pulsing Star or Circle)
+    if (activeTarget) {
+      const ax = (activeTarget.x - playerX) * scale;
+      const az = (activeTarget.z - playerZ) * scale;
+      ctx.fillStyle = activeTarget.color || '#ff007f';
+      ctx.beginPath();
+      ctx.arc(ax, az, 6, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     // Traffic Cars (Yellow dots)
     trafficCars.forEach((tc) => {

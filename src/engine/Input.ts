@@ -79,6 +79,10 @@ export class Input {
     return this.isDown('shift');
   }
 
+  public get nitro(): boolean {
+    return this.isDown('n') || this.isDown('shift');
+  }
+
   public get actionInteract(): boolean {
     return this.wasJustPressed('e');
   }

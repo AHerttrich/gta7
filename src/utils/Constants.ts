@@ -1,10 +1,12 @@
 export const GAME_TITLE = 'GTA 7';
-export const VERSION = '0.2.0';
+export const VERSION = '0.3.0';
 
 // Vehicle tuning
 export const VEHICLE_CONFIG = {
   ACCELERATION: 22.0,
+  NITRO_ACCELERATION: 48.0,
   MAX_FORWARD_SPEED: 48.0, // ~173 km/h
+  MAX_NITRO_SPEED: 68.0, // ~245 km/h!
   MAX_REVERSE_SPEED: 14.0, // ~50 km/h
   BRAKE_DECELERATION: 32.0,
   HANDBRAKE_DECELERATION: 18.0,
@@ -19,6 +21,9 @@ export const VEHICLE_CONFIG = {
   CAR_HEIGHT: 1.3,
   WHEEL_RADIUS: 0.4,
   MAX_HEALTH: 100,
+  MAX_NITRO: 100,
+  NITRO_CONSUMPTION: 35, // % per second
+  NITRO_RECHARGE: 15, // % per second when not boosting
 } as const;
 
 // Player on foot config
@@ -39,6 +44,8 @@ export const CITY_CONFIG = {
   SIDEWALK_HEIGHT: 0.25,
   GARAGE_X: -44,
   GARAGE_Z: 44,
+  RACE_START_X: 44,
+  RACE_START_Z: -44,
 } as const;
 
 // Camera Presets
@@ -53,6 +60,20 @@ export const CAMERA_CONFIG = {
   FOOT_HEIGHT: 2.5,
   SMOOTH_FACTOR: 0.14,
 } as const;
+
+// Street Race Checkpoint Circuit coordinates
+export const RACE_CIRCUIT: { x: number; z: number }[] = [
+  { x: 44, z: -44 },
+  { x: 44, z: 44 },
+  { x: 132, z: 44 },
+  { x: 132, z: 132 },
+  { x: -44, z: 132 },
+  { x: -44, z: -44 },
+  { x: -132, z: -44 },
+  { x: -132, z: -132 },
+  { x: 44, z: -132 },
+  { x: 44, z: -44 }, // Finish Line!
+];
 
 // Available Cars in Shop / Garage
 export interface CarModelData {
@@ -103,7 +124,7 @@ export interface WeaponData {
   damage: number;
   ammo: number;
   maxAmmo: number;
-  fireRate: number; // Seconds between shots
+  fireRate: number;
   isRanged: boolean;
   unlocked: boolean;
 }
@@ -172,4 +193,8 @@ export const EVENTS = {
   WEAPON_CHANGE: 'weapon:change',
   WEAPON_FIRE: 'weapon:fire',
   EXPLOSION: 'combat:explosion',
+  NITRO_CHANGE: 'vehicle:nitro_change',
+  STUNT_COMPLETE: 'mission:stunt_complete',
+  RACE_UPDATE: 'mission:race_update',
+  RACE_COMPLETE: 'mission:race_complete',
 } as const;
