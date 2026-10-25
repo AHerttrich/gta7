@@ -705,6 +705,64 @@ export class HUD {
     document.getElementById('m-btn-reset')?.addEventListener('click', () => {
       if (this.input) this.input.justPressed['r'] = true;
     });
+
+    // Touch swipe look/turn on the game screen
+    if (typeof window !== 'undefined') {
+      let lastTouchX: number | null = null;
+      let touchIdentifier: number | null = null;
+
+      window.addEventListener(
+        'touchstart',
+        (e: TouchEvent) => {
+          for (let i = 0; i < e.changedTouches.length; i++) {
+            const t = e.changedTouches[i];
+            const target = t.target as HTMLElement;
+            if (
+              target &&
+              !target.closest('.hud-touch-btn') &&
+              !target.closest('.hud-shop-modal') &&
+              !target.closest('.hud-multi-modal') &&
+              !target.closest('button')
+            ) {
+              lastTouchX = t.clientX;
+              touchIdentifier = t.identifier;
+              break;
+            }
+          }
+        },
+        { passive: true },
+      );
+
+      window.addEventListener(
+        'touchmove',
+        (e: TouchEvent) => {
+          if (lastTouchX === null || touchIdentifier === null || !this.input) return;
+          for (let i = 0; i < e.changedTouches.length; i++) {
+            const t = e.changedTouches[i];
+            if (t.identifier === touchIdentifier) {
+              const dx = t.clientX - lastTouchX;
+              lastTouchX = t.clientX;
+              this.input.touchTurnDelta += dx * 0.007;
+              break;
+            }
+          }
+        },
+        { passive: true },
+      );
+
+      const endTouchSwipe = (e: TouchEvent): void => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === touchIdentifier) {
+            lastTouchX = null;
+            touchIdentifier = null;
+            break;
+          }
+        }
+      };
+
+      window.addEventListener('touchend', endTouchSwipe, { passive: true });
+      window.addEventListener('touchcancel', endTouchSwipe, { passive: true });
+    }
   }
 
   private setupMultiplayerControls(): void {

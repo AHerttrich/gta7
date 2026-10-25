@@ -92,26 +92,39 @@ export class Player {
   }
 
   public update(dt: number, input: Input, city: City): void {
-    let moveX = 0;
-    let moveZ = 0;
+    // 1. Steering & Rotation (Left / Right Arrows / Touch D-Pad / Swiping)
+    const turnSpeed = 3.8; // ~218 deg/sec, smooth and responsive
 
-    if (input.forward) moveZ += 1;
-    if (input.backward) moveZ -= 1;
-    if (input.left) moveX += 1;
-    if (input.right) moveX -= 1;
+    if (input.left) {
+      this.rotationY += turnSpeed * dt;
+    }
+    if (input.right) {
+      this.rotationY -= turnSpeed * dt;
+    }
 
-    const isMoving = moveX !== 0 || moveZ !== 0;
+    if (input.touchTurnDelta !== 0) {
+      this.rotationY -= input.touchTurnDelta;
+      input.touchTurnDelta = 0;
+    }
+
+    // Keep rotation in [-PI, PI]
+    this.rotationY = ((this.rotationY + Math.PI) % (Math.PI * 2)) - Math.PI;
+    this.group.rotation.y = this.rotationY;
+
+    // 2. Forward / Backward Movement along facing direction
+    let moveDir = 0;
+    if (input.forward) moveDir += 1;
+    if (input.backward) moveDir -= 0.65; // Slightly slower in reverse
+
+    const isMoving = moveDir !== 0;
 
     if (isMoving) {
-      // Normalize vector
-      const len = Math.hypot(moveX, moveZ);
-      const speed = input.sprint ? PLAYER_CONFIG.RUN_SPEED : PLAYER_CONFIG.WALK_SPEED;
-      const vx = (moveX / len) * speed * dt;
-      const vz = (moveZ / len) * speed * dt;
+      const baseSpeed = input.sprint ? PLAYER_CONFIG.RUN_SPEED : PLAYER_CONFIG.WALK_SPEED;
+      const speed = moveDir * baseSpeed * dt;
 
-      // Target rotation towards movement
-      this.rotationY = Math.atan2(moveX, moveZ);
-      this.group.rotation.y = this.rotationY;
+      // Translate forward/backward along player's current facing heading
+      const vx = Math.sin(this.rotationY) * speed;
+      const vz = Math.cos(this.rotationY) * speed;
 
       // Check collision with city walls
       const nextX = this.x + vx;
@@ -133,18 +146,28 @@ export class Player {
       this.group.position.set(this.x, 0, this.z);
 
       // Walking swing animation
-      this.walkAnimTimer += dt * (input.sprint ? 14 : 9);
+      this.walkAnimTimer += dt * (input.sprint ? 14 : 9) * Math.sign(moveDir);
       const legAngle = Math.sin(this.walkAnimTimer) * 0.55;
       this.leftLeg.rotation.x = legAngle;
       this.rightLeg.rotation.x = -legAngle;
       this.leftArm.rotation.x = -legAngle * 0.7;
       this.rightArm.rotation.x = legAngle * 0.7;
     } else {
-      // Reset limbs to resting position
-      this.leftLeg.rotation.x = THREE.MathUtils.lerp(this.leftLeg.rotation.x, 0, 0.2);
-      this.rightLeg.rotation.x = THREE.MathUtils.lerp(this.rightLeg.rotation.x, 0, 0.2);
-      this.leftArm.rotation.x = THREE.MathUtils.lerp(this.leftArm.rotation.x, 0, 0.2);
-      this.rightArm.rotation.x = THREE.MathUtils.lerp(this.rightArm.rotation.x, 0, 0.2);
+      // Rotating in place foot shuffle animation
+      if (input.left || input.right) {
+        this.walkAnimTimer += dt * 8;
+        const shuffle = Math.sin(this.walkAnimTimer) * 0.25;
+        this.leftLeg.rotation.x = shuffle;
+        this.rightLeg.rotation.x = -shuffle;
+        this.leftArm.rotation.x = 0;
+        this.rightArm.rotation.x = 0;
+      } else {
+        // Reset limbs to resting position
+        this.leftLeg.rotation.x = THREE.MathUtils.lerp(this.leftLeg.rotation.x, 0, 0.2);
+        this.rightLeg.rotation.x = THREE.MathUtils.lerp(this.rightLeg.rotation.x, 0, 0.2);
+        this.leftArm.rotation.x = THREE.MathUtils.lerp(this.leftArm.rotation.x, 0, 0.2);
+        this.rightArm.rotation.x = THREE.MathUtils.lerp(this.rightArm.rotation.x, 0, 0.2);
+      }
     }
   }
 }

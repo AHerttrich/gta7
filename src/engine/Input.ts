@@ -5,6 +5,7 @@ export class Input {
   public wasMouseJustPressed: boolean = false;
 
   // Mobile Touch Controls State
+  public touchTurnDelta: number = 0;
   public touchState: { [key: string]: boolean } = {
     forward: false,
     backward: false,
