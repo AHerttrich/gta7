@@ -162,20 +162,6 @@ export class City {
     let wasCorrected = false;
     let resolvedRoofY: number | undefined = undefined;
 
-    // Safety clamp to map boundary
-    const maxBoundary =
-      (CITY_CONFIG.GRID_SIZE * (CITY_CONFIG.BLOCK_SIZE + CITY_CONFIG.ROAD_WIDTH)) / 2 -
-      radius -
-      0.2;
-    if (Math.abs(curX) > maxBoundary) {
-      curX = Math.sign(curX) * maxBoundary;
-      wasCorrected = true;
-    }
-    if (Math.abs(curZ) > maxBoundary) {
-      curZ = Math.sign(curZ) * maxBoundary;
-      wasCorrected = true;
-    }
-
     // Check all buildings
     for (const b of this.buildingBounds) {
       const baseH = b.baseHeight ?? b.height;
@@ -203,28 +189,32 @@ export class City {
       const targetBox = inTier && b.tier ? b.tier : b;
       const boxHeight = inTier && b.tier ? b.tier.height : baseH;
 
-      // If entity is within 0.8m of the roof top, eject vertically onto the roof
-      if (y >= boxHeight - 0.8) {
+      // Calculate penetration overlaps from all 4 walls
+      const overlapLeft = curX + radius - targetBox.minX;
+      const overlapRight = targetBox.maxX - (curX - radius);
+      const overlapTop = curZ + radius - targetBox.minZ;
+      const overlapBottom = targetBox.maxZ - (curZ - radius);
+      const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+
+      // If entity is deep inside the rooftop footprint (minOverlap >= 2.0m) and within 0.8m of roof top,
+      // it penetrated from above while landing on the roof - snap UP onto roof level.
+      // If it is near the outer building perimeter (< 2.0m overlap), it hit the wall from outside -
+      // it MUST be ejected horizontally to prevent clipping or glitching into building interiors!
+      if (y >= boxHeight - 0.8 && minOverlap >= 2.0) {
         resolvedRoofY = boxHeight;
         wasCorrected = true;
         continue;
       }
 
-      // Otherwise eject horizontally out to the nearest exterior wall
-      const overlapLeft = curX + radius - targetBox.minX;
-      const overlapRight = targetBox.maxX - (curX - radius);
-      const overlapTop = curZ + radius - targetBox.minZ;
-      const overlapBottom = targetBox.maxZ - (curZ - radius);
-
-      const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+      // Horizontally eject out to the nearest exterior wall with safe clearance
       if (minOverlap === overlapLeft) {
-        curX = targetBox.minX - radius - 0.25;
+        curX = targetBox.minX - radius - 0.15;
       } else if (minOverlap === overlapRight) {
-        curX = targetBox.maxX + radius + 0.25;
+        curX = targetBox.maxX + radius + 0.15;
       } else if (minOverlap === overlapTop) {
-        curZ = targetBox.minZ - radius - 0.25;
+        curZ = targetBox.minZ - radius - 0.15;
       } else {
-        curZ = targetBox.maxZ + radius + 0.25;
+        curZ = targetBox.maxZ + radius + 0.15;
       }
       wasCorrected = true;
     }
@@ -288,23 +278,33 @@ export class City {
       }
     }
 
-    // Check map boundaries
-    const maxBoundary =
-      (CITY_CONFIG.GRID_SIZE * (CITY_CONFIG.BLOCK_SIZE + CITY_CONFIG.ROAD_WIDTH)) / 2;
-    if (Math.abs(x) > maxBoundary) {
+    // Check map boundaries (terrain extends to 320m, west ocean to -340m)
+    const maxBoundXPositive = 305.0;
+    const maxBoundXNegative = -335.0; // Ocean bay
+    const maxBoundZ = 305.0;
+
+    if (x > maxBoundXPositive) {
       return {
         collided: true,
-        normalX: x > 0 ? -1 : 1,
+        normalX: -1,
         normalZ: 0,
-        depth: Math.abs(x) - maxBoundary,
+        depth: x - maxBoundXPositive,
       };
     }
-    if (Math.abs(z) > maxBoundary) {
+    if (x < maxBoundXNegative) {
+      return {
+        collided: true,
+        normalX: 1,
+        normalZ: 0,
+        depth: maxBoundXNegative - x,
+      };
+    }
+    if (Math.abs(z) > maxBoundZ) {
       return {
         collided: true,
         normalX: 0,
         normalZ: z > 0 ? -1 : 1,
-        depth: Math.abs(z) - maxBoundary,
+        depth: Math.abs(z) - maxBoundZ,
       };
     }
 
@@ -402,49 +402,68 @@ export class City {
           const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
           let normalX = 0;
           let normalZ = 0;
-          if (minOverlap === overlapLeft) normalX = -1;
-          else if (minOverlap === overlapRight) normalX = 1;
-          else if (minOverlap === overlapTop) normalZ = -1;
-          else normalZ = 1;
+          let safeX = curX;
+          let safeZ = curZ;
 
-          // Safe position: push along normal and resolve against all buildings
-          const resolved = this.resolveBuildingIntersection(curX, curZ, radius, y);
+          if (minOverlap === overlapLeft) {
+            normalX = -1;
+            safeX = targetBox.minX - radius - 0.15;
+          } else if (minOverlap === overlapRight) {
+            normalX = 1;
+            safeX = targetBox.maxX + radius + 0.15;
+          } else if (minOverlap === overlapTop) {
+            normalZ = -1;
+            safeZ = targetBox.minZ - radius - 0.15;
+          } else {
+            normalZ = 1;
+            safeZ = targetBox.maxZ + radius + 0.15;
+          }
+
           return {
             collided: true,
             normalX,
             normalZ,
-            safeX: resolved.x,
-            safeZ: resolved.z,
+            safeX,
+            safeZ,
             depth: minOverlap,
           };
         }
       }
 
-      // Check map boundaries
-      const maxBoundary =
-        (CITY_CONFIG.GRID_SIZE * (CITY_CONFIG.BLOCK_SIZE + CITY_CONFIG.ROAD_WIDTH)) / 2;
-      if (Math.abs(curX) > maxBoundary) {
-        const normalX = curX > 0 ? -1 : 1;
-        const depth = Math.abs(curX) - maxBoundary;
+      // Check map boundaries (terrain extends to 320m, west ocean to -340m)
+      const maxBoundXPositive = 305.0;
+      const maxBoundXNegative = -335.0; // Ocean bay
+      const maxBoundZ = 305.0;
+
+      if (curX > maxBoundXPositive) {
         return {
           collided: true,
-          normalX,
+          normalX: -1,
           normalZ: 0,
-          safeX: (maxBoundary - radius - 0.2) * (curX > 0 ? 1 : -1),
+          safeX: maxBoundXPositive - radius - 0.2,
           safeZ: curZ,
-          depth,
+          depth: curX - maxBoundXPositive,
         };
       }
-      if (Math.abs(curZ) > maxBoundary) {
+      if (curX < maxBoundXNegative) {
+        return {
+          collided: true,
+          normalX: 1,
+          normalZ: 0,
+          safeX: maxBoundXNegative + radius + 0.2,
+          safeZ: curZ,
+          depth: maxBoundXNegative - curX,
+        };
+      }
+      if (Math.abs(curZ) > maxBoundZ) {
         const normalZ = curZ > 0 ? -1 : 1;
-        const depth = Math.abs(curZ) - maxBoundary;
         return {
           collided: true,
           normalX: 0,
           normalZ,
           safeX: curX,
-          safeZ: (maxBoundary - radius - 0.2) * (curZ > 0 ? 1 : -1),
-          depth,
+          safeZ: (maxBoundZ - radius - 0.2) * (curZ > 0 ? 1 : -1),
+          depth: Math.abs(curZ) - maxBoundZ,
         };
       }
     }

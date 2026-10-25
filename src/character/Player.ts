@@ -223,6 +223,10 @@ export class Player {
       if (postCol.corrected) {
         this.x = postCol.x;
         this.z = postCol.z;
+        if (postCol.roofY !== undefined) {
+          this.y = postCol.roofY;
+          this.vy = 0;
+        }
       }
 
       this.group.position.set(this.x, this.y, this.z);

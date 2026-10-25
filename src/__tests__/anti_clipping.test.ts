@@ -193,4 +193,37 @@ describe('Anti-Penetration & Building Clipping Prevention', () => {
     expect(resolved.x).toBeGreaterThan(b.maxX); // Ejected back outside the east wall
     expect(city.checkCollision(resolved.x, resolved.z, 2.0, 0.5).collided).toBe(false);
   });
+
+  it('should allow free driving on outer perimeter roads (x=225) and western ocean (x=-250) without phantom boundary walls', () => {
+    const city = new City();
+
+    // Outer city road
+    const outerRoadCol = city.checkCollision(225, 0, 2.0);
+    expect(outerRoadCol.collided).toBe(false);
+
+    const outerRoadSwept = city.checkSweptCollision(220, 0, 225, 0, 2.0);
+    expect(outerRoadSwept.collided).toBe(false);
+
+    // Western ocean & marina waters (beyond city grid edge -220m)
+    const oceanCol = city.checkCollision(-250, 0, 2.0);
+    expect(oceanCol.collided).toBe(false);
+
+    const oceanSwept = city.checkSweptCollision(-230, 0, -280, 0, 2.0);
+    expect(oceanSwept.collided).toBe(false);
+  });
+
+  it('should eject entities hitting building edge near roof horizontally instead of letting them clip into the house', () => {
+    const city = new City();
+    const b = city.buildingBounds[0];
+    const roofH = city.getRoofHeightAt((b.minX + b.maxX) / 2, (b.minZ + b.maxZ) / 2, 0);
+
+    // Entity penetrating only 0.5m into the west wall near roof height (within 0.8m of roof)
+    const penetrateX = b.minX + 0.5;
+    const midZ = (b.minZ + b.maxZ) / 2;
+    const resolved = city.resolveBuildingIntersection(penetrateX, midZ, 1.2, roofH - 0.4);
+
+    expect(resolved.corrected).toBe(true);
+    // Must be pushed outside west wall, NOT left inside the house!
+    expect(resolved.x).toBeLessThan(b.minX);
+  });
 });

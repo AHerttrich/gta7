@@ -384,9 +384,43 @@ export class Game {
       this.camera.cycleMode();
     }
     if (this.input.resetVehicle) {
-      this.car.physics.reset(44, 44, 0);
-      this.car.repair();
-      this.hud.showNotification('Auto repariert & zur Kreuzung zurückgesetzt!');
+      if (this.mode === 'ON_FOOT') {
+        this.player.setPosition(44, 0, 44);
+        this.player.vy = 0;
+        this.hud.showNotification('Sicher zur Kreuzung zurückgesetzt!');
+      } else if (this.mode === 'IN_HELI') {
+        this.helicopter.x = 44;
+        this.helicopter.y = 0.5;
+        this.helicopter.z = 44;
+        this.helicopter.vx = 0;
+        this.helicopter.vy = 0;
+        this.helicopter.vz = 0;
+        this.helicopter.heading = 0;
+        this.helicopter.health = 100;
+        this.helicopter.group.position.set(44, 0.5, 44);
+        this.hud.showNotification('Helikopter repariert & zur Kreuzung zurückgesetzt!');
+      } else if (this.mode === 'IN_TANK' && this.activeTank) {
+        this.activeTank.x = 44;
+        this.activeTank.y = 0;
+        this.activeTank.z = 44;
+        this.activeTank.speed = 0;
+        this.activeTank.heading = 0;
+        this.activeTank.health = 100;
+        this.activeTank.group.position.set(44, 0, 44);
+        this.hud.showNotification('Panzer repariert & zur Kreuzung zurückgesetzt!');
+      } else if (this.mode === 'IN_BOAT' && this.activeBoat) {
+        this.activeBoat.x = -170;
+        this.activeBoat.y = 0;
+        this.activeBoat.z = 0;
+        this.activeBoat.speed = 0;
+        this.activeBoat.heading = 0;
+        this.activeBoat.group.position.set(-170, 0, 0);
+        this.hud.showNotification('Boot repariert & zur Marina zurückgesetzt!');
+      } else {
+        this.car.physics.reset(44, 44, 0);
+        this.car.repair();
+        this.hud.showNotification('Auto repariert & zur Kreuzung zurückgesetzt!');
+      }
     }
     if (this.input.toggleLights) {
       this.car.toggleHeadlights();
@@ -1254,6 +1288,73 @@ export class Game {
           z: this.missions.taxiMission.dropoffZ,
           color: '#22c55e',
         };
+      }
+    }
+
+    // =========================================================================
+    // Bulletproof Auto-Rescue Watchdog: Prevent falling into void or out-of-bounds lock
+    // =========================================================================
+    // 1. DeLorean Car Watchdog
+    if (
+      this.car.physics.y < -12.0 ||
+      Math.abs(this.car.physics.x) > 380 ||
+      Math.abs(this.car.physics.z) > 380 ||
+      Number.isNaN(this.car.physics.x) ||
+      Number.isNaN(this.car.physics.z)
+    ) {
+      this.car.physics.reset(44, 44, 0);
+      this.car.repair();
+      this.hud.showNotification(
+        '⚓ Notfall-Bergung: DeLorean sicher auf die Straße zurückgesetzt!',
+      );
+    }
+
+    // 2. Player on Foot Watchdog
+    if (
+      this.player.y < -12.0 ||
+      Math.abs(this.player.x) > 380 ||
+      Math.abs(this.player.z) > 380 ||
+      Number.isNaN(this.player.x) ||
+      Number.isNaN(this.player.z)
+    ) {
+      this.player.setPosition(44, 0, 44);
+      this.player.vy = 0;
+      this.hud.showNotification('⚓ Notfall-Bergung: Spieler sicher auf die Straße zurückgesetzt!');
+    }
+
+    // 3. Helicopter Watchdog
+    if (
+      this.helicopter.y < -12.0 ||
+      Math.abs(this.helicopter.x) > 380 ||
+      Math.abs(this.helicopter.z) > 380 ||
+      Number.isNaN(this.helicopter.x) ||
+      Number.isNaN(this.helicopter.z)
+    ) {
+      this.helicopter.x = 44;
+      this.helicopter.y = 0.5;
+      this.helicopter.z = 44;
+      this.helicopter.vx = 0;
+      this.helicopter.vy = 0;
+      this.helicopter.vz = 0;
+      this.helicopter.heading = 0;
+      this.helicopter.group.position.set(44, 0.5, 44);
+    }
+
+    // 4. Rhino Tank Watchdog
+    if (this.activeTank) {
+      if (
+        this.activeTank.y < -12.0 ||
+        Math.abs(this.activeTank.x) > 380 ||
+        Math.abs(this.activeTank.z) > 380 ||
+        Number.isNaN(this.activeTank.x) ||
+        Number.isNaN(this.activeTank.z)
+      ) {
+        this.activeTank.x = 44;
+        this.activeTank.y = 0;
+        this.activeTank.z = 44;
+        this.activeTank.speed = 0;
+        this.activeTank.heading = 0;
+        this.activeTank.group.position.set(44, 0, 44);
       }
     }
 
