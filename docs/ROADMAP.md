@@ -8,33 +8,27 @@ Dieses Dokument ist der Masterplan für **Matti**, seinen **Kumpel** und **Alexa
 
 ```mermaid
 flowchart TD
-    subgraph Live["✅ Phasen 1-12 (Bereits Live & Spielbar!)"]
+    subgraph Live["✅ Phasen 1-20 (Vollständig Implementiert & Live Spielbar!)"]
         L1["Phasen 1-4: Arcade-Fahrphysik, Ragdoll-Passanten, Waffen & Missionen"]
         L2["Phase 5: P2P WebRTC Multiplayer (Raumcode-System)"]
         L3["Phasen 6-7: DeLorean Flugmodus, Heli & GTA Cyber-Radio"]
         L4["Phasen 8-10: KI-Rennrivalen, Performance-Tuning & Nagelsperren"]
         L5["Phasen 11-12: Dynamischer Tag-Nacht-Zyklus, Wetter & Gang-Turf"]
-        L1 --> L2 --> L3 --> L4 --> L5
+        L6["Phase 13: Militärbasis Area 77, Rhino-Panzer, 6 Sterne & Cyber-Jetpack 🪖🚀"]
+        L7["Phase 14: Diamond Cyber Casino, 3-Reel Slots & Tägliches Glücksrad 🎰🎡"]
+        L8["Phase 15: Bankraub 'The Big Score' (Hacking, C4 Tresor & 5-Sterne-Flucht) 🏦💰"]
+        L9["Phase 16: Ozean-Bucht, Wasser-Physik, Speedboot, Jet-Ski & Schmuggel 🚤🌊"]
+        L10["Phase 17: Autonome Ring-U-Bahn, Unaufhaltsamer Güterzug & Tunnel 🚇🚆"]
+        L11["Phase 18: Story-Kampagne mit 5 Kapiteln & Comic-Dialogen 🎬📖"]
+        L12["Phase 19: Sandbox Stunt-Editor (Tab-Baumodus, Rampen, Loopings, Booster) 🏗️🎪"]
+        L13["Phase 20: First-Person Cockpit-Ansicht (Taste C) & WebXR/VR-Support 🥽🕹️"]
+        L1 --> L2 --> L3 --> L4 --> L5 --> L6 --> L7 --> L8 --> L9 --> L10 --> L11 --> L12 --> L13
     end
-
-    subgraph Next["🚀 Zukunfts-Roadmap (Phasen 13-20)"]
-        P13["Phase 13: Militärbasis, Rhino-Panzer & Jet-Pack 🪖🚀"]
-        P14["Phase 14: Diamond Cyber Casino, Automaten & Glücksrad 🎰🎲"]
-        P15["Phase 15: Großer Banküberfall (Heist) & Tresor-Hacking 🏦💰"]
-        P16["Phase 16: Hafenbecken, Wasser-Physik & Jet-Skis 🚤🌊"]
-        P17["Phase 17: U-Bahn-Netz, Güterzug & Untergrund-Highways 🚇🚆"]
-        P18["Phase 18: Story-Kampagne mit Comic-Cutscenes 🎬📖"]
-        P19["Phase 19: Sandbox Stunt-Editor (Rampen, Loopings & Feuerringe) 🏗️🎪"]
-        P20["Phase 20: First-Person Cockpit & WebXR/VR-Support 🥽🕹️"]
-        P13 --> P14 --> P15 --> P16 --> P17 --> P18 --> P19 --> P20
-    end
-
-    Live ==> Next
 ```
 
 ---
 
-## ✅ Phase 1 bis 12: Der bisherige Erfolg (Bereits Live & Spielbar!)
+## ✅ Phase 1 bis 20: Vollständige Feature-Übersicht (Live & Spielbar!)
 
 | Phase | Thema & Inhalt | Status |
 |---|---|---|
@@ -50,6 +44,14 @@ flowchart TD
 | **Phase 10** | **Polizei-Nagelsperren & PIT-Manöver**: 3D-Spike Strips, Reifenplatzer mit Funkenflug & Geschwindigkeitsdrosselung, aggressive PIT-Spins | ✅ Live |
 | **Phase 11** | **Dynamischer Tag-Nacht-Zyklus & Cyber-Wetter**: Sonnen-Orbit, Dämmerung, Cyber-Nacht, volumetrischer Regen & Gewitterblitze (`L`/`K`) | ✅ Live |
 | **Phase 12** | **Gang-Territorien & Kopfgeld-Konvoi**: Cyber Vipers vs Neon Syndicate, Gang-Patrouillen mit Drive-by & 300 HP SWAT-Boss ($5.000 Beute) | ✅ Live |
+| **Phase 13** | **Militärbasis Area 77 & Rhino-Panzer**: 6. Fahndungsstern, 120mm Kanone, Wachtürme mit Suchscheinwerfern & Cyber-Jetpack (`J`) | ✅ Live |
+| **Phase 14** | **Diamond Cyber Casino & Glücksrad**: 3-Walzen Cyber-Slots mit Jackpot-Multiplikatoren, tägliches Glücksrad & Casino-Hologramm | ✅ Live |
+| **Phase 15** | **The Big Score Bankraub**: C4-Tresorsprengung, $25.000 Beute, 5-Sterne-Alarm & Flucht durch die Stadt | ✅ Live |
+| **Phase 16** | **Harbor Ocean Bay & Wasser-Fahrzeuge**: Offshore Speedboot, Cyber Jet-Ski, Wellen-Auftriebsphysik & Schmuggel-Kisten | ✅ Live |
+| **Phase 17** | **Ring-U-Bahn & Güterzug**: 3-teilige Cyber-Subway, unaufhaltsamer Güterzug mit Ramm-Wucht & Untergrund-Highway-Tunnel | ✅ Live |
+| **Phase 18** | **Story-Kampagne**: 5 narrative Kapitel mit Comic-Dialogen, Belohnungen & dynamischer Missionsfortschritt | ✅ Live |
+| **Phase 19** | **Sandbox Stunt-Editor**: In-Game Baumodus (`Tab`), Rampen, Loopings, 245 km/h Booster & JSON-Export | ✅ Live |
+| **Phase 20** | **First-Person Cockpit & WebXR/VR**: Fahrersitz-Ego-Perspektive (`C` / `[🥽 VR]`), Armaturen-Blickwinkel & erweitertes Sichtfeld | ✅ Live |
 
 ---
 

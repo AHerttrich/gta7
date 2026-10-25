@@ -11,10 +11,19 @@ export class Player {
   public rotationY: number = 0;
   public health: number = PLAYER_CONFIG.MAX_HEALTH;
 
+  // Cyber Jetpack (Phase 13)
+  public hasJetpack: boolean = false;
+  public isJetpacking: boolean = false;
+  public jetpackFuel: number = 100;
+  public vy: number = 0;
+
   private leftLeg!: THREE.Mesh;
   private rightLeg!: THREE.Mesh;
   private leftArm!: THREE.Mesh;
   private rightArm!: THREE.Mesh;
+  private jetpackGroup!: THREE.Group;
+  private jetpackFlameL!: THREE.Mesh;
+  private jetpackFlameR!: THREE.Mesh;
   private walkAnimTimer: number = 0;
 
   constructor(startX: number = 0, startZ: number = 0) {
@@ -82,6 +91,68 @@ export class Player {
     this.rightArm.castShadow = true;
 
     this.group.add(this.leftArm, this.rightArm);
+
+    // 5. Cyber Jetpack (mounted on back)
+    this.buildJetpack();
+  }
+
+  private buildJetpack(): void {
+    this.jetpackGroup = new THREE.Group();
+
+    // Twin Fuel Cylinders
+    const tankGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.7, 12);
+    const tankMat = new THREE.MeshStandardMaterial({
+      color: 0x0284c7, // Cyan blue
+      metalness: 0.85,
+      roughness: 0.2,
+    });
+
+    const tankL = new THREE.Mesh(tankGeo, tankMat);
+    tankL.position.set(-0.2, 1.4, -0.32);
+    const tankR = new THREE.Mesh(tankGeo, tankMat);
+    tankR.position.set(0.2, 1.4, -0.32);
+
+    // Thruster Cones
+    const thrusterGeo = new THREE.ConeGeometry(0.14, 0.25, 10);
+    const thrusterMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.9 });
+    const thrusterL = new THREE.Mesh(thrusterGeo, thrusterMat);
+    thrusterL.position.set(-0.2, 0.95, -0.32);
+    thrusterL.rotation.x = Math.PI;
+    const thrusterR = new THREE.Mesh(thrusterGeo, thrusterMat);
+    thrusterR.position.set(0.2, 0.95, -0.32);
+    thrusterR.rotation.x = Math.PI;
+
+    // Plasma Exhaust Flames
+    const flameGeo = new THREE.ConeGeometry(0.1, 0.5, 8);
+    const flameMat = new THREE.MeshBasicMaterial({
+      color: 0x00f0ff,
+      transparent: true,
+      opacity: 0.0,
+    });
+    this.jetpackFlameL = new THREE.Mesh(flameGeo, flameMat);
+    this.jetpackFlameL.position.set(-0.2, 0.6, -0.32);
+    this.jetpackFlameL.rotation.x = Math.PI;
+
+    this.jetpackFlameR = new THREE.Mesh(flameGeo, flameMat);
+    this.jetpackFlameR.position.set(0.2, 0.6, -0.32);
+    this.jetpackFlameR.rotation.x = Math.PI;
+
+    this.jetpackGroup.add(
+      tankL,
+      tankR,
+      thrusterL,
+      thrusterR,
+      this.jetpackFlameL,
+      this.jetpackFlameR,
+    );
+    this.jetpackGroup.visible = false;
+    this.group.add(this.jetpackGroup);
+  }
+
+  public toggleJetpack(): boolean {
+    this.hasJetpack = !this.hasJetpack;
+    this.jetpackGroup.visible = this.hasJetpack;
+    return this.hasJetpack;
   }
 
   public setPosition(x: number, y: number, z: number): void {
@@ -169,5 +240,33 @@ export class Player {
         this.rightArm.rotation.x = THREE.MathUtils.lerp(this.rightArm.rotation.x, 0, 0.2);
       }
     }
+
+    // 3. Cyber Jetpack Physics (Thrust, Gravity & Fuel)
+    if (this.hasJetpack) {
+      if (input.jump && this.jetpackFuel > 0) {
+        this.isJetpacking = true;
+        this.vy = Math.min(22.0, this.vy + 34.0 * dt);
+        this.jetpackFuel = Math.max(0, this.jetpackFuel - 20.0 * dt);
+        (this.jetpackFlameL.material as THREE.MeshBasicMaterial).opacity = 0.95;
+        (this.jetpackFlameR.material as THREE.MeshBasicMaterial).opacity = 0.95;
+      } else {
+        this.isJetpacking = false;
+        (this.jetpackFlameL.material as THREE.MeshBasicMaterial).opacity = 0.0;
+        (this.jetpackFlameR.material as THREE.MeshBasicMaterial).opacity = 0.0;
+        this.vy -= 16.0 * dt;
+      }
+
+      this.y += this.vy * dt;
+      if (this.y <= 0) {
+        this.y = 0;
+        this.vy = 0;
+        this.jetpackFuel = Math.min(100, this.jetpackFuel + 30.0 * dt);
+      }
+    } else {
+      this.y = 0;
+      this.vy = 0;
+    }
+
+    this.group.position.set(this.x, this.y, this.z);
   }
 }

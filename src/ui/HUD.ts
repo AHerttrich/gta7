@@ -3,6 +3,7 @@ import { EVENTS, WeaponData, CITY_CONFIG } from '../utils/Constants';
 import { EconomySystem } from '../economy/EconomySystem';
 import { NetworkManager } from '../network/NetworkManager';
 import { Input } from '../engine/Input';
+import { CasinoSystem } from '../casino/CasinoSystem';
 
 export class HUD {
   private overlay: HTMLElement;
@@ -19,6 +20,7 @@ export class HUD {
   private promptElement!: HTMLElement;
   private shopModalElement!: HTMLElement;
   private multiModalElement!: HTMLElement;
+  private casinoModalElement!: HTMLElement;
   private multiStatusBadge!: HTMLElement;
   private raceLeaderboardElement!: HTMLElement;
   private racePosBadge!: HTMLElement;
@@ -29,9 +31,11 @@ export class HUD {
 
   private isShopOpen: boolean = false;
   private isMultiOpen: boolean = false;
+  private isCasinoOpen: boolean = false;
   private economy: EconomySystem;
   private network: NetworkManager | null = null;
   private input: Input | null = null;
+  private casino: CasinoSystem | null = null;
 
   constructor(overlayId: string, economy: EconomySystem, network?: NetworkManager, input?: Input) {
     this.economy = economy;
@@ -52,6 +56,10 @@ export class HUD {
   public setNetwork(network: NetworkManager): void {
     this.network = network;
     this.setupNetworkCallbacks();
+  }
+
+  public setCasino(casino: CasinoSystem): void {
+    this.casino = casino;
   }
 
   private createHudElements(): void {
@@ -503,29 +511,31 @@ export class HUD {
       <div class="hud-mobile-quickbar">
         <button class="hud-quick-btn" id="m-btn-radio" style="border-color:#a855f7;color:#a855f7;">📻 RADIO</button>
         <button class="hud-quick-btn" id="m-btn-hover" style="border-color:#06b6d4;color:#06b6d4;">🚀 HOVER</button>
+        <button class="hud-quick-btn" id="m-btn-jetpack" style="border-color:#38bdf8;color:#38bdf8;">🚀 JETPACK</button>
+        <button class="hud-quick-btn" id="m-btn-casino" style="border-color:#facc15;color:#facc15;">🎰 CASINO</button>
+        <button class="hud-quick-btn" id="m-btn-build" style="border-color:#f97316;color:#f97316;">🏗️ BAUEN</button>
         <button class="hud-quick-btn" id="m-btn-time" style="border-color:#f59e0b;color:#f59e0b;">☀️ ZEIT</button>
         <button class="hud-quick-btn" id="m-btn-weather" style="border-color:#38bdf8;color:#38bdf8;">🌧️ WETTER</button>
         <button class="hud-quick-btn" id="m-btn-multi">🌐 MULTI</button>
         <button class="hud-quick-btn" id="m-btn-shop">🛒 SHOP</button>
-        <button class="hud-quick-btn" id="m-btn-job">🚖 TAXI</button>
         <button class="hud-quick-btn" id="m-btn-cam">🎥 CAM</button>
+        <button class="hud-quick-btn" id="m-btn-vr" style="border-color:#10b981;color:#10b981;">🥽 VR</button>
         <button class="hud-quick-btn" id="m-btn-reset">🔄 RESET</button>
       </div>
 
       <div class="hud-controls-helper">
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>: Fahren / Laufen / Fliegen</div>
-        <div><kbd>V</kbd> / <kbd>X</kbd>: DeLorean Flugmodus 🚀</div>
+        <div><kbd>V</kbd> / <kbd>X</kbd>: DeLorean Flug | <kbd>J</kbd>: Jetpack 🚀</div>
+        <div><kbd>E</kbd>: Einsteigen (Auto / Heli / Panzer / Boot)</div>
+        <div><kbd>Tab</kbd>: Stunt-Editor 🏗️ | <kbd>C</kbd>: Cockpit-Kamera 🥽</div>
         <div><kbd>L</kbd>: Tag/Nacht ☀️🌙 | <kbd>K</kbd>: Wetter 🌧️⚡</div>
-        <div><kbd>Leertaste</kbd>: Steigen | <kbd>C</kbd>: Sinken</div>
-        <div><kbd>B</kbd>: Radio wechseln 📻 | <kbd>N</kbd>: Nitro 🔥</div>
-        <div><kbd>Klick</kbd> / <kbd>F</kbd>: Schießen / Schlagen 💥</div>
-        <div><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd>: Waffe | <kbd>P</kbd>: Multiplayer</div>
-        <div><kbd>E</kbd>: Auto/Heli einsteigen | <kbd>G</kbd>: Shop</div>
+        <div><kbd>B</kbd>: Radio 📻 | <kbd>N</kbd>: Nitro 🔥 | <kbd>F</kbd>: Schießen 💥</div>
       </div>
 
       <div class="hud-top-right">
         <div class="hud-cash" id="hud-cash">$500</div>
         <div class="hud-stars" id="hud-stars">
+          <span class="hud-star">★</span>
           <span class="hud-star">★</span>
           <span class="hud-star">★</span>
           <span class="hud-star">★</span>
@@ -637,6 +647,27 @@ export class HUD {
           <button class="hud-shop-btn" id="hud-join-btn">Verbinden</button>
         </div>
       </div>
+
+      <!-- Casino Modal -->
+      <div class="hud-shop-modal" id="hud-casino-modal" style="border-color:#facc15;box-shadow:0 0 40px rgba(250,204,21,0.4);">
+        <div class="hud-shop-title" style="color:#facc15;">
+          <span>🎰 DIAMOND CYBER CASINO</span>
+          <button id="hud-casino-close-btn" style="background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;">✕</button>
+        </div>
+        <div class="hud-shop-section" style="background:#1e293b;padding:14px;border-radius:8px;text-align:center;">
+          <h4 style="color:#facc15;margin-bottom:8px;">🎰 Cyber-Spielautomat (Slots)</h4>
+          <div id="casino-slot-reels" style="font-size:36px;letter-spacing:12px;margin:12px 0;">🎰 🎰 🎰</div>
+          <div style="display:flex;gap:8px;justify-content:center;">
+            <button class="hud-shop-btn" onclick="window.gtaSpinSlots(50)">Dreh ($50)</button>
+            <button class="hud-shop-btn" onclick="window.gtaSpinSlots(200)">Dreh ($200)</button>
+            <button class="hud-shop-btn" onclick="window.gtaSpinSlots(1000)" style="background:#facc15;color:#000;">Highroller ($1000)</button>
+          </div>
+        </div>
+        <div class="hud-shop-section" style="background:#1e293b;padding:14px;border-radius:8px;text-align:center;margin-top:10px;">
+          <h4 style="color:#38bdf8;margin-bottom:8px;">🎡 Tägliches Glücksrad (Lucky Wheel)</h4>
+          <button class="hud-shop-btn" id="hud-wheel-btn" onclick="window.gtaSpinWheel()" style="background:#38bdf8;color:#000;font-size:15px;padding:8px 24px;">Am Glücksrad drehen!</button>
+        </div>
+      </div>
     `;
 
     this.speedElement = document.getElementById('hud-speed')!;
@@ -653,6 +684,7 @@ export class HUD {
     this.promptElement = document.getElementById('hud-prompt')!;
     this.shopModalElement = document.getElementById('hud-shop-modal')!;
     this.multiModalElement = document.getElementById('hud-multi-modal')!;
+    this.casinoModalElement = document.getElementById('hud-casino-modal')!;
     this.raceLeaderboardElement = document.getElementById('hud-race-leaderboard')!;
     this.racePosBadge = document.getElementById('race-pos-badge')!;
     this.raceCheckpointInfo = document.getElementById('race-checkpoint-info')!;
@@ -667,7 +699,11 @@ export class HUD {
     document.getElementById('hud-multi-close-btn')!.addEventListener('click', () => {
       this.toggleMultiplayer(false);
     });
+    document.getElementById('hud-casino-close-btn')!.addEventListener('click', () => {
+      this.toggleCasino(false);
+    });
 
+    this.bindCasinoHandlers();
     this.setupMultiplayerControls();
   }
 
@@ -719,15 +755,30 @@ export class HUD {
     document.getElementById('m-btn-hover')?.addEventListener('click', () => {
       if (this.input) this.input.touchState.hoverToggle = true;
     });
+    document.getElementById('m-btn-jetpack')?.addEventListener('click', () => {
+      if (this.input) this.input.justPressed['j'] = true;
+    });
+    document.getElementById('m-btn-casino')?.addEventListener('click', () => {
+      this.toggleCasino();
+    });
+    document.getElementById('m-btn-build')?.addEventListener('click', () => {
+      if (this.input) this.input.justPressed['tab'] = true;
+    });
+    document.getElementById('m-btn-time')?.addEventListener('click', () => {
+      if (this.input) this.input.justPressed['l'] = true;
+    });
+    document.getElementById('m-btn-weather')?.addEventListener('click', () => {
+      if (this.input) this.input.justPressed['k'] = true;
+    });
     document
       .getElementById('m-btn-multi')
       ?.addEventListener('click', () => this.toggleMultiplayer());
     document.getElementById('m-btn-shop')?.addEventListener('click', () => this.toggleShop());
-    document.getElementById('m-btn-job')?.addEventListener('click', () => {
-      if (this.input) this.input.justPressed['j'] = true;
-    });
     document.getElementById('m-btn-cam')?.addEventListener('click', () => {
       if (this.input) this.input.justPressed['c'] = true;
+    });
+    document.getElementById('m-btn-vr')?.addEventListener('click', () => {
+      eventBus.emit('vr:toggle', {});
     });
     document.getElementById('m-btn-reset')?.addEventListener('click', () => {
       if (this.input) this.input.justPressed['r'] = true;
@@ -963,6 +1014,40 @@ export class HUD {
     this.isMultiOpen = force !== undefined ? force : !this.isMultiOpen;
     this.multiModalElement.style.display = this.isMultiOpen ? 'block' : 'none';
     return this.isMultiOpen;
+  }
+
+  public toggleCasino(force?: boolean): boolean {
+    this.isCasinoOpen = force !== undefined ? force : !this.isCasinoOpen;
+    this.casinoModalElement.style.display = this.isCasinoOpen ? 'block' : 'none';
+    if (this.isCasinoOpen) {
+      this.bindCasinoHandlers();
+    }
+    return this.isCasinoOpen;
+  }
+
+  private bindCasinoHandlers(): void {
+    (window as unknown as { gtaSpinSlots: (bet: number) => void }).gtaSpinSlots = (
+      bet: number,
+    ): void => {
+      if (this.casino) {
+        const res = this.casino.spinSlots(bet);
+        const reelsEl = document.getElementById('casino-slot-reels');
+        if (reelsEl) {
+          reelsEl.textContent = `${res.reels[0]} ${res.reels[1]} ${res.reels[2]}`;
+        }
+      }
+    };
+
+    (window as unknown as { gtaSpinWheel: () => void }).gtaSpinWheel = (): void => {
+      if (this.casino) {
+        this.casino.spinLuckyWheel();
+        const btn = document.getElementById('hud-wheel-btn');
+        if (btn) {
+          btn.textContent = 'Morgen wieder drehen! ✓';
+          (btn as HTMLButtonElement).disabled = true;
+        }
+      }
+    };
   }
 
   private renderShopContent(): void {

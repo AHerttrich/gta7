@@ -127,6 +127,10 @@ export class Input {
     return this.isDown(' ') || this.touchState.ascend;
   }
 
+  public get jump(): boolean {
+    return this.isDown(' ') || this.touchState.ascend;
+  }
+
   public get descend(): boolean {
     return this.isDown('c') || this.isDown('control') || this.touchState.descend;
   }

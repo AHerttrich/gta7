@@ -17,13 +17,22 @@ import { HUD } from '../ui/HUD';
 import { NetworkManager } from '../network/NetworkManager';
 import { RemotePlayer } from '../network/RemotePlayer';
 import { NetMsgKind, PlayerSyncMsg } from '../network/NetProtocol';
-import { PLAYER_CONFIG, RACE_CIRCUIT } from '../utils/Constants';
+import { PLAYER_CONFIG, RACE_CIRCUIT, EVENTS } from '../utils/Constants';
 import { RadioSystem } from '../audio/RadioSystem';
 import { Helicopter } from '../vehicles/Helicopter';
+import { Tank } from '../vehicles/Tank';
+import { Boat } from '../vehicles/Boat';
+import { MilitarySystem } from '../military/MilitarySystem';
+import { CasinoSystem } from '../casino/CasinoSystem';
+import { HeistSystem } from '../heists/HeistSystem';
+import { WaterSystem } from '../water/WaterSystem';
+import { TrainSystem } from '../trains/TrainSystem';
+import { StorySystem } from '../story/StorySystem';
+import { StuntEditor } from '../editor/StuntEditor';
 import { eventBus } from '../utils/EventBus';
 import { GangSystem } from '../gangs/GangSystem';
 
-export type PlayerMode = 'IN_CAR' | 'ON_FOOT' | 'IN_HELI';
+export type PlayerMode = 'IN_CAR' | 'ON_FOOT' | 'IN_HELI' | 'IN_TANK' | 'IN_BOAT';
 
 export class Game {
   public renderer: Renderer;
@@ -44,6 +53,17 @@ export class Game {
   public sound: SoundManager;
   public radio: RadioSystem;
   public hud: HUD;
+
+  // Master Expansion Subsystems (Phases 13-20)
+  public military: MilitarySystem;
+  public casino: CasinoSystem;
+  public heist: HeistSystem;
+  public water: WaterSystem;
+  public train: TrainSystem;
+  public story: StorySystem;
+  public stuntEditor: StuntEditor;
+  public activeTank: Tank | null = null;
+  public activeBoat: Boat | null = null;
 
   // Multiplayer
   public network: NetworkManager;
@@ -102,14 +122,24 @@ export class Game {
     this.gangs = new GangSystem(this.renderer.scene, this.economy, this.sound);
     this.weapons.setGangSystem(this.gangs);
 
+    // Phases 13-20 Subsystems
+    this.military = new MilitarySystem(this.renderer.scene);
+    this.casino = new CasinoSystem(this.renderer.scene, this.economy, this.sound);
+    this.heist = new HeistSystem(this.renderer.scene, this.economy, this.police, this.sound);
+    this.water = new WaterSystem(this.renderer.scene, this.economy, this.sound);
+    this.train = new TrainSystem(this.renderer.scene, this.sound);
+    this.story = new StorySystem(this.economy, this.sound);
+    this.stuntEditor = new StuntEditor(this.renderer.scene, this.sound);
+
     // Multiplayer initialization
     this.network = new NetworkManager();
     this.remotePlayer = new RemotePlayer(this.renderer.scene);
     this.hud = new HUD('hud-overlay', this.economy, this.network, this.input);
+    this.hud.setCasino(this.casino);
 
     this.setupMultiplayerNetworking();
 
-    // Number keys 1-4 for quick weapon selection
+    // Hotkeys & Event Listeners
     window.addEventListener('keydown', (e) => {
       const weaponMap: { [key: string]: string } = {
         '1': 'fists',
@@ -126,6 +156,50 @@ export class Game {
           this.hud.showNotification(`🔒 ${weapon.name} noch nicht im Shop gekauft!`);
         }
       }
+
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        this.stuntEditor.toggleBuildMode();
+      } else if (e.key === 'j' || e.key === 'J') {
+        const active = this.player.toggleJetpack();
+        this.hud.showNotification(
+          active
+            ? '🚀 CYBER-JETPACK AKTIV! [Leertaste] Steigen — Tank lädt am Boden nach!'
+            : '🚀 Jetpack abgelegt.',
+        );
+      } else if (this.stuntEditor.isBuildMode) {
+        const x = this.mode === 'IN_CAR' ? this.car.physics.x : this.player.x;
+        const z = this.mode === 'IN_CAR' ? this.car.physics.z : this.player.z;
+        const heading = this.mode === 'IN_CAR' ? this.car.physics.heading : this.player.rotationY;
+        const spawnX = x + Math.sin(heading) * 9.0;
+        const spawnZ = z + Math.cos(heading) * 9.0;
+
+        if (e.key === '5') {
+          this.stuntEditor.placeProp('rampe', spawnX, spawnZ, heading);
+          this.hud.showNotification('🏗️ 45° Stunt-Rampe platziert!');
+        } else if (e.key === '6') {
+          this.stuntEditor.placeProp('boost_pad', spawnX, spawnZ, heading);
+          this.hud.showNotification('⚡ Neon-Booster Pad (245 km/h) platziert!');
+        } else if (e.key === '7') {
+          this.stuntEditor.placeProp('feuerring', spawnX, spawnZ, heading);
+          this.hud.showNotification('🔥 Ring of Fire platziert!');
+        } else if (e.key === '8') {
+          this.stuntEditor.placeProp('looping', spawnX, spawnZ, heading);
+          this.hud.showNotification('🌀 Korkenzieher-Looping platziert!');
+        } else if (e.key === '9') {
+          this.stuntEditor.placeProp('kisten', spawnX, spawnZ, heading);
+          this.hud.showNotification('📦 Kisten-Hindernis platziert!');
+        }
+      }
+    });
+
+    eventBus.on('vr:toggle', () => {
+      this.camera.mode = this.camera.mode === 'COCKPIT' ? 'CHASE' : 'COCKPIT';
+      this.hud.showNotification(
+        this.camera.mode === 'COCKPIT'
+          ? '🥽 COCKPIT & VR EGO-PERSPEKTIVE AKTIVIERT!'
+          : '🎥 DRITT-PERSON KAMERA AKTIV',
+      );
     });
 
     eventBus.on('tuning:applied', (data: unknown) => {
@@ -146,6 +220,16 @@ export class Game {
         this.car.setUnderglowColor(0xffaa00);
       } else if (d.id === 'neon_purple') {
         this.car.setUnderglowColor(0x9d00ff);
+      }
+
+      if (this.story.currentChapterIndex === 0) {
+        this.story.advanceChapter();
+      }
+    });
+
+    eventBus.on(EVENTS.RACE_COMPLETE, () => {
+      if (this.story.currentChapterIndex === 1) {
+        this.story.advanceChapter();
       }
     });
 
@@ -302,13 +386,17 @@ export class Game {
       }
     }
 
-    // 3. Player State Mode (In Car vs On Foot vs Helicopter)
+    // 3. Player State Mode (In Car vs On Foot vs Helicopter vs Tank vs Boat)
     const playerPos =
       this.mode === 'IN_CAR'
         ? new THREE.Vector3(this.car.physics.x, 0.5, this.car.physics.z)
         : this.mode === 'IN_HELI'
           ? new THREE.Vector3(this.helicopter.x, this.helicopter.y, this.helicopter.z)
-          : new THREE.Vector3(this.player.x, 0, this.player.z);
+          : this.mode === 'IN_TANK' && this.activeTank
+            ? new THREE.Vector3(this.activeTank.x, this.activeTank.y, this.activeTank.z)
+            : this.mode === 'IN_BOAT' && this.activeBoat
+              ? new THREE.Vector3(this.activeBoat.x, this.activeBoat.y, this.activeBoat.z)
+              : new THREE.Vector3(this.player.x, this.player.y, this.player.z);
 
     if (this.mode === 'IN_CAR') {
       // Check Stunt Ramps in city
@@ -471,6 +559,25 @@ export class Game {
         this.sound.playCrash(12);
       }
 
+      // Train track collision check
+      const trainCollision = this.train.checkFreightTrainCollision(
+        this.car.physics.x,
+        this.car.physics.z,
+      );
+      if (trainCollision.hit) {
+        this.car.takeDamage(40);
+        this.car.physics.x += trainCollision.pushX;
+        this.car.physics.z += trainCollision.pushZ;
+        this.car.physics.speed *= -0.5;
+      }
+
+      // Stunt editor interactive props check
+      this.stuntEditor.checkCarInteraction(
+        this.car.physics.x,
+        this.car.physics.z,
+        this.car.physics,
+      );
+
       // Pay 'n' Spray Garage check
       this.garage.update(dt, this.car, this.police, this.economy, this.sound, this.hud);
 
@@ -533,6 +640,87 @@ export class Game {
       ) {
         this.exitHelicopter();
       }
+    } else if (this.mode === 'IN_TANK' && this.activeTank) {
+      // Rhino Tank Controls & Physics
+      const res = this.activeTank.update(dt, {
+        throttle: this.input.forward,
+        reverse: this.input.backward,
+        steerLeft: this.input.left,
+        steerRight: this.input.right,
+        fire: this.input.fire,
+        turretLeft: this.input.isDown('q'),
+        turretRight: this.input.isDown('e') && Math.abs(this.activeTank.speed) > 1,
+      });
+
+      if (res.firedCannon) {
+        this.sound.playExplosion();
+        const muzzle = this.activeTank.getCannonMuzzlePosition();
+        const aim = this.activeTank.getCannonAimVector();
+        this.weapons.fire(
+          this.economy.weapons[3],
+          muzzle.x,
+          muzzle.y,
+          muzzle.z,
+          Math.atan2(aim.x, aim.z),
+        );
+        this.hud.showNotification('💥 120mm PANZER-KANONE ABGEFEUERT!');
+      }
+
+      this.camera.updateVehicle(
+        this.activeTank.group.position,
+        this.activeTank.heading,
+        this.activeTank.speed,
+        dt,
+      );
+      this.sound.updateEnginePitch(Math.abs(this.activeTank.speed) * 80 + 1000, true);
+      this.sound.updateRotorPitch(0, false);
+      this.hud.updateVehicleStats(
+        Math.round(this.activeTank.speed * 3.6),
+        'RHINO',
+        this.activeTank.health,
+        100,
+        true,
+        false,
+      );
+
+      this.hud.setPrompt('Drücke [E] zum Aussteigen aus dem Panzer');
+      if (this.input.actionInteract && Math.abs(this.activeTank.speed) < 3.0) {
+        this.exitTank();
+      }
+    } else if (this.mode === 'IN_BOAT' && this.activeBoat) {
+      // Boat & Jet-Ski Controls & Water Buoyancy
+      this.activeBoat.update(
+        dt,
+        {
+          throttle: this.input.forward,
+          reverse: this.input.backward,
+          steerLeft: this.input.left,
+          steerRight: this.input.right,
+        },
+        this.water.getWaveTime(),
+      );
+
+      this.camera.updateVehicle(
+        this.activeBoat.group.position,
+        this.activeBoat.heading,
+        this.activeBoat.speed,
+        dt,
+      );
+      this.sound.updateEnginePitch(Math.abs(this.activeBoat.speed) * 90 + 900, true);
+      this.sound.updateRotorPitch(0, false);
+      this.hud.updateVehicleStats(
+        Math.round(this.activeBoat.speed * 3.6),
+        this.activeBoat.isJetSki ? 'JETSKI' : 'BOOT',
+        this.activeBoat.health,
+        100,
+        true,
+        false,
+      );
+
+      this.hud.setPrompt('Drücke [E] zum Verlassen des Boots');
+      if (this.input.actionInteract && Math.abs(this.activeBoat.speed) < 4.0) {
+        this.exitBoat();
+      }
     } else {
       // On Foot Mode
       this.player.update(dt, this.input, this.city);
@@ -549,6 +737,23 @@ export class Game {
         this.player.x - this.car.physics.x,
         this.player.z - this.car.physics.z,
       );
+      const distToTank = Math.hypot(
+        this.player.x - this.military.parkedTank.x,
+        this.player.z - this.military.parkedTank.z,
+      );
+      const distToBoat = Math.hypot(
+        this.player.x - this.water.speedboat.x,
+        this.player.z - this.water.speedboat.z,
+      );
+      const distToJetSki = Math.hypot(
+        this.player.x - this.water.jetSki.x,
+        this.player.z - this.water.jetSki.z,
+      );
+      const nearCasino = this.casino.isNearEntrance(this.player.x, this.player.z);
+      const distToBank = Math.hypot(
+        this.player.x - this.heist.bankX,
+        this.player.z - (this.heist.bankZ - 14),
+      );
 
       let nearestTrafficCar: TrafficCar | null = null;
       let nearestDist = 9999;
@@ -560,7 +765,22 @@ export class Game {
         }
       }
 
-      if (distToHeli < 4.5 && Math.abs(this.player.y - this.helicopter.y) < 4.0) {
+      if (distToTank < 4.5) {
+        this.hud.setPrompt('Drücke [E] um in den RHINO TANK einzusteigen 🛡️');
+        if (this.input.actionInteract) {
+          this.enterTank();
+        }
+      } else if (distToBoat < 5.0) {
+        this.hud.setPrompt('Drücke [E] um ins OFFSHORE SPEEDBOOT einzusteigen 🚤');
+        if (this.input.actionInteract) {
+          this.enterBoat(this.water.speedboat);
+        }
+      } else if (distToJetSki < 4.5) {
+        this.hud.setPrompt('Drücke [E] um auf das CYBER JET-SKI aufzusteigen 🌊');
+        if (this.input.actionInteract) {
+          this.enterBoat(this.water.jetSki);
+        }
+      } else if (distToHeli < 4.5 && Math.abs(this.player.y - this.helicopter.y) < 4.0) {
         this.hud.setPrompt('Drücke [E] um in den Helikopter einzusteigen 🚁');
         if (this.input.actionInteract) {
           this.enterHelicopter();
@@ -574,6 +794,16 @@ export class Game {
         this.hud.setPrompt('Drücke [E] um ins Auto einzusteigen');
         if (this.input.actionInteract) {
           this.enterCar();
+        }
+      } else if (nearCasino) {
+        this.hud.setPrompt('Drücke [G] oder [🎰 CASINO] um das Casino zu betreten');
+        if (this.input.actionInteract) {
+          this.hud.toggleCasino(true);
+        }
+      } else if (distToBank < 6.0) {
+        this.hud.setPrompt('Drücke [E] um den GROSSEN BANKRAUB zu starten 🏦');
+        if (this.input.actionInteract) {
+          this.heist.startHeist();
         }
       } else {
         this.hud.setPrompt(null);
@@ -602,6 +832,15 @@ export class Game {
     this.sound.updateSiren(this.police.wantedLevel, dt);
     this.economy.update(dt, playerPos.x, playerPos.z);
 
+    // Phases 13-20 Subsystem Updates
+    const milResult = this.military.update(dt, playerPos.x, playerPos.z);
+    if (milResult.triggerArea77Alarm) {
+      this.police.setWantedLevel(6);
+    }
+    this.water.update(dt, playerPos.x, playerPos.z);
+    this.train.update(dt);
+    this.heist.update(dt, playerPos.x, playerPos.z, this.mode === 'IN_CAR');
+
     // 5. Update Remote Peer & Sync Broadcast (every 50ms)
     this.remotePlayer.update(dt);
     if (this.network.isConnected) {
@@ -618,13 +857,21 @@ export class Game {
               ? this.car.physics.heading
               : this.mode === 'IN_HELI'
                 ? this.helicopter.heading
-                : this.player.rotationY,
+                : this.mode === 'IN_TANK' && this.activeTank
+                  ? this.activeTank.heading
+                  : this.mode === 'IN_BOAT' && this.activeBoat
+                    ? this.activeBoat.heading
+                    : this.player.rotationY,
           speed:
             this.mode === 'IN_CAR'
               ? this.car.physics.speed
               : this.mode === 'IN_HELI'
                 ? this.helicopter.getSpeedKmh() / 3.6
-                : 0,
+                : this.mode === 'IN_TANK' && this.activeTank
+                  ? this.activeTank.speed
+                  : this.mode === 'IN_BOAT' && this.activeBoat
+                    ? this.activeBoat.speed
+                    : 0,
           mode: this.mode === 'ON_FOOT' ? 'ON_FOOT' : 'IN_CAR',
           carColor: 0xe62429,
           isBoosting: this.mode === 'IN_CAR' && this.car.physics.isBoosting,
@@ -666,7 +913,11 @@ export class Game {
         ? this.car.physics.heading
         : this.mode === 'IN_HELI'
           ? this.helicopter.heading
-          : this.player.rotationY;
+          : this.mode === 'IN_TANK' && this.activeTank
+            ? this.activeTank.heading
+            : this.mode === 'IN_BOAT' && this.activeBoat
+              ? this.activeBoat.heading
+              : this.player.rotationY;
     const copPositions = this.police.copCars.map((c) => ({ x: c.x, z: c.z }));
     const trafficPositions = this.traffic.cars.map((c) => ({ x: c.x, z: c.z }));
     this.hud.updateMinimap(
@@ -697,6 +948,48 @@ export class Game {
     this.player.setPosition(exitX, this.helicopter.y, exitZ);
     this.player.group.visible = true;
     this.hud.showNotification('Aus dem Helikopter ausgestiegen.');
+  }
+
+  private enterTank(): void {
+    this.mode = 'IN_TANK';
+    this.player.group.visible = false;
+    this.activeTank = this.military.parkedTank;
+    this.hud.showNotification(
+      '🛡️ RHINO TANK ÜBERNOMMEN! Fahren: [W/A/S/D] | 120mm Kanone: [Klick]/[F] | Turm: [Q]/[E] | Aussteigen: [E]',
+    );
+  }
+
+  private exitTank(): void {
+    if (!this.activeTank) return;
+    this.mode = 'ON_FOOT';
+    const exitX = this.activeTank.x - Math.cos(this.activeTank.heading) * 3.5;
+    const exitZ = this.activeTank.z + Math.sin(this.activeTank.heading) * 3.5;
+    this.player.setPosition(exitX, 0, exitZ);
+    this.player.group.visible = true;
+    this.activeTank = null;
+    this.hud.showNotification('Aus dem Rhino Tank ausgestiegen.');
+  }
+
+  private enterBoat(boat: Boat): void {
+    this.mode = 'IN_BOAT';
+    this.player.group.visible = false;
+    this.activeBoat = boat;
+    this.hud.showNotification(
+      boat.isJetSki
+        ? '🌊 AUF CYBER JET-SKI AUFGESTIEGEN! Gas: [W] | Lenken: [A/D] | Aussteigen: [E]'
+        : '🚤 IM OFFSHORE SPEEDBOOT! Gas: [W] | Lenken: [A/D] | Aussteigen: [E]',
+    );
+  }
+
+  private exitBoat(): void {
+    if (!this.activeBoat) return;
+    this.mode = 'ON_FOOT';
+    const exitX = this.activeBoat.x + 3.0;
+    const exitZ = this.activeBoat.z;
+    this.player.setPosition(exitX, 0.4, exitZ);
+    this.player.group.visible = true;
+    this.activeBoat = null;
+    this.hud.showNotification('Vom Boot ausgestiegen.');
   }
 
   private enterCar(): void {

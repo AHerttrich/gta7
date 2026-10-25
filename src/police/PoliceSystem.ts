@@ -65,7 +65,7 @@ export class PoliceSystem {
   }
 
   public setWantedLevel(level: number): void {
-    const clamped = Math.max(0, Math.min(5, Math.floor(level)));
+    const clamped = Math.max(0, Math.min(6, Math.floor(level)));
     if (this.wantedLevel !== clamped) {
       this.wantedLevel = clamped;
       eventBus.emit(EVENTS.WANTED_CHANGE, { wantedLevel: this.wantedLevel });
@@ -84,6 +84,8 @@ export class PoliceSystem {
       this.setWantedLevel(4);
     } else if (this.wantedLevel === 4 && points >= 120) {
       this.setWantedLevel(5);
+    } else if (this.wantedLevel === 5 && points >= 180) {
+      this.setWantedLevel(6);
     }
   }
 

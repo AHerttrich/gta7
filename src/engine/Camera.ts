@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CAMERA_CONFIG } from '../utils/Constants';
 
-export type CameraMode = 'CHASE' | 'CLOSE' | 'TOP_DOWN';
+export type CameraMode = 'CHASE' | 'CLOSE' | 'COCKPIT' | 'TOP_DOWN';
 
 export class GameCamera {
   private camera: THREE.PerspectiveCamera;
@@ -16,7 +16,8 @@ export class GameCamera {
 
   public cycleMode(): CameraMode {
     if (this.mode === 'CHASE') this.mode = 'CLOSE';
-    else if (this.mode === 'CLOSE') this.mode = 'TOP_DOWN';
+    else if (this.mode === 'CLOSE') this.mode = 'COCKPIT';
+    else if (this.mode === 'COCKPIT') this.mode = 'TOP_DOWN';
     else this.mode = 'CHASE';
     return this.mode;
   }
@@ -28,6 +29,9 @@ export class GameCamera {
     if (this.mode === 'CLOSE') {
       dist = 5.5;
       height = 2.2;
+    } else if (this.mode === 'COCKPIT') {
+      dist = -0.3; // Inside cabin
+      height = 1.15;
     } else if (this.mode === 'TOP_DOWN') {
       dist = 1.0;
       height = 28.0;
@@ -35,34 +39,48 @@ export class GameCamera {
 
     // Dynamic FOV speed zoom effect
     const speedRatio = Math.min(1.0, Math.abs(speed) / 45.0);
-    this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, 65 + speedRatio * 15, 0.1);
+    const baseFov = this.mode === 'COCKPIT' ? 75 : 65;
+    this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, baseFov + speedRatio * 15, 0.1);
     this.camera.updateProjectionMatrix();
 
     // Calculate ideal camera position behind the car
     const forwardX = Math.sin(heading);
     const forwardZ = Math.cos(heading);
+    const rightX = Math.cos(heading);
+    const rightZ = -Math.sin(heading);
 
     let targetCamX = carPos.x - forwardX * dist;
     let targetCamZ = carPos.z - forwardZ * dist;
     let targetCamY = carPos.y + height;
 
-    if (this.mode === 'TOP_DOWN') {
+    if (this.mode === 'COCKPIT') {
+      // Offset to driver side (left seat)
+      targetCamX = carPos.x + forwardX * 0.1 - rightX * 0.35;
+      targetCamZ = carPos.z + forwardZ * 0.1 - rightZ * 0.35;
+      targetCamY = carPos.y + 1.15;
+    } else if (this.mode === 'TOP_DOWN') {
       targetCamX = carPos.x;
       targetCamZ = carPos.z + 0.1;
       targetCamY = carPos.y + height;
     }
 
     // Smooth interpolation with delta time
-    const lerpFactor = Math.min(1.0, CAMERA_CONFIG.SMOOTH_FACTOR * 60 * dt);
+    const lerpFactor =
+      this.mode === 'COCKPIT' ? 0.85 : Math.min(1.0, CAMERA_CONFIG.SMOOTH_FACTOR * 60 * dt);
     this.currentCameraPos.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), lerpFactor);
     this.camera.position.copy(this.currentCameraPos);
 
     // Look slightly ahead of the car
-    const lookAheadDist = this.mode === 'TOP_DOWN' ? 0 : CAMERA_CONFIG.LOOK_AHEAD_DISTANCE;
+    const lookAheadDist =
+      this.mode === 'TOP_DOWN'
+        ? 0
+        : this.mode === 'COCKPIT'
+          ? 12.0
+          : CAMERA_CONFIG.LOOK_AHEAD_DISTANCE;
     const lookTarget = new THREE.Vector3(
-      carPos.x + forwardX * lookAheadDist,
-      carPos.y + 1.2,
-      carPos.z + forwardZ * lookAheadDist,
+      carPos.x + forwardX * lookAheadDist - (this.mode === 'COCKPIT' ? rightX * 0.35 : 0),
+      carPos.y + (this.mode === 'COCKPIT' ? 1.05 : 1.2),
+      carPos.z + forwardZ * lookAheadDist - (this.mode === 'COCKPIT' ? rightZ * 0.35 : 0),
     );
 
     this.currentTargetPos.lerp(lookTarget, lerpFactor);
