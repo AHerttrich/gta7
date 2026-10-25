@@ -119,14 +119,19 @@ export class TrainSystem {
   }
 
   public update(dt: number): void {
+    const safeDt = Math.max(0, dt);
+
     // 1. Move Subway along circuit
-    this.subwayProgress += (this.subwaySpeed / 440) * dt;
+    this.subwayProgress = (this.subwayProgress + (this.subwaySpeed / 440) * safeDt) % 1.0;
+    if (this.subwayProgress < 0) this.subwayProgress += 1.0;
+
     const subIdx = Math.floor(this.subwayProgress * 4) % 4;
-    const subNextIdx = (subIdx + 1) % 4;
+    const safeIdx = Math.max(0, Math.min(3, (subIdx + 4) % 4));
+    const subNextIdx = (safeIdx + 1) % 4;
     const subT = (this.subwayProgress * 4) % 1;
 
-    const p1 = this.subwayWaypoints[subIdx];
-    const p2 = this.subwayWaypoints[subNextIdx];
+    const p1 = this.subwayWaypoints[safeIdx] || this.subwayWaypoints[0];
+    const p2 = this.subwayWaypoints[subNextIdx] || this.subwayWaypoints[1];
 
     const subX = THREE.MathUtils.lerp(p1.x, p2.x, subT);
     const subZ = THREE.MathUtils.lerp(p1.z, p2.z, subT);
@@ -136,7 +141,9 @@ export class TrainSystem {
     this.subwayGroup.rotation.y = subAngle;
 
     // 2. Move Unstoppable Freight Train (East-West Industrial Line)
-    this.freightProgress = (this.freightProgress + (this.freightSpeed / 300) * dt) % 1.0;
+    this.freightProgress = (this.freightProgress + (this.freightSpeed / 300) * safeDt) % 1.0;
+    if (this.freightProgress < 0) this.freightProgress += 1.0;
+
     const fx = THREE.MathUtils.lerp(-180, 180, this.freightProgress);
     const fz = -75;
     this.freightTrainGroup.position.set(fx, 0, fz);

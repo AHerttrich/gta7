@@ -291,18 +291,29 @@ export class Game {
   private loop(time: number): void {
     if (!this.isRunning) return;
 
-    const dt = Math.min((time - this.lastTime) / 1000, 0.1);
+    if (!this.lastTime) {
+      this.lastTime = time;
+    }
+    const rawDt = (time - this.lastTime) / 1000;
     this.lastTime = time;
 
-    this.update(dt);
-    this.renderer.updateAtmosphere(
-      dt,
-      this.renderer.camera.position,
-      this.mode === 'IN_CAR' ? this.car.physics.speed : 0,
-      this.mode === 'IN_CAR' && this.car.physics.isBoosting,
-      this.mode === 'IN_CAR' && this.car.physics.isHoverMode,
-    );
-    this.renderer.render();
+    // Guard against negative dt (clock skew) or huge dt (tab backgrounded)
+    const dt = Math.max(0.001, Math.min(rawDt, 0.1));
+
+    try {
+      this.update(dt);
+      this.renderer.updateAtmosphere(
+        dt,
+        this.renderer.camera.position,
+        this.mode === 'IN_CAR' ? this.car.physics.speed : 0,
+        this.mode === 'IN_CAR' && this.car.physics.isBoosting,
+        this.mode === 'IN_CAR' && this.car.physics.isHoverMode,
+      );
+      this.renderer.render();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Error in game loop:', err);
+    }
 
     requestAnimationFrame((t) => this.loop(t));
   }
