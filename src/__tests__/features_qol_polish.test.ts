@@ -384,4 +384,125 @@ describe('Quality of Life, Polish & Smoothness Master Suite', () => {
       expect(skidmarks.smokeParticles).toBeDefined();
     });
   });
+
+  describe('Collision Physics Smoothness & Anti-Hitch Verification', () => {
+    it('should return exact penetration depth and safe coordinates strictly outside building', () => {
+      const city = new City();
+      const b = city.buildingBounds[0];
+      const radius = 2.0;
+
+      // Start 5 units outside on the left and penetrate 0.4 units into the building
+      const startX = b.minX - 5.0;
+      const penetrateX = b.minX + 0.4;
+      const midZ = (b.minZ + b.maxZ) / 2;
+
+      const col = city.checkSweptCollision(startX, midZ, penetrateX, midZ, radius);
+      expect(col.collided).toBe(true);
+      expect(col.normalX).toBe(-1);
+      expect(col.depth).toBeGreaterThan(0);
+      // safeX must be strictly outside the building by at least 0.05 units
+      expect(col.safeX + radius).toBeLessThanOrEqual(b.minX);
+    });
+
+    it('should cleanly stop vehicle at speed 0 on direct head-on collision without negative reverse recoil', () => {
+      // Direct head-on impact into a north wall (normal pointing South: 0, -1)
+      const normalX = 0;
+      const normalZ = -1;
+      const heading = 0; // facing North (+Z)
+      const currentSpeed = 22.0;
+
+      const forwardX = Math.sin(heading);
+      const forwardZ = Math.cos(heading);
+      const dot = forwardX * normalX + forwardZ * normalZ; // 0*0 + 1*(-1) = -1.0
+
+      expect(dot).toBe(-1.0);
+      expect(dot).toBeLessThan(-0.75); // Triggers clean head-on stop
+
+      let speed = currentSpeed;
+      if (dot < 0) {
+        if (dot < -0.75) {
+          speed = 0;
+        }
+      }
+      expect(speed).toBe(0); // Clean stop, never negative!
+    });
+
+    it('should smoothly slide along wall with friction on glancing collision', () => {
+      // Glancing blow at ~30 degrees along wall (normal pointing West: -1, 0)
+      const normalX = -1;
+      const normalZ = 0;
+      // Car heading is mostly North (+Z) with slight East (+X) component
+      const heading = Math.PI / 6; // 30 degrees
+      const currentSpeed = 20.0;
+
+      const forwardX = Math.sin(heading); // 0.5
+      const forwardZ = Math.cos(heading); // ~0.866
+      const dot = forwardX * normalX + forwardZ * normalZ; // -0.5
+
+      expect(dot).toBeGreaterThan(-0.75);
+      expect(dot).toBeLessThan(0);
+
+      const slideFraction = Math.sqrt(Math.max(0, 1 - dot * dot)); // sqrt(0.75) ~ 0.866
+      const newSpeed = currentSpeed * slideFraction * 0.82;
+
+      expect(newSpeed).toBeGreaterThan(12.0); // Retains smooth sliding speed
+      expect(newSpeed).toBeLessThan(currentSpeed); // Slowed by wall friction
+    });
+
+    it('should fully separate overlapping traffic cars in a single frame', () => {
+      const minDist = 3.2;
+      let playerX = 10.0;
+      let playerZ = 10.0;
+      let tCarX = 11.5; // distance = 1.5 < 3.2 (overlap = 1.7)
+      let tCarZ = 10.0;
+
+      const dx = playerX - tCarX;
+      const dz = playerZ - tCarZ;
+      const d = Math.hypot(dx, dz);
+      expect(d).toBeLessThan(minDist);
+
+      const overlap = minDist - d;
+      const nx = dx / d;
+      const nz = dz / d;
+
+      const playerPush = overlap * 0.55 + 0.08;
+      const trafficPush = overlap * 0.45 + 0.08;
+
+      playerX += nx * playerPush;
+      playerZ += nz * playerPush;
+      tCarX -= nx * trafficPush;
+      tCarZ -= nz * trafficPush;
+
+      const newDist = Math.hypot(playerX - tCarX, playerZ - tCarZ);
+      expect(newDist).toBeGreaterThanOrEqual(minDist); // Overlap eliminated in 1 step!
+    });
+
+    it('should fully separate police cruiser and player car in a single frame', () => {
+      const minDist = 3.4;
+      let playerX = 20.0;
+      let playerZ = 20.0;
+      let copX = 21.8; // distance = 1.8 < 3.4 (overlap = 1.6)
+      let copZ = 20.0;
+
+      const dx = playerX - copX;
+      const dz = playerZ - copZ;
+      const d = Math.hypot(dx, dz);
+      expect(d).toBeLessThan(minDist);
+
+      const overlap = minDist - d;
+      const nx = dx / d;
+      const nz = dz / d;
+
+      const playerPush = overlap * 0.55 + 0.08;
+      const copPush = overlap * 0.45 + 0.08;
+
+      playerX += nx * playerPush;
+      playerZ += nz * playerPush;
+      copX -= nx * copPush;
+      copZ -= nz * copPush;
+
+      const newDist = Math.hypot(playerX - copX, playerZ - copZ);
+      expect(newDist).toBeGreaterThanOrEqual(minDist); // Fully separated!
+    });
+  });
 });

@@ -133,7 +133,7 @@ export class City {
     x: number,
     z: number,
     radius: number = 1.2,
-  ): { collided: boolean; normalX: number; normalZ: number } {
+  ): { collided: boolean; normalX: number; normalZ: number; depth: number } {
     for (const b of this.buildingBounds) {
       if (
         x + radius > b.minX &&
@@ -149,10 +149,13 @@ export class City {
 
         const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
 
-        if (minOverlap === overlapLeft) return { collided: true, normalX: -1, normalZ: 0 };
-        if (minOverlap === overlapRight) return { collided: true, normalX: 1, normalZ: 0 };
-        if (minOverlap === overlapTop) return { collided: true, normalX: 0, normalZ: -1 };
-        return { collided: true, normalX: 0, normalZ: 1 };
+        if (minOverlap === overlapLeft)
+          return { collided: true, normalX: -1, normalZ: 0, depth: minOverlap };
+        if (minOverlap === overlapRight)
+          return { collided: true, normalX: 1, normalZ: 0, depth: minOverlap };
+        if (minOverlap === overlapTop)
+          return { collided: true, normalX: 0, normalZ: -1, depth: minOverlap };
+        return { collided: true, normalX: 0, normalZ: 1, depth: minOverlap };
       }
     }
 
@@ -160,13 +163,23 @@ export class City {
     const maxBoundary =
       (CITY_CONFIG.GRID_SIZE * (CITY_CONFIG.BLOCK_SIZE + CITY_CONFIG.ROAD_WIDTH)) / 2;
     if (Math.abs(x) > maxBoundary) {
-      return { collided: true, normalX: x > 0 ? -1 : 1, normalZ: 0 };
+      return {
+        collided: true,
+        normalX: x > 0 ? -1 : 1,
+        normalZ: 0,
+        depth: Math.abs(x) - maxBoundary,
+      };
     }
     if (Math.abs(z) > maxBoundary) {
-      return { collided: true, normalX: 0, normalZ: z > 0 ? -1 : 1 };
+      return {
+        collided: true,
+        normalX: 0,
+        normalZ: z > 0 ? -1 : 1,
+        depth: Math.abs(z) - maxBoundary,
+      };
     }
 
-    return { collided: false, normalX: 0, normalZ: 0 };
+    return { collided: false, normalX: 0, normalZ: 0, depth: 0 };
   }
 
   public checkSweptCollision(
@@ -175,11 +188,22 @@ export class City {
     x2: number,
     z2: number,
     radius: number = 1.2,
-  ): { collided: boolean; normalX: number; normalZ: number; safeX: number; safeZ: number } {
+  ): {
+    collided: boolean;
+    normalX: number;
+    normalZ: number;
+    safeX: number;
+    safeZ: number;
+    depth: number;
+  } {
     const dist = Math.hypot(x2 - x1, z2 - z1);
     if (dist < 0.001) {
       const col = this.checkCollision(x2, z2, radius);
-      return { ...col, safeX: x2, safeZ: z2 };
+      return {
+        ...col,
+        safeX: x2 + col.normalX * (col.depth + 0.08),
+        safeZ: z2 + col.normalZ * (col.depth + 0.08),
+      };
     }
 
     // Spatial broadphase: filter only buildings overlapping the swept AABB
@@ -219,13 +243,16 @@ export class City {
           else if (minOverlap === overlapTop) normalZ = -1;
           else normalZ = 1;
 
-          const safeT = Math.max(0, (i - 1) / steps);
+          // Safe position: push curX, curZ out along normal by (minOverlap + 0.08)
+          const safeX = curX + normalX * (minOverlap + 0.08);
+          const safeZ = curZ + normalZ * (minOverlap + 0.08);
           return {
             collided: true,
             normalX,
             normalZ,
-            safeX: x1 + (x2 - x1) * safeT,
-            safeZ: z1 + (z2 - z1) * safeT,
+            safeX,
+            safeZ,
+            depth: minOverlap,
           };
         }
       }
@@ -234,24 +261,30 @@ export class City {
       const maxBoundary =
         (CITY_CONFIG.GRID_SIZE * (CITY_CONFIG.BLOCK_SIZE + CITY_CONFIG.ROAD_WIDTH)) / 2;
       if (Math.abs(curX) > maxBoundary) {
+        const normalX = curX > 0 ? -1 : 1;
+        const depth = Math.abs(curX) - maxBoundary;
         return {
           collided: true,
-          normalX: curX > 0 ? -1 : 1,
+          normalX,
           normalZ: 0,
-          safeX: x1,
-          safeZ: z1,
+          safeX: (maxBoundary - radius - 0.08) * (curX > 0 ? 1 : -1),
+          safeZ: curZ,
+          depth,
         };
       }
       if (Math.abs(curZ) > maxBoundary) {
+        const normalZ = curZ > 0 ? -1 : 1;
+        const depth = Math.abs(curZ) - maxBoundary;
         return {
           collided: true,
           normalX: 0,
-          normalZ: curZ > 0 ? -1 : 1,
-          safeX: x1,
-          safeZ: z1,
+          normalZ,
+          safeX: curX,
+          safeZ: (maxBoundary - radius - 0.08) * (curZ > 0 ? 1 : -1),
+          depth,
         };
       }
     }
-    return { collided: false, normalX: 0, normalZ: 0, safeX: x2, safeZ: z2 };
+    return { collided: false, normalX: 0, normalZ: 0, safeX: x2, safeZ: z2, depth: 0 };
   }
 }

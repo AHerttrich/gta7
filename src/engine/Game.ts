@@ -522,27 +522,87 @@ export class Game {
           2.0,
         );
         if (col.collided) {
-          const speed = Math.abs(this.car.physics.speed);
-          if (speed > 4.0 && this.crashCooldown <= 0) {
+          const currentSpeed = this.car.physics.speed;
+          const isForward = currentSpeed >= 0;
+          const absSpeed = Math.abs(currentSpeed);
+
+          if (absSpeed > 4.0 && this.crashCooldown <= 0) {
             // More forgiving crash damage so cars can take many hits
-            const dmg = Math.max(2, Math.round(speed * 0.45));
+            const dmg = Math.max(2, Math.round(absSpeed * 0.45));
             this.car.takeDamage(dmg);
-            this.sound.playCrash(Math.min(30, Math.round(speed)));
+            this.sound.playCrash(Math.min(30, Math.round(absSpeed)));
             this.police.addCrimeSeverity(dmg);
             this.input.triggerRumble(0.6, 180);
             this.input.triggerHaptics(50);
-            this.crashCooldown = 0.3;
+            this.crashCooldown = 0.25;
           }
-          this.car.physics.speed = -this.car.physics.speed * 0.3;
-          this.car.physics.x = col.safeX + col.normalX * 0.3;
-          this.car.physics.z = col.safeZ + col.normalZ * 0.3;
+
+          // Anti-stuck position resolution: safeX/safeZ guarantees clean exterior placement
+          this.car.physics.x = col.safeX;
+          this.car.physics.z = col.safeZ;
+          this.car.physics.prevX = col.safeX;
+          this.car.physics.prevZ = col.safeZ;
+
+          // Tangential wall sliding & smooth deceleration (no negative reverse stutter)
+          const forwardX = Math.sin(this.car.physics.heading);
+          const forwardZ = Math.cos(this.car.physics.heading);
+          const moveX = isForward ? forwardX : -forwardX;
+          const moveZ = isForward ? forwardZ : -forwardZ;
+          const dot = moveX * col.normalX + moveZ * col.normalZ;
+
+          if (dot < 0) {
+            // Impact heading towards the wall
+            if (dot < -0.75) {
+              // Direct head-on collision: clean stop with zero velocity (no backwards recoil loop)
+              this.car.physics.speed = 0;
+            } else {
+              // Glancing blow: slide along the wall with friction
+              const slideFraction = Math.sqrt(Math.max(0, 1 - dot * dot));
+              const tangentialSpeed = absSpeed * slideFraction * 0.82;
+              this.car.physics.speed = isForward ? tangentialSpeed : -tangentialSpeed;
+
+              // Gently align heading along the wall tangent
+              const tangentX = moveX - dot * col.normalX;
+              const tangentZ = moveZ - dot * col.normalZ;
+              const tanLen = Math.hypot(tangentX, tangentZ);
+              if (tanLen > 0.001) {
+                const targetHeading = Math.atan2(
+                  isForward ? tangentX : -tangentX,
+                  isForward ? tangentZ : -tangentZ,
+                );
+                let diff = targetHeading - this.car.physics.heading;
+                while (diff > Math.PI) diff -= Math.PI * 2;
+                while (diff < -Math.PI) diff += Math.PI * 2;
+                this.car.physics.heading += diff * 0.25;
+              }
+            }
+          }
         }
       }
 
       // Collision with Traffic Cars
       for (const tCar of this.traffic.cars) {
-        const d = Math.hypot(this.car.physics.x - tCar.x, this.car.physics.z - tCar.z);
-        if (d < 3.2) {
+        const dx = this.car.physics.x - tCar.x;
+        const dz = this.car.physics.z - tCar.z;
+        const d = Math.hypot(dx, dz);
+        const minDist = 3.2;
+        if (d < minDist) {
+          const overlap = minDist - d;
+          const nx = d > 0.001 ? dx / d : 1;
+          const nz = d > 0.001 ? dz / d : 0;
+
+          // Resolve overlap in a single frame to eliminate multi-frame hitching & freeze
+          const playerPush = overlap * 0.55 + 0.08;
+          const trafficPush = overlap * 0.45 + 0.08;
+
+          this.car.physics.x += nx * playerPush;
+          this.car.physics.z += nz * playerPush;
+          this.car.physics.prevX = this.car.physics.x;
+          this.car.physics.prevZ = this.car.physics.z;
+
+          tCar.x -= nx * trafficPush;
+          tCar.z -= nz * trafficPush;
+
           const impactSpeed = Math.abs(this.car.physics.speed) + tCar.speed;
           if (impactSpeed > 4.0 && this.crashCooldown <= 0) {
             this.sound.playCrash(Math.min(30, Math.round(impactSpeed)));
@@ -554,32 +614,41 @@ export class Game {
             this.input.triggerRumble(0.55, 150);
             this.input.triggerHaptics(40);
             this.crashCooldown = 0.3;
+
+            // Single impulse on impact
+            this.car.physics.speed *= 0.75;
+            tCar.speed = Math.max(0, tCar.speed * 0.4);
+          } else {
+            // Low speed nudge
+            this.car.physics.speed *= 0.94;
           }
-          const angle = Math.atan2(this.car.physics.x - tCar.x, this.car.physics.z - tCar.z);
-          this.car.physics.x += Math.sin(angle) * 0.8;
-          this.car.physics.z += Math.cos(angle) * 0.8;
-          this.car.physics.speed *= 0.6;
         }
       }
 
       // Police Cruisers Ramming Player Car
       for (const cop of this.police.copCars) {
-        const d = Math.hypot(this.car.physics.x - cop.x, this.car.physics.z - cop.z);
-        if (d < 3.4) {
+        const dx = this.car.physics.x - cop.x;
+        const dz = this.car.physics.z - cop.z;
+        const d = Math.hypot(dx, dz);
+        const minDist = 3.4;
+        if (d < minDist) {
+          const overlap = minDist - d;
+          const nx = d > 0.001 ? dx / d : 1;
+          const nz = d > 0.001 ? dz / d : 0;
+
+          // Physical separation: resolve overlap instantly
+          const playerPush = overlap * 0.55 + 0.08;
+          const copPush = overlap * 0.45 + 0.08;
+
+          this.car.physics.x += nx * playerPush;
+          this.car.physics.z += nz * playerPush;
+          this.car.physics.prevX = this.car.physics.x;
+          this.car.physics.prevZ = this.car.physics.z;
+
+          cop.x -= nx * copPush;
+          cop.z -= nz * copPush;
+
           const impactSpeed = Math.abs(this.car.physics.speed) + Math.abs(cop.speed);
-          const pushAngle = Math.atan2(this.car.physics.x - cop.x, this.car.physics.z - cop.z);
-          const pushForce = Math.max(4.0, cop.speed * 0.7);
-
-          // Physical impulse on player car
-          this.car.physics.x += Math.sin(pushAngle) * pushForce * dt;
-          this.car.physics.z += Math.cos(pushAngle) * pushForce * dt;
-          this.car.physics.speed *= 0.85;
-
-          // Cop recoil
-          cop.x -= Math.sin(pushAngle) * 0.6;
-          cop.z -= Math.cos(pushAngle) * 0.6;
-          cop.speed *= 0.5;
-
           if (impactSpeed > 3.0 && this.crashCooldown <= 0) {
             this.sound.playCrash(22);
             const dmg = Math.max(2, Math.round(cop.speed * 0.35));
@@ -588,22 +657,40 @@ export class Game {
             this.input.triggerRumble(0.65, 200);
             this.input.triggerHaptics(50);
             this.crashCooldown = 0.3;
+
+            // High speed ram: damp speed once cleanly
+            this.car.physics.speed *= 0.82;
+            cop.speed *= 0.5;
+          } else {
+            // Low-speed rubbing
+            this.car.physics.speed *= 0.96;
+            cop.speed *= 0.85;
           }
         }
       }
 
       // Multiplayer Ramming: Local Car vs Remote Buddy Car
       if (this.network.isConnected && this.remotePlayer.mode === 'IN_CAR') {
-        const distToBuddy = Math.hypot(
-          this.car.physics.x - this.remotePlayer.targetX,
-          this.car.physics.z - this.remotePlayer.targetZ,
-        );
-        if (distToBuddy < 3.2) {
+        const dx = this.car.physics.x - this.remotePlayer.targetX;
+        const dz = this.car.physics.z - this.remotePlayer.targetZ;
+        const distToBuddy = Math.hypot(dx, dz);
+        const minDist = 3.2;
+        if (distToBuddy < minDist) {
+          const overlap = minDist - distToBuddy;
+          const nx = distToBuddy > 0.001 ? dx / distToBuddy : 1;
+          const nz = distToBuddy > 0.001 ? dz / distToBuddy : 0;
+
+          this.car.physics.x += nx * (overlap * 0.55 + 0.08);
+          this.car.physics.z += nz * (overlap * 0.55 + 0.08);
+          this.car.physics.prevX = this.car.physics.x;
+          this.car.physics.prevZ = this.car.physics.z;
+
           const impact = Math.abs(this.car.physics.speed) + Math.abs(this.remotePlayer.speed);
-          if (impact > 4.0) {
+          if (impact > 4.0 && this.crashCooldown <= 0) {
             this.sound.playCrash();
             const dmg = Math.round(impact * 1.3);
             this.car.takeDamage(dmg);
+            this.crashCooldown = 0.3;
 
             const pushAngle = Math.atan2(
               this.remotePlayer.targetX - this.car.physics.x,
