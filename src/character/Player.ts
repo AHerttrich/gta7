@@ -218,6 +218,13 @@ export class Player {
         }
       }
 
+      // Secondary anti-penetration resolution: ensure player never slipped into corner interior
+      const postCol = city.resolveBuildingIntersection(this.x, this.z, 0.4, this.y);
+      if (postCol.corrected) {
+        this.x = postCol.x;
+        this.z = postCol.z;
+      }
+
       this.group.position.set(this.x, this.y, this.z);
 
       // Walking swing animation
@@ -246,8 +253,8 @@ export class Player {
     }
 
     // 3. Jump & Cyber Jetpack Physics (with Rooftop Landing Support)
-    const roofH = city.getRoofHeightAt(this.x, this.z, 0.4);
-    const groundLevel = roofH > 0 && this.y >= roofH - 0.3 ? roofH : 0;
+    const roofH = city.getRoofHeightAt(this.x, this.z, 0);
+    const groundLevel = roofH > 0 && (this.y >= roofH - 0.8 || this.y >= roofH) ? roofH : 0;
 
     if (this.hasJetpack) {
       if (input.jump && this.jetpackFuel > 0) {
@@ -298,6 +305,17 @@ export class Player {
         this.rightArm.rotation.x = 0.5;
       } else {
         this.y = groundLevel;
+        this.vy = 0;
+      }
+    }
+
+    // Final failsafe anti-penetration resolution: Player is never trapped inside building interior
+    const finalFix = city.resolveBuildingIntersection(this.x, this.z, 0.4, this.y);
+    if (finalFix.corrected) {
+      this.x = finalFix.x;
+      this.z = finalFix.z;
+      if (finalFix.roofY !== undefined) {
+        this.y = finalFix.roofY;
         this.vy = 0;
       }
     }

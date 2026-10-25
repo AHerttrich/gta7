@@ -227,8 +227,8 @@ export class Helicopter {
     this.z += this.vz * dt;
 
     // Ground & Helipad Landing Bounds Check
-    const roofH = city.getRoofHeightAt(this.x, this.z, 1.8);
-    const minHeight = roofH > 0 && this.y >= roofH - 0.5 ? roofH + 0.2 : 0.2;
+    const roofH = city.getRoofHeightAt(this.x, this.z, 0);
+    const minHeight = roofH > 0 && (this.y >= roofH - 0.8 || this.y >= roofH) ? roofH + 0.2 : 0.2;
     if (this.y < minHeight) {
       this.y = minHeight;
       this.vy = 0;
@@ -258,8 +258,13 @@ export class Helicopter {
     if (col.collided) {
       this.vx = -this.vx * 0.5;
       this.vz = -this.vz * 0.5;
-      this.x += col.normalX * (col.depth + 0.1);
-      this.z += col.normalZ * (col.depth + 0.1);
+      const safe = city.resolveBuildingIntersection(this.x, this.z, 2.2, this.y);
+      this.x = safe.x;
+      this.z = safe.z;
+      if (safe.roofY !== undefined) {
+        this.y = safe.roofY + 0.2;
+        this.vy = 0;
+      }
       this.health = Math.max(0, this.health - 5);
       this.hasCollided = true;
       this.group.position.set(this.x, this.y, this.z);

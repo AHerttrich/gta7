@@ -125,18 +125,111 @@ export class City {
   public getRoofHeightAt(x: number, z: number, radius: number = 0): number {
     let maxH = 0;
     for (const b of this.buildingBounds) {
+      // Check upper tier first if available
       if (
+        b.tier &&
+        x + radius > b.tier.minX &&
+        x - radius < b.tier.maxX &&
+        z + radius > b.tier.minZ &&
+        z - radius < b.tier.maxZ
+      ) {
+        if (b.tier.height > maxH) {
+          maxH = b.tier.height;
+        }
+      } else if (
         x + radius > b.minX &&
         x - radius < b.maxX &&
         z + radius > b.minZ &&
         z - radius < b.maxZ
       ) {
-        if (b.height > maxH) {
-          maxH = b.height;
+        const baseH = b.baseHeight ?? b.height;
+        if (baseH > maxH) {
+          maxH = baseH;
         }
       }
     }
     return maxH;
+  }
+
+  public resolveBuildingIntersection(
+    x: number,
+    z: number,
+    radius: number = 1.2,
+    y: number = 0,
+  ): { x: number; z: number; corrected: boolean; roofY?: number } {
+    let curX = x;
+    let curZ = z;
+    let wasCorrected = false;
+    let resolvedRoofY: number | undefined = undefined;
+
+    // Safety clamp to map boundary
+    const maxBoundary =
+      (CITY_CONFIG.GRID_SIZE * (CITY_CONFIG.BLOCK_SIZE + CITY_CONFIG.ROAD_WIDTH)) / 2 -
+      radius -
+      0.2;
+    if (Math.abs(curX) > maxBoundary) {
+      curX = Math.sign(curX) * maxBoundary;
+      wasCorrected = true;
+    }
+    if (Math.abs(curZ) > maxBoundary) {
+      curZ = Math.sign(curZ) * maxBoundary;
+      wasCorrected = true;
+    }
+
+    // Check all buildings
+    for (const b of this.buildingBounds) {
+      const baseH = b.baseHeight ?? b.height;
+
+      // 1. Is entity inside upper tier?
+      const inTier =
+        b.tier !== undefined &&
+        y >= baseH &&
+        y < b.tier.height &&
+        curX + radius > b.tier.minX &&
+        curX - radius < b.tier.maxX &&
+        curZ + radius > b.tier.minZ &&
+        curZ - radius < b.tier.maxZ;
+
+      // 2. Is entity inside base building?
+      const inBase =
+        y < baseH &&
+        curX + radius > b.minX &&
+        curX - radius < b.maxX &&
+        curZ + radius > b.minZ &&
+        curZ - radius < b.maxZ;
+
+      if (!inTier && !inBase) continue;
+
+      const targetBox = inTier && b.tier ? b.tier : b;
+      const boxHeight = inTier && b.tier ? b.tier.height : baseH;
+
+      // If entity is within 0.8m of the roof top, eject vertically onto the roof
+      if (y >= boxHeight - 0.8) {
+        resolvedRoofY = boxHeight;
+        wasCorrected = true;
+        continue;
+      }
+
+      // Otherwise eject horizontally out to the nearest exterior wall
+      const overlapLeft = curX + radius - targetBox.minX;
+      const overlapRight = targetBox.maxX - (curX - radius);
+      const overlapTop = curZ + radius - targetBox.minZ;
+      const overlapBottom = targetBox.maxZ - (curZ - radius);
+
+      const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+      if (minOverlap === overlapLeft) {
+        curX = targetBox.minX - radius - 0.25;
+      } else if (minOverlap === overlapRight) {
+        curX = targetBox.maxX + radius + 0.25;
+      } else if (minOverlap === overlapTop) {
+        curZ = targetBox.minZ - radius - 0.25;
+      } else {
+        curZ = targetBox.maxZ + radius + 0.25;
+      }
+      wasCorrected = true;
+    }
+
+    return { x: curX, z: curZ, corrected: wasCorrected, roofY: resolvedRoofY };
   }
 
   public checkCollision(
@@ -146,30 +239,52 @@ export class City {
     y: number = 0,
   ): { collided: boolean; normalX: number; normalZ: number; depth: number } {
     for (const b of this.buildingBounds) {
-      // If entity is above building roof, skip collision
-      if (y >= b.height) continue;
+      const baseH = b.baseHeight ?? b.height;
 
-      if (
-        x + radius > b.minX &&
-        x - radius < b.maxX &&
-        z + radius > b.minZ &&
-        z - radius < b.maxZ
-      ) {
-        // Calculate collision normal (bounce away)
-        const overlapLeft = x + radius - b.minX;
-        const overlapRight = b.maxX - (x - radius);
-        const overlapTop = z + radius - b.minZ;
-        const overlapBottom = b.maxZ - (z - radius);
+      // Check upper tier if entity elevation is in upper tier range
+      if (b.tier && y >= baseH && y < b.tier.height) {
+        if (
+          x + radius > b.tier.minX &&
+          x - radius < b.tier.maxX &&
+          z + radius > b.tier.minZ &&
+          z - radius < b.tier.maxZ
+        ) {
+          const overlapLeft = x + radius - b.tier.minX;
+          const overlapRight = b.tier.maxX - (x - radius);
+          const overlapTop = z + radius - b.tier.minZ;
+          const overlapBottom = b.tier.maxZ - (z - radius);
+          const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+          if (minOverlap === overlapLeft)
+            return { collided: true, normalX: -1, normalZ: 0, depth: minOverlap };
+          if (minOverlap === overlapRight)
+            return { collided: true, normalX: 1, normalZ: 0, depth: minOverlap };
+          if (minOverlap === overlapTop)
+            return { collided: true, normalX: 0, normalZ: -1, depth: minOverlap };
+          return { collided: true, normalX: 0, normalZ: 1, depth: minOverlap };
+        }
+      }
 
-        const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
-
-        if (minOverlap === overlapLeft)
-          return { collided: true, normalX: -1, normalZ: 0, depth: minOverlap };
-        if (minOverlap === overlapRight)
-          return { collided: true, normalX: 1, normalZ: 0, depth: minOverlap };
-        if (minOverlap === overlapTop)
-          return { collided: true, normalX: 0, normalZ: -1, depth: minOverlap };
-        return { collided: true, normalX: 0, normalZ: 1, depth: minOverlap };
+      // Check base tower
+      if (y < baseH) {
+        if (
+          x + radius > b.minX &&
+          x - radius < b.maxX &&
+          z + radius > b.minZ &&
+          z - radius < b.maxZ
+        ) {
+          const overlapLeft = x + radius - b.minX;
+          const overlapRight = b.maxX - (x - radius);
+          const overlapTop = z + radius - b.minZ;
+          const overlapBottom = b.maxZ - (z - radius);
+          const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+          if (minOverlap === overlapLeft)
+            return { collided: true, normalX: -1, normalZ: 0, depth: minOverlap };
+          if (minOverlap === overlapRight)
+            return { collided: true, normalX: 1, normalZ: 0, depth: minOverlap };
+          if (minOverlap === overlapTop)
+            return { collided: true, normalX: 0, normalZ: -1, depth: minOverlap };
+          return { collided: true, normalX: 0, normalZ: 1, depth: minOverlap };
+        }
       }
     }
 
@@ -211,13 +326,30 @@ export class City {
     safeZ: number;
     depth: number;
   } {
+    // 0. Anti-tunneling / interior start fix: If (x1, z1) is already inside a building, immediately eject!
+    const initialFix = this.resolveBuildingIntersection(x1, z1, radius, y);
+    if (initialFix.corrected) {
+      return {
+        collided: true,
+        normalX: initialFix.x > x1 ? 1 : initialFix.x < x1 ? -1 : 0,
+        normalZ: initialFix.z > z1 ? 1 : initialFix.z < z1 ? -1 : 0,
+        safeX: initialFix.x,
+        safeZ: initialFix.z,
+        depth: Math.hypot(initialFix.x - x1, initialFix.z - z1),
+      };
+    }
+
     const dist = Math.hypot(x2 - x1, z2 - z1);
     if (dist < 0.001) {
       const col = this.checkCollision(x2, z2, radius, y);
+      if (!col.collided) {
+        return { collided: false, normalX: 0, normalZ: 0, safeX: x2, safeZ: z2, depth: 0 };
+      }
+      const safe = this.resolveBuildingIntersection(x2, z2, radius, y);
       return {
         ...col,
-        safeX: x2 + col.normalX * (col.depth + 0.08),
-        safeZ: z2 + col.normalZ * (col.depth + 0.08),
+        safeX: safe.x,
+        safeZ: safe.z,
       };
     }
 
@@ -236,23 +368,36 @@ export class City {
         b.minZ <= sweepMaxZ,
     );
 
-    const steps = Math.max(1, Math.min(10, Math.ceil(dist / 1.0)));
+    const steps = Math.max(1, Math.min(12, Math.ceil(dist / 0.8)));
     for (let i = 1; i <= steps; i++) {
       const t = i / steps;
       const curX = x1 + (x2 - x1) * t;
       const curZ = z1 + (z2 - z1) * t;
 
       for (const b of candidates) {
-        if (
+        const baseH = b.baseHeight ?? b.height;
+        const inTier =
+          b.tier !== undefined &&
+          y >= baseH &&
+          y < b.tier.height &&
+          curX + radius > b.tier.minX &&
+          curX - radius < b.tier.maxX &&
+          curZ + radius > b.tier.minZ &&
+          curZ - radius < b.tier.maxZ;
+
+        const inBase =
+          y < baseH &&
           curX + radius > b.minX &&
           curX - radius < b.maxX &&
           curZ + radius > b.minZ &&
-          curZ - radius < b.maxZ
-        ) {
-          const overlapLeft = curX + radius - b.minX;
-          const overlapRight = b.maxX - (curX - radius);
-          const overlapTop = curZ + radius - b.minZ;
-          const overlapBottom = b.maxZ - (curZ - radius);
+          curZ - radius < b.maxZ;
+
+        if (inTier || inBase) {
+          const targetBox = inTier && b.tier ? b.tier : b;
+          const overlapLeft = curX + radius - targetBox.minX;
+          const overlapRight = targetBox.maxX - (curX - radius);
+          const overlapTop = curZ + radius - targetBox.minZ;
+          const overlapBottom = targetBox.maxZ - (curZ - radius);
 
           const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
           let normalX = 0;
@@ -262,15 +407,14 @@ export class City {
           else if (minOverlap === overlapTop) normalZ = -1;
           else normalZ = 1;
 
-          // Safe position: push curX, curZ out along normal by (minOverlap + 0.08)
-          const safeX = curX + normalX * (minOverlap + 0.08);
-          const safeZ = curZ + normalZ * (minOverlap + 0.08);
+          // Safe position: push along normal and resolve against all buildings
+          const resolved = this.resolveBuildingIntersection(curX, curZ, radius, y);
           return {
             collided: true,
             normalX,
             normalZ,
-            safeX,
-            safeZ,
+            safeX: resolved.x,
+            safeZ: resolved.z,
             depth: minOverlap,
           };
         }
@@ -286,7 +430,7 @@ export class City {
           collided: true,
           normalX,
           normalZ: 0,
-          safeX: (maxBoundary - radius - 0.08) * (curX > 0 ? 1 : -1),
+          safeX: (maxBoundary - radius - 0.2) * (curX > 0 ? 1 : -1),
           safeZ: curZ,
           depth,
         };
@@ -299,7 +443,7 @@ export class City {
           normalX: 0,
           normalZ,
           safeX: curX,
-          safeZ: (maxBoundary - radius - 0.08) * (curZ > 0 ? 1 : -1),
+          safeZ: (maxBoundary - radius - 0.2) * (curZ > 0 ? 1 : -1),
           depth,
         };
       }

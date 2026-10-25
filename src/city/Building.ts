@@ -6,6 +6,14 @@ export interface BuildingBox {
   minZ: number;
   maxZ: number;
   height: number;
+  baseHeight?: number;
+  tier?: {
+    minX: number;
+    maxX: number;
+    minZ: number;
+    maxZ: number;
+    height: number;
+  };
 }
 
 export class Building {
@@ -114,6 +122,7 @@ export class Building {
 
     // 2. High-rise Setback / Upper Tier for taller skyscrapers
     let topY = height;
+    let tierBounds: BuildingBox['tier'] = undefined;
     if (height > 35) {
       const tierWidth = width * 0.72;
       const tierDepth = depth * 0.72;
@@ -145,6 +154,13 @@ export class Building {
       group.add(tierMesh);
 
       topY = height + tierHeight;
+      tierBounds = {
+        minX: x - tierWidth / 2,
+        maxX: x + tierWidth / 2,
+        minZ: z - tierDepth / 2,
+        maxZ: z + tierDepth / 2,
+        height: topY,
+      };
 
       // Rooftop Telecommunication Spire / Antenna
       const antennaGeo = new THREE.CylinderGeometry(0.15, 0.4, 12, 8);
@@ -219,6 +235,8 @@ export class Building {
         minZ: z - depth / 2,
         maxZ: z + depth / 2,
         height: topY,
+        baseHeight: height,
+        tier: tierBounds,
       },
     };
   }

@@ -464,9 +464,14 @@ export class Game {
       const hoverToggled = this.input.hoverToggle;
 
       // Update dynamic surface elevation below vehicle (rooftop or street ground)
-      const roofH = this.city.getRoofHeightAt(this.car.physics.x, this.car.physics.z, 1.2);
-      if (roofH > 0 && this.car.physics.y >= roofH - 0.2) {
+      const roofH = this.city.getRoofHeightAt(this.car.physics.x, this.car.physics.z, 0);
+      if (roofH > 0 && (this.car.physics.y >= roofH - 0.8 || this.car.physics.groundY >= roofH)) {
         this.car.physics.groundY = roofH + 0.5;
+        // Anti-tunneling: if vehicle dropped slightly below roof surface, clamp up to roof surface
+        if (this.car.physics.y < roofH + 0.5) {
+          this.car.physics.y = roofH + 0.5;
+          this.car.physics.vy = Math.max(0, this.car.physics.vy);
+        }
       } else {
         this.car.physics.groundY = 0.5;
       }
@@ -580,6 +585,24 @@ export class Game {
         }
       }
 
+      // Bulletproof failsafe: Ensure car is never inside any building geometry
+      const carFix = this.city.resolveBuildingIntersection(
+        this.car.physics.x,
+        this.car.physics.z,
+        2.0,
+        this.car.physics.y,
+      );
+      if (carFix.corrected) {
+        this.car.physics.x = carFix.x;
+        this.car.physics.z = carFix.z;
+        this.car.physics.prevX = carFix.x;
+        this.car.physics.prevZ = carFix.z;
+        if (carFix.roofY !== undefined) {
+          this.car.physics.y = carFix.roofY + 0.5;
+          this.car.physics.vy = 0;
+        }
+      }
+
       // Collision with Traffic Cars
       for (const tCar of this.traffic.cars) {
         const dx = this.car.physics.x - tCar.x;
@@ -597,6 +620,14 @@ export class Game {
 
           this.car.physics.x += nx * playerPush;
           this.car.physics.z += nz * playerPush;
+          const trSafe = this.city.resolveBuildingIntersection(
+            this.car.physics.x,
+            this.car.physics.z,
+            2.0,
+            this.car.physics.y,
+          );
+          this.car.physics.x = trSafe.x;
+          this.car.physics.z = trSafe.z;
           this.car.physics.prevX = this.car.physics.x;
           this.car.physics.prevZ = this.car.physics.z;
 
@@ -642,6 +673,14 @@ export class Game {
 
           this.car.physics.x += nx * playerPush;
           this.car.physics.z += nz * playerPush;
+          const copSafe = this.city.resolveBuildingIntersection(
+            this.car.physics.x,
+            this.car.physics.z,
+            2.0,
+            this.car.physics.y,
+          );
+          this.car.physics.x = copSafe.x;
+          this.car.physics.z = copSafe.z;
           this.car.physics.prevX = this.car.physics.x;
           this.car.physics.prevZ = this.car.physics.z;
 
@@ -663,6 +702,14 @@ export class Game {
             const ramKick = Math.min(4.0, Math.max(1.5, Math.abs(cop.speed) * 0.35));
             this.car.physics.x += Math.sin(ramAngle) * ramKick;
             this.car.physics.z += Math.cos(ramAngle) * ramKick;
+            const kickSafe = this.city.resolveBuildingIntersection(
+              this.car.physics.x,
+              this.car.physics.z,
+              2.0,
+              this.car.physics.y,
+            );
+            this.car.physics.x = kickSafe.x;
+            this.car.physics.z = kickSafe.z;
             this.car.physics.prevX = this.car.physics.x;
             this.car.physics.prevZ = this.car.physics.z;
             this.car.physics.heading += (Math.random() - 0.5) * 0.45;
@@ -691,6 +738,14 @@ export class Game {
 
           this.car.physics.x += nx * (overlap * 0.55 + 0.08);
           this.car.physics.z += nz * (overlap * 0.55 + 0.08);
+          const buddySafe = this.city.resolveBuildingIntersection(
+            this.car.physics.x,
+            this.car.physics.z,
+            2.0,
+            this.car.physics.y,
+          );
+          this.car.physics.x = buddySafe.x;
+          this.car.physics.z = buddySafe.z;
           this.car.physics.prevX = this.car.physics.x;
           this.car.physics.prevZ = this.car.physics.z;
 
@@ -776,6 +831,16 @@ export class Game {
         this.car.takeDamage(40);
         this.car.physics.x += trainCollision.pushX;
         this.car.physics.z += trainCollision.pushZ;
+        const trainSafe = this.city.resolveBuildingIntersection(
+          this.car.physics.x,
+          this.car.physics.z,
+          2.0,
+          this.car.physics.y,
+        );
+        this.car.physics.x = trainSafe.x;
+        this.car.physics.z = trainSafe.z;
+        this.car.physics.prevX = this.car.physics.x;
+        this.car.physics.prevZ = this.car.physics.z;
         this.car.physics.speed *= -0.5;
       }
 
@@ -895,6 +960,20 @@ export class Game {
         turretRight: this.input.isDown('e') && Math.abs(this.activeTank.speed) > 1,
       });
 
+      // Tank Building Collision Check & Anti-Penetration Resolution
+      const tankFix = this.city.resolveBuildingIntersection(
+        this.activeTank.x,
+        this.activeTank.z,
+        2.5,
+        this.activeTank.y,
+      );
+      if (tankFix.corrected) {
+        this.activeTank.x = tankFix.x;
+        this.activeTank.z = tankFix.z;
+        this.activeTank.speed = 0;
+        this.activeTank.group.position.set(this.activeTank.x, this.activeTank.y, this.activeTank.z);
+      }
+
       if (res.firedCannon) {
         this.sound.playExplosion();
         const muzzle = this.activeTank.getCannonMuzzlePosition();
@@ -990,6 +1069,16 @@ export class Game {
           this.player.x += Math.sin(pushAngle) * flingForce * 0.45;
           this.player.z += Math.cos(pushAngle) * flingForce * 0.45;
           this.player.vy = 8.5; // High vertical launch!
+
+          const flingSafe = this.city.resolveBuildingIntersection(
+            this.player.x,
+            this.player.z,
+            0.4,
+            this.player.y,
+          );
+          this.player.x = flingSafe.x;
+          this.player.z = flingSafe.z;
+          this.player.setPosition(this.player.x, this.player.y, this.player.z);
         }
       }
 
@@ -1207,9 +1296,22 @@ export class Game {
   private exitHelicopter(): void {
     this.mode = 'ON_FOOT';
     this.helicopter.isOccupied = false;
-    const exitX = this.helicopter.x - Math.cos(this.helicopter.heading) * 2.5;
-    const exitZ = this.helicopter.z + Math.sin(this.helicopter.heading) * 2.5;
-    this.player.setPosition(exitX, this.helicopter.y, exitZ);
+    let exitX = this.helicopter.x - Math.cos(this.helicopter.heading) * 2.5;
+    let exitZ = this.helicopter.z + Math.sin(this.helicopter.heading) * 2.5;
+    let exitY = this.helicopter.y;
+
+    const heliCheck = this.city.resolveBuildingIntersection(exitX, exitZ, 0.4, exitY);
+    if (heliCheck.corrected) {
+      exitX = heliCheck.x;
+      exitZ = heliCheck.z;
+    }
+
+    const roofH = this.city.getRoofHeightAt(exitX, exitZ, 0);
+    if (roofH > 0 && exitY >= roofH - 1.0) {
+      exitY = roofH;
+    }
+
+    this.player.setPosition(exitX, exitY, exitZ);
     this.player.group.visible = true;
 
     // High altitude cyber parachute bailout
@@ -1233,9 +1335,20 @@ export class Game {
   private exitTank(): void {
     if (!this.activeTank) return;
     this.mode = 'ON_FOOT';
-    const exitX = this.activeTank.x - Math.cos(this.activeTank.heading) * 3.5;
-    const exitZ = this.activeTank.z + Math.sin(this.activeTank.heading) * 3.5;
-    this.player.setPosition(exitX, 0, exitZ);
+    let exitX = this.activeTank.x - Math.cos(this.activeTank.heading) * 3.5;
+    let exitZ = this.activeTank.z + Math.sin(this.activeTank.heading) * 3.5;
+    let exitY = this.activeTank.y;
+
+    const tankCheck = this.city.resolveBuildingIntersection(exitX, exitZ, 0.4, exitY);
+    if (tankCheck.corrected) {
+      exitX = tankCheck.x;
+      exitZ = tankCheck.z;
+    }
+
+    const roofH = this.city.getRoofHeightAt(exitX, exitZ, 0);
+    exitY = roofH > 0 && exitY >= roofH - 1.0 ? roofH : 0;
+
+    this.player.setPosition(exitX, exitY, exitZ);
     this.player.group.visible = true;
     this.activeTank = null;
     this.hud.showNotification('Aus dem Rhino Tank ausgestiegen.');
@@ -1271,9 +1384,35 @@ export class Game {
 
   private exitCar(): void {
     this.mode = 'ON_FOOT';
-    const exitX = this.car.physics.x - Math.cos(this.car.physics.heading) * 2.2;
-    const exitZ = this.car.physics.z + Math.sin(this.car.physics.heading) * 2.2;
-    this.player.setPosition(exitX, 0, exitZ);
+    let exitX = this.car.physics.x - Math.cos(this.car.physics.heading) * 2.2;
+    let exitZ = this.car.physics.z + Math.sin(this.car.physics.heading) * 2.2;
+    let exitY = this.car.physics.y;
+
+    // Check if driver side is obstructed by building
+    const driverCheck = this.city.resolveBuildingIntersection(exitX, exitZ, 0.4, exitY);
+    if (driverCheck.corrected) {
+      // Driver side blocked, try passenger side
+      const passX = this.car.physics.x + Math.cos(this.car.physics.heading) * 2.2;
+      const passZ = this.car.physics.z - Math.sin(this.car.physics.heading) * 2.2;
+      const passCheck = this.city.resolveBuildingIntersection(passX, passZ, 0.4, exitY);
+      if (!passCheck.corrected) {
+        exitX = passX;
+        exitZ = passZ;
+      } else {
+        exitX = driverCheck.x;
+        exitZ = driverCheck.z;
+      }
+    }
+
+    // Determine correct Y elevation: if on roof, stand on roof; else ground
+    const roofH = this.city.getRoofHeightAt(exitX, exitZ, 0);
+    if (roofH > 0 && (exitY >= roofH - 1.0 || this.car.physics.groundY >= roofH)) {
+      exitY = roofH;
+    } else {
+      exitY = 0;
+    }
+
+    this.player.setPosition(exitX, exitY, exitZ);
     this.player.group.visible = true;
     this.hud.showNotification('Ausgestiegen. Zu Fuß unterwegs.');
   }
