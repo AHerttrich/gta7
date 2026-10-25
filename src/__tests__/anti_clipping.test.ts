@@ -215,12 +215,12 @@ describe('Anti-Penetration & Building Clipping Prevention', () => {
   it('should eject entities hitting building edge near roof horizontally instead of letting them clip into the house', () => {
     const city = new City();
     const b = city.buildingBounds[0];
-    const roofH = city.getRoofHeightAt((b.minX + b.maxX) / 2, (b.minZ + b.maxZ) / 2, 0);
+    const testH = b.baseHeight ?? b.height;
 
     // Entity penetrating only 0.5m into the west wall near roof height (within 0.8m of roof)
     const penetrateX = b.minX + 0.5;
     const midZ = (b.minZ + b.maxZ) / 2;
-    const resolved = city.resolveBuildingIntersection(penetrateX, midZ, 1.2, roofH - 0.4);
+    const resolved = city.resolveBuildingIntersection(penetrateX, midZ, 1.2, testH - 0.4);
 
     expect(resolved.corrected).toBe(true);
     // Must be pushed outside west wall, NOT left inside the house!

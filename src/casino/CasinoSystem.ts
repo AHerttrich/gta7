@@ -20,7 +20,7 @@ export interface WheelPrize {
 export class CasinoSystem {
   public group: THREE.Group;
   public casinoX: number = -44;
-  public casinoZ: number = -132;
+  public casinoZ: number = -245;
   public hasSpunDailyWheel: boolean = false;
 
   private scene: THREE.Scene;

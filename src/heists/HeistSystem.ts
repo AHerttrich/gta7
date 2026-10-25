@@ -11,7 +11,7 @@ export type HeistStage =
 export class HeistSystem {
   public group: THREE.Group;
   public bankX: number = 44;
-  public bankZ: number = 132;
+  public bankZ: number = 245;
   public stage: HeistStage = 'IDLE';
 
   public vaultDoor: THREE.Mesh;
