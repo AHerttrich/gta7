@@ -96,13 +96,24 @@ Ziel: Wie in *Mattis Abenteuer* können Matti und sein Kumpel gemeinsam über da
 
 ---
 
-## 🚁 Phase 7: Helikopter & Custom Radio (Zukunftsausblick)
+## 🚁 Phase 7: Helikopter, GTA-Radio & Polizei-Lufteinheit (✅ Erledigt & Live)
+
+| Meilenstein | Beschreibung | Status |
+|---|---|---|
+| **M7.1 Fliegbarer Spieler-Helikopter** | Helikopter auf dem Wolkenkratzer-Helipad: Einsteigen (`E`), Rotor-Hochlauf, 3D-Steuerung (`Leertaste`/`Shift`/`WASD`), Scheinwerfer & Kamera-Follow | ✅ Erledigt |
+| **M7.2 Prozedurales GTA-Cyber-Radio** | 4 Web Audio Synthesizer-Sender (*80s Synthwave FM*, *Cyber Electro Drive*, *Vice Beach Chill*, *Radio Aus*) mit HUD-Banner (`B` / `[📻 RADIO]`) | ✅ Erledigt |
+| **M7.3 Polizei-Helikopter bei 4-5 Sternen** | Luftunterstützung der Polizei mit rotierenden Rotorblättern, Verfolgung und dynamischem Boden-Suchscheinwerfer-Kegel | ✅ Erledigt |
+| **M7.4 SWAT-Straßensperren bei 3+ Sternen** | Querstehende Polizeiwagen mit zerstörbaren Absperrgittern an Kreuzungen, die bei Rammstößen zerspringen | ✅ Erledigt |
+
+---
+
+## 🏎️ Phase 8: Renn-Turniere, KI-Gegner & Tuning-Werkstatt (Zukunftsausblick)
 
 | Meilenstein | Beschreibung | Priorität |
 |---|---|---|
-| **M7.1 Fliegender Helikopter** | Hubschrauber auf dem Dach des höchsten Wolkenkratzers mit Rotorblatt-Animation & Höhensteuerung | Hoch |
-| **M7.2 Radio-Sender (GTA-Style)** | Umschaltbare Web-Radio-Stationen (Synthwave 80s, Hip-Hop Beats, Rock Radio) per Taste `R` | Hoch |
-| **M7.3 Polizei-Helikopter bei 5 Sternen** | Verfolgungs-Helikopter der Polizei mit Suchscheinwerfer, der den Spieler von oben jagt | Mittel |
+| **M8.1 KI-Straßenrenn-Gegner** | Rivalisierende Sportwagen mit aggressiver Überhol-KI bei Straßenrennen | Hoch |
+| **M8.2 Motor-Tuning & Custom Felgen** | Leistungsupgrades (Stufe 1-3 Turbo, Höchstgeschwindigkeit, Bremsen) im Shop | Hoch |
+| **M8.3 Polizei-Nagelsperren (Spike Strips)** | Reifenschaden und Funkenflug beim Überfahren von Nagelsperren | Mittel |
 
 ---
 

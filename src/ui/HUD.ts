@@ -497,6 +497,7 @@ export class HUD {
 
       <!-- Quick Buttons on Top -->
       <div class="hud-mobile-quickbar">
+        <button class="hud-quick-btn" id="m-btn-radio" style="border-color:#a855f7;color:#a855f7;">📻 RADIO</button>
         <button class="hud-quick-btn" id="m-btn-hover" style="border-color:#06b6d4;color:#06b6d4;">🚀 HOVER</button>
         <button class="hud-quick-btn" id="m-btn-multi">🌐 MULTI</button>
         <button class="hud-quick-btn" id="m-btn-shop">🛒 SHOP</button>
@@ -506,13 +507,13 @@ export class HUD {
       </div>
 
       <div class="hud-controls-helper">
-        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>: Fahren / Laufen</div>
+        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>: Fahren / Laufen / Fliegen</div>
         <div><kbd>V</kbd> / <kbd>X</kbd>: DeLorean Flugmodus 🚀</div>
         <div><kbd>Leertaste</kbd>: Steigen | <kbd>C</kbd>: Sinken</div>
-        <div><kbd>N</kbd> / <kbd>Shift</kbd>: NITRO BOOST 🔥</div>
+        <div><kbd>B</kbd>: Radio wechseln 📻 | <kbd>N</kbd>: Nitro 🔥</div>
         <div><kbd>Klick</kbd> / <kbd>F</kbd>: Schießen / Schlagen 💥</div>
         <div><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd>: Waffe | <kbd>P</kbd>: Multiplayer</div>
-        <div><kbd>E</kbd>: Auto klauen | <kbd>G</kbd>: Shop | <kbd>J</kbd>: Taxi</div>
+        <div><kbd>E</kbd>: Auto/Heli einsteigen | <kbd>G</kbd>: Shop</div>
       </div>
 
       <div class="hud-top-right">
@@ -531,6 +532,7 @@ export class HUD {
       <div class="hud-top-center">
         <div class="hud-prompt" id="hud-prompt">Drücke [E] um ins Auto einzusteigen</div>
         <div class="hud-notification" id="hud-notification">Willkommen in GTA 7!</div>
+        <div class="hud-radio-banner" id="hud-radio-banner" style="display:none;background:rgba(15,23,42,0.92);border:2px solid #a855f7;padding:8px 16px;border-radius:8px;box-shadow:0 0 15px rgba(168,85,247,0.5);margin-top:8px;text-align:center;"></div>
       </div>
 
       <div class="hud-bottom-left">
@@ -689,6 +691,9 @@ export class HUD {
     bindTouch('t-btn-fire', 'fire', true);
 
     // Mobile Top Quickbar Hooks
+    document.getElementById('m-btn-radio')?.addEventListener('click', () => {
+      if (this.input) this.input.touchState.radioCycle = true;
+    });
     document.getElementById('m-btn-hover')?.addEventListener('click', () => {
       if (this.input) this.input.touchState.hoverToggle = true;
     });
@@ -874,6 +879,16 @@ export class HUD {
     setTimeout(() => {
       this.notificationElement.style.opacity = '0';
     }, 3500);
+  }
+
+  public showRadioStation(stationName: string, genre: string): void {
+    const el = document.getElementById('hud-radio-banner');
+    if (!el) return;
+    el.innerHTML = `<div style="color:#a855f7;font-weight:900;font-size:16px;letter-spacing:1px;">📻 ${stationName}</div><div style="color:#94a3b8;font-size:12px;">${genre}</div>`;
+    el.style.display = 'block';
+    setTimeout(() => {
+      if (el) el.style.display = 'none';
+    }, 3000);
   }
 
   public setPrompt(text: string | null): void {

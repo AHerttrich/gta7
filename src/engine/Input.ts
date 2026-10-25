@@ -19,6 +19,7 @@ export class Input {
     hoverToggle: false,
     ascend: false,
     descend: false,
+    radioCycle: false,
   };
 
   constructor() {
@@ -132,6 +133,12 @@ export class Input {
 
   public get horn(): boolean {
     return this.isDown('h') || this.touchState.horn;
+  }
+
+  public get cycleRadio(): boolean {
+    const act = this.wasJustPressed('b') || this.touchState.radioCycle;
+    this.touchState.radioCycle = false;
+    return act;
   }
 
   public get toggleShop(): boolean {

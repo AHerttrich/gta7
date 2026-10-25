@@ -1,10 +1,14 @@
 export class SoundManager {
-  private ctx: AudioContext | null = null;
+  public ctx: AudioContext | null = null;
   private isMuted: boolean = false;
 
   // Engine Audio Nodes
   private engineOsc: OscillatorNode | null = null;
   private engineGain: GainNode | null = null;
+
+  // Helicopter Rotor Audio Nodes
+  private rotorOsc: OscillatorNode | null = null;
+  private rotorGain: GainNode | null = null;
 
   // Police Siren Nodes
   private sirenOsc: OscillatorNode | null = null;
@@ -62,6 +66,36 @@ export class SoundManager {
     this.sirenOsc.connect(this.sirenGain);
     this.sirenGain.connect(this.ctx.destination);
     this.sirenOsc.start();
+
+    // Setup Helicopter Rotor Oscillator (Low Frequency Chopper Thump)
+    this.rotorOsc = this.ctx.createOscillator();
+    this.rotorOsc.type = 'sawtooth';
+    this.rotorOsc.frequency.setValueAtTime(24, this.ctx.currentTime);
+
+    this.rotorGain = this.ctx.createGain();
+    this.rotorGain.gain.setValueAtTime(0.0, this.ctx.currentTime);
+
+    const rotorFilter = this.ctx.createBiquadFilter();
+    rotorFilter.type = 'lowpass';
+    rotorFilter.frequency.setValueAtTime(180, this.ctx.currentTime);
+
+    this.rotorOsc.connect(rotorFilter);
+    rotorFilter.connect(this.rotorGain);
+    this.rotorGain.connect(this.ctx.destination);
+    this.rotorOsc.start();
+  }
+
+  public updateRotorPitch(rpm: number, inHeli: boolean): void {
+    if (!this.ctx || !this.rotorOsc || !this.rotorGain || this.isMuted) return;
+
+    if (!inHeli || rpm <= 0.05) {
+      this.rotorGain.gain.setValueAtTime(0.0, this.ctx.currentTime);
+      return;
+    }
+
+    const freq = 12 + rpm * 26; // Rhythmic chopper blade thump
+    this.rotorOsc.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.05);
+    this.rotorGain.gain.setValueAtTime(0.06 * Math.min(1.0, rpm), this.ctx.currentTime);
   }
 
   public toggleMute(): boolean {

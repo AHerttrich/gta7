@@ -25,6 +25,9 @@ Unser detaillierter Zukunftsplan für die nächsten Phasen (Waffen, Schusswechse
 
 | Feature | Description | Status |
 |---|---|---|
+| **🚁 Flyable Executive Helicopter** | Fully flyable helicopter on the Downtown skyscraper helipad with spinning rotors, lift physics & searchlight (`E` to enter) | ✅ Included |
+| **📻 Procedural GTA Cyber Radio** | 4-Station synthesizer radio (*80s Synthwave FM*, *Cyber Electro Drive*, *Vice Beach Chill*, *Radio Aus*) with HUD station banner (`B` / `[📻 RADIO]`) | ✅ Included |
+| **🚨 Police Helicopter & SWAT Roadblocks** | Air interceptor helicopter tracking player with searchlight at 4-5 stars; destructible hazard barricades at 3+ stars | ✅ Included |
 | **🛸 Futuristic DeLorean Hover Flight** | Authentic DeLorean DMC-12 time machine with brushed stainless steel, folding hover thruster wheels, vertical climb & flight mode (`V`/`X` / mobile `🚀 HOVER`) | ✅ Included |
 | **🌆 Next-Gen City Graphics** | Procedural skyscraper window grid facades, rooftop helipads, antennas with blinking warning beacons, boulevard palm trees & street lamps | ✅ Included |
 | **🌌 Atmospheric Sky Dome & Warp FX** | Gradient sky dome (space cobalt to golden sunset haze), floating cyber dust motes, and hyperspace speed warp streak lines | ✅ Included |
@@ -76,7 +79,8 @@ Unser detaillierter Zukunftsplan für die nächsten Phasen (Waffen, Schusswechse
 | `N` / `Shift` (in car) | **NITRO BOOST** (Twin flame exhaust, 245 km/h) |
 | `Left Click` / `F` | Shoot weapon / Melee attack |
 | `1` – `4` | Quick weapon switch (Fists, Bat, Pistol, RPG) |
-| `E` | Jack traffic car / Enter / Exit vehicle |
+| `B` | Radio-Sender wechseln 📻 (Synthwave, Electro, Chill, Aus) |
+| `E` | Auto / Taxi klauen / Helikopter einsteigen / Aussteigen 🚁 |
 | `G` | Open Garage & Weapon Shop |
 | `J` | Start interactive Taxi passenger job |
 | `H` | Honk horn (scares pedestrians!) |

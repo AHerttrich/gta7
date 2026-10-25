@@ -18,8 +18,10 @@ import { NetworkManager } from '../network/NetworkManager';
 import { RemotePlayer } from '../network/RemotePlayer';
 import { NetMsgKind, PlayerSyncMsg } from '../network/NetProtocol';
 import { PLAYER_CONFIG, RACE_CIRCUIT } from '../utils/Constants';
+import { RadioSystem } from '../audio/RadioSystem';
+import { Helicopter } from '../vehicles/Helicopter';
 
-export type PlayerMode = 'IN_CAR' | 'ON_FOOT';
+export type PlayerMode = 'IN_CAR' | 'ON_FOOT' | 'IN_HELI';
 
 export class Game {
   public renderer: Renderer;
@@ -28,6 +30,7 @@ export class Game {
   public city: City;
   public garage: Garage;
   public car: Car;
+  public helicopter: Helicopter;
   public player: Player;
   public police: PoliceSystem;
   public traffic: TrafficSystem;
@@ -36,6 +39,7 @@ export class Game {
   public missions: MissionSystem;
   public economy: EconomySystem;
   public sound: SoundManager;
+  public radio: RadioSystem;
   public hud: HUD;
 
   // Multiplayer
@@ -72,6 +76,12 @@ export class Game {
 
     // Subsystems
     this.sound = new SoundManager();
+    this.radio = new RadioSystem(this.sound);
+
+    // Controllable Player Helicopter on Skyscraper Helipad
+    this.helicopter = new Helicopter(0, 52.5, 0);
+    this.renderer.scene.add(this.helicopter.group);
+
     this.traffic = new TrafficSystem(this.renderer.scene);
     this.pedestrians = new PedestrianSystem(this.renderer.scene);
     this.police = new PoliceSystem(this.renderer.scene, this.city);
@@ -190,6 +200,11 @@ export class Game {
       const muted = this.sound.toggleMute();
       this.hud.showNotification(muted ? 'Ton stummgeschaltet 🔇' : 'Ton aktiviert 🔊');
     }
+    if (this.input.cycleRadio) {
+      const station = this.radio.cycleStation();
+      this.hud.showRadioStation(station.name, station.genre);
+    }
+    this.radio.update(dt, this.mode === 'IN_CAR' || this.mode === 'IN_HELI');
     if (this.input.horn) {
       this.sound.playHorn();
       const pX = this.mode === 'IN_CAR' ? this.car.physics.x : this.player.x;
@@ -234,11 +249,13 @@ export class Game {
       }
     }
 
-    // 3. Player State Mode (In Car vs On Foot)
+    // 3. Player State Mode (In Car vs On Foot vs Helicopter)
     const playerPos =
       this.mode === 'IN_CAR'
         ? new THREE.Vector3(this.car.physics.x, 0.5, this.car.physics.z)
-        : new THREE.Vector3(this.player.x, 0, this.player.z);
+        : this.mode === 'IN_HELI'
+          ? new THREE.Vector3(this.helicopter.x, this.helicopter.y, this.helicopter.z)
+          : new THREE.Vector3(this.player.x, 0, this.player.z);
 
     if (this.mode === 'IN_CAR') {
       // Check Stunt Ramps in city
@@ -369,6 +386,20 @@ export class Game {
         }
       }
 
+      // Police Roadblock collisions
+      if (
+        this.police.checkRoadblockCollision(
+          this.car.physics.x,
+          this.car.physics.z,
+          this.car.physics.speed,
+        )
+      ) {
+        this.sound.playCrash();
+        this.car.takeDamage(12);
+        this.police.addCrimeSeverity(30);
+        this.hud.showNotification('💥 Straßensperre der Polizei durchbrochen!');
+      }
+
       // Pay 'n' Spray Garage check
       this.garage.update(dt, this.car, this.police, this.economy, this.sound, this.hud);
 
@@ -387,6 +418,7 @@ export class Game {
         this.car.physics.isBoosting,
         this.car.physics.isHoverMode,
       );
+      this.sound.updateRotorPitch(0, false);
 
       // HUD Stats
       this.hud.updateVehicleStats(
@@ -403,13 +435,45 @@ export class Game {
       if (this.input.actionInteract && Math.abs(this.car.physics.speed) < 5) {
         this.exitCar();
       }
+    } else if (this.mode === 'IN_HELI') {
+      // Helicopter Flight Mode
+      this.helicopter.update(dt, this.input, this.city);
+      this.camera.updateVehicle(
+        this.helicopter.group.position,
+        this.helicopter.heading,
+        this.helicopter.getSpeedKmh() / 3.6,
+        dt,
+      );
+      this.sound.updateRotorPitch(this.helicopter.rpm, true);
+      this.sound.updateEnginePitch(0, false);
+      this.hud.updateVehicleStats(
+        this.helicopter.getSpeedKmh(),
+        'HELI',
+        this.helicopter.health,
+        100,
+        true,
+        true,
+      );
+
+      this.hud.setPrompt('Drücke [E] zum Landen / Aussteigen 🚁');
+      if (
+        this.input.actionInteract &&
+        (this.helicopter.y <= 0.6 || Math.abs(this.helicopter.vy) < 0.6)
+      ) {
+        this.exitHelicopter();
+      }
     } else {
       // On Foot Mode
       this.player.update(dt, this.input, this.city);
       this.camera.updateOnFoot(this.player.group.position, this.player.rotationY, dt);
       this.sound.updateEnginePitch(0, false);
+      this.sound.updateRotorPitch(this.helicopter.rpm, false);
       this.hud.updateVehicleStats(0, 'FUSS', 100, 0, false);
 
+      const distToHeli = Math.hypot(
+        this.player.x - this.helicopter.x,
+        this.player.z - this.helicopter.z,
+      );
       const distToOwnCar = Math.hypot(
         this.player.x - this.car.physics.x,
         this.player.z - this.car.physics.z,
@@ -425,7 +489,12 @@ export class Game {
         }
       }
 
-      if (nearestTrafficCar && nearestDist < 3.5) {
+      if (distToHeli < 4.5 && Math.abs(this.player.y - this.helicopter.y) < 4.0) {
+        this.hud.setPrompt('Drücke [E] um in den Helikopter einzusteigen 🚁');
+        if (this.input.actionInteract) {
+          this.enterHelicopter();
+        }
+      } else if (nearestTrafficCar && nearestDist < 3.5) {
         this.hud.setPrompt('Drücke [E] um dieses Auto / Taxi zu KLAUEN! 🚨');
         if (this.input.actionInteract) {
           this.jackTrafficCar(nearestTrafficCar);
@@ -465,13 +534,23 @@ export class Game {
           x: playerPos.x,
           y: playerPos.y,
           z: playerPos.z,
-          heading: this.mode === 'IN_CAR' ? this.car.physics.heading : this.player.rotationY,
-          speed: this.mode === 'IN_CAR' ? this.car.physics.speed : 0,
-          mode: this.mode,
+          heading:
+            this.mode === 'IN_CAR'
+              ? this.car.physics.heading
+              : this.mode === 'IN_HELI'
+                ? this.helicopter.heading
+                : this.player.rotationY,
+          speed:
+            this.mode === 'IN_CAR'
+              ? this.car.physics.speed
+              : this.mode === 'IN_HELI'
+                ? this.helicopter.getSpeedKmh() / 3.6
+                : 0,
+          mode: this.mode === 'ON_FOOT' ? 'ON_FOOT' : 'IN_CAR',
           carColor: 0xe62429,
           isBoosting: this.mode === 'IN_CAR' && this.car.physics.isBoosting,
           isDrifting: this.mode === 'IN_CAR' && this.car.physics.isDrifting,
-          health: this.car.health,
+          health: this.mode === 'IN_HELI' ? this.helicopter.health : this.car.health,
           t: performance.now(),
         };
         this.network.send(syncMsg);
@@ -504,7 +583,11 @@ export class Game {
       : null;
 
     const currentHeading =
-      this.mode === 'IN_CAR' ? this.car.physics.heading : this.player.rotationY;
+      this.mode === 'IN_CAR'
+        ? this.car.physics.heading
+        : this.mode === 'IN_HELI'
+          ? this.helicopter.heading
+          : this.player.rotationY;
     const copPositions = this.police.copCars.map((c) => ({ x: c.x, z: c.z }));
     const trafficPositions = this.traffic.cars.map((c) => ({ x: c.x, z: c.z }));
     this.hud.updateMinimap(
@@ -516,6 +599,25 @@ export class Game {
       activeTarget,
       remotePos,
     );
+  }
+
+  private enterHelicopter(): void {
+    this.mode = 'IN_HELI';
+    this.player.group.visible = false;
+    this.helicopter.isOccupied = true;
+    this.hud.showNotification(
+      '🚁 Im Helikopter! Steigen: [Leertaste] | Sinken: [Shift] | Lenken: [A]/[D]',
+    );
+  }
+
+  private exitHelicopter(): void {
+    this.mode = 'ON_FOOT';
+    this.helicopter.isOccupied = false;
+    const exitX = this.helicopter.x - Math.cos(this.helicopter.heading) * 2.5;
+    const exitZ = this.helicopter.z + Math.sin(this.helicopter.heading) * 2.5;
+    this.player.setPosition(exitX, this.helicopter.y, exitZ);
+    this.player.group.visible = true;
+    this.hud.showNotification('Aus dem Helikopter ausgestiegen.');
   }
 
   private enterCar(): void {
