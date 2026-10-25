@@ -5,6 +5,8 @@ export class SoundManager {
   public masterGain: GainNode | null = null;
   public sfxGain: GainNode | null = null;
   private isMuted: boolean = false;
+  public isSuspended: boolean = false;
+  private lastCrashTime: number = 0;
 
   // Engine Audio Nodes
   private engineOsc: OscillatorNode | null = null;
@@ -96,6 +98,20 @@ export class SoundManager {
     rotorFilter.connect(this.rotorGain);
     this.rotorGain.connect(this.sfxGain);
     this.rotorOsc.start();
+  }
+
+  public suspend(): void {
+    this.isSuspended = true;
+    if (this.ctx && this.ctx.state === 'running') {
+      this.ctx.suspend().catch(() => {});
+    }
+  }
+
+  public resume(): void {
+    this.isSuspended = false;
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {});
+    }
   }
 
   public setMasterVolume(v: number): void {
@@ -373,23 +389,28 @@ export class SoundManager {
   }
 
   public playCrash(_intensity: number = 10): void {
-    if (!this.ctx || this.isMuted) return;
+    if (!this.ctx || this.isMuted || this.isSuspended) return;
+
+    const now = this.ctx.currentTime;
+    // Debounce crash sound to prevent audio thread lock and frame drops
+    if (now - this.lastCrashTime < 0.18) return;
+    this.lastCrashTime = now;
 
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
 
-    const vol = Math.min(0.35, 0.12 + (_intensity / 100) * 0.2);
+    const vol = Math.min(0.35, (0.12 + (_intensity / 100) * 0.2) * this.sfxVolume);
     osc.type = 'square';
-    osc.frequency.setValueAtTime(100, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.25);
+    osc.frequency.setValueAtTime(100, now);
+    osc.frequency.exponentialRampToValueAtTime(30, now + 0.25);
 
-    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.25);
+    gain.gain.setValueAtTime(vol, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
 
     osc.connect(gain);
-    gain.connect(this.ctx.destination);
+    gain.connect(this.sfxGain || this.ctx.destination);
 
     osc.start();
-    osc.stop(this.ctx.currentTime + 0.25);
+    osc.stop(now + 0.25);
   }
 }

@@ -35,6 +35,8 @@ export class Input {
   public gamepadRadio: boolean = false;
   public gamepadPause: boolean = false;
   public gamepadReset: boolean = false;
+  private lastRumbleTime: number = 0;
+  private lastHapticTime: number = 0;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -174,6 +176,10 @@ export class Input {
 
   public triggerRumble(intensity: number = 0.5, durationMs: number = 180): void {
     if (typeof navigator === 'undefined' || !navigator.getGamepads) return;
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (now - this.lastRumbleTime < 120) return;
+    this.lastRumbleTime = now;
+
     try {
       const gamepads = navigator.getGamepads();
       for (const gp of gamepads) {
@@ -203,6 +209,10 @@ export class Input {
 
   public triggerHaptics(durationMs: number = 40): void {
     if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      if (now - this.lastHapticTime < 100) return;
+      this.lastHapticTime = now;
+
       try {
         navigator.vibrate(durationMs);
       } catch (_e) {

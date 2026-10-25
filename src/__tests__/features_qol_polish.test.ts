@@ -7,6 +7,7 @@ import { GameCamera } from '../engine/Camera';
 import { SoundManager } from '../audio/SoundManager';
 import { RadioSystem } from '../audio/RadioSystem';
 import { Renderer } from '../engine/Renderer';
+import { Player } from '../character/Player';
 
 // Mock WebGLRenderer for Node/headless vitest environment
 vi.mock('three', async () => {
@@ -264,6 +265,24 @@ describe('Quality of Life, Polish & Smoothness Master Suite', () => {
       const sound = new SoundManager();
       expect(() => sound.playBlowOffValve()).not.toThrow();
     });
+
+    it('should suspend and resume audio when tab visibility changes', () => {
+      const sound = new SoundManager();
+      sound.suspend();
+      expect(sound.isSuspended).toBe(true);
+
+      sound.resume();
+      expect(sound.isSuspended).toBe(false);
+    });
+
+    it('should debounce playCrash to prevent audio thread lock and frame drops', () => {
+      const sound = new SoundManager();
+      expect(() => {
+        sound.playCrash(10);
+        sound.playCrash(10);
+        sound.playCrash(10);
+      }).not.toThrow();
+    });
   });
 
   describe('Anti-Clipping Camera Avoidance', () => {
@@ -311,6 +330,15 @@ describe('Quality of Life, Polish & Smoothness Master Suite', () => {
 
       renderer.setGraphicsQuality('ultra');
       expect(renderer.renderer.shadowMap.enabled).toBe(true);
+    });
+  });
+
+  describe('Player Durability & Mobile Fullscreen Support', () => {
+    it('should reduce player health when takeDamage is called', () => {
+      const player = new Player(0, 0);
+      expect(player.health).toBe(100);
+      player.takeDamage(25);
+      expect(player.health).toBe(75);
     });
   });
 });

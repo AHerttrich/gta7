@@ -76,6 +76,7 @@ export class Game {
   private isRunning: boolean = false;
   private weaponCooldown: number = 0;
   private prevCarBoosting: boolean = false;
+  private crashCooldown: number = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new Renderer(canvas);
@@ -261,6 +262,28 @@ export class Game {
         this.hud.showNotification(`🌦️ Wetter: ${name}`);
       }
     });
+
+    // Background tab / Window visibility handling (stops sound and throttles loop when tab is inactive)
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          this.sound.suspend();
+        } else {
+          this.sound.resume();
+          this.lastTime = performance.now();
+        }
+      });
+    }
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('blur', () => {
+        this.sound.suspend();
+      });
+      window.addEventListener('focus', () => {
+        this.sound.resume();
+        this.lastTime = performance.now();
+      });
+    }
   }
 
   private setupMultiplayerNetworking(): void {
@@ -293,6 +316,13 @@ export class Game {
   private loop(time: number): void {
     if (!this.isRunning) return;
 
+    // Halt game execution and loop while tab is hidden in background
+    if (typeof document !== 'undefined' && document.hidden) {
+      this.lastTime = time;
+      requestAnimationFrame((t) => this.loop(t));
+      return;
+    }
+
     if (!this.lastTime) {
       this.lastTime = time;
     }
@@ -324,6 +354,9 @@ export class Game {
   private update(dt: number): void {
     if (this.weaponCooldown > 0) {
       this.weaponCooldown -= dt;
+    }
+    if (this.crashCooldown > 0) {
+      this.crashCooldown -= dt;
     }
 
     // 1. Process Actions & Subsystem Toggles
@@ -482,17 +515,19 @@ export class Game {
         );
         if (col.collided) {
           const speed = Math.abs(this.car.physics.speed);
-          if (speed > 4.0) {
-            const dmg = Math.round(speed * 1.5);
+          if (speed > 4.0 && this.crashCooldown <= 0) {
+            // More forgiving crash damage so cars can take many hits
+            const dmg = Math.max(2, Math.round(speed * 0.45));
             this.car.takeDamage(dmg);
-            this.sound.playCrash();
+            this.sound.playCrash(Math.min(30, Math.round(speed)));
             this.police.addCrimeSeverity(dmg);
-            this.input.triggerRumble(0.7, 200);
-            this.input.triggerHaptics(60);
+            this.input.triggerRumble(0.6, 180);
+            this.input.triggerHaptics(50);
+            this.crashCooldown = 0.3;
           }
-          this.car.physics.speed = -this.car.physics.speed * 0.4;
-          this.car.physics.x = col.safeX + col.normalX * 0.4;
-          this.car.physics.z = col.safeZ + col.normalZ * 0.4;
+          this.car.physics.speed = -this.car.physics.speed * 0.3;
+          this.car.physics.x = col.safeX + col.normalX * 0.3;
+          this.car.physics.z = col.safeZ + col.normalZ * 0.3;
         }
       }
 
@@ -501,20 +536,51 @@ export class Game {
         const d = Math.hypot(this.car.physics.x - tCar.x, this.car.physics.z - tCar.z);
         if (d < 3.2) {
           const impactSpeed = Math.abs(this.car.physics.speed) + tCar.speed;
-          if (impactSpeed > 4.0) {
-            this.sound.playCrash();
-            const dmg = Math.round(impactSpeed * 1.2);
+          if (impactSpeed > 4.0 && this.crashCooldown <= 0) {
+            this.sound.playCrash(Math.min(30, Math.round(impactSpeed)));
+            const dmg = Math.max(2, Math.round(impactSpeed * 0.35));
             this.car.takeDamage(dmg);
             this.traffic.damageCar(tCar, dmg * 2);
-            this.police.addCrimeSeverity(20);
+            this.police.addCrimeSeverity(15);
             this.hud.showNotification('💥 Unfall verursacht! Fahndung steigt!');
-            this.input.triggerRumble(0.55, 160);
-            this.input.triggerHaptics(45);
+            this.input.triggerRumble(0.55, 150);
+            this.input.triggerHaptics(40);
+            this.crashCooldown = 0.3;
           }
           const angle = Math.atan2(this.car.physics.x - tCar.x, this.car.physics.z - tCar.z);
-          this.car.physics.x += Math.sin(angle) * 1.0;
-          this.car.physics.z += Math.cos(angle) * 1.0;
-          this.car.physics.speed *= 0.4;
+          this.car.physics.x += Math.sin(angle) * 0.8;
+          this.car.physics.z += Math.cos(angle) * 0.8;
+          this.car.physics.speed *= 0.6;
+        }
+      }
+
+      // Police Cruisers Ramming Player Car
+      for (const cop of this.police.copCars) {
+        const d = Math.hypot(this.car.physics.x - cop.x, this.car.physics.z - cop.z);
+        if (d < 3.4) {
+          const impactSpeed = Math.abs(this.car.physics.speed) + Math.abs(cop.speed);
+          const pushAngle = Math.atan2(this.car.physics.x - cop.x, this.car.physics.z - cop.z);
+          const pushForce = Math.max(4.0, cop.speed * 0.7);
+
+          // Physical impulse on player car
+          this.car.physics.x += Math.sin(pushAngle) * pushForce * dt;
+          this.car.physics.z += Math.cos(pushAngle) * pushForce * dt;
+          this.car.physics.speed *= 0.85;
+
+          // Cop recoil
+          cop.x -= Math.sin(pushAngle) * 0.6;
+          cop.z -= Math.cos(pushAngle) * 0.6;
+          cop.speed *= 0.5;
+
+          if (impactSpeed > 3.0 && this.crashCooldown <= 0) {
+            this.sound.playCrash(22);
+            const dmg = Math.max(2, Math.round(cop.speed * 0.35));
+            this.car.takeDamage(dmg);
+            this.hud.showNotification('🚨 Die Polizei rammt dich! Bleib stehen!');
+            this.input.triggerRumble(0.65, 200);
+            this.input.triggerHaptics(50);
+            this.crashCooldown = 0.3;
+          }
         }
       }
 
@@ -774,7 +840,21 @@ export class Game {
       this.camera.updateOnFoot(this.player.group.position, this.player.rotationY, dt, this.city);
       this.sound.updateEnginePitch(0, false);
       this.sound.updateRotorPitch(this.helicopter.rpm, false);
-      this.hud.updateVehicleStats(0, 'FUSS', 100, 0, false);
+      this.hud.updateVehicleStats(0, 'FUSS', this.player.health, 0, false);
+
+      // Police Cruisers Ramming / Running Down Player on Foot
+      for (const cop of this.police.copCars) {
+        const d = Math.hypot(this.player.x - cop.x, this.player.z - cop.z);
+        if (d < 2.5 && Math.abs(cop.speed) > 3.0 && this.crashCooldown <= 0) {
+          this.sound.playPedestrianHit();
+          this.player.takeDamage(20);
+          this.police.addCrimeSeverity(30);
+          this.hud.showNotification('🚨 Von Polizeiwagen angefahren!');
+          this.input.triggerRumble(0.7, 200);
+          this.input.triggerHaptics(60);
+          this.crashCooldown = 0.5;
+        }
+      }
 
       const distToHeli = Math.hypot(
         this.player.x - this.helicopter.x,

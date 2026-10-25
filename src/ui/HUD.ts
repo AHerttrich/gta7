@@ -535,6 +535,7 @@ export class HUD {
         <button class="hud-quick-btn" id="m-btn-cam">🎥 CAM</button>
         <button class="hud-quick-btn" id="m-btn-vr" style="border-color:#10b981;color:#10b981;">🥽 VR</button>
         <button class="hud-quick-btn" id="m-btn-settings" style="border-color:#38bdf8;color:#38bdf8;">⚙️ OPTION</button>
+        <button class="hud-quick-btn" id="m-btn-fullscreen" style="border-color:#eab308;color:#eab308;">⛶ VOLL</button>
         <button class="hud-quick-btn" id="m-btn-reset">🔄 RESET</button>
       </div>
 
@@ -714,6 +715,11 @@ export class HUD {
             <button class="hud-shop-btn" id="btn-gfx-med" style="flex:1;font-size:11px;padding:6px 0;">Mittel</button>
             <button class="hud-shop-btn" id="btn-gfx-ultra" style="flex:1;font-size:11px;padding:6px 0;background:#00f0ff;color:#000;">Ultra (HD)</button>
           </div>
+        </div>
+
+        <div class="hud-shop-section" style="background:#1e293b;padding:12px;border-radius:8px;margin-bottom:10px;">
+          <h4 style="color:#eab308;margin-bottom:8px;font-size:14px;">🖥️ Bildmodus</h4>
+          <button class="hud-shop-btn" id="btn-toggle-fullscreen" style="width:100%;font-size:12px;padding:8px 0;background:#eab308;color:#000;font-weight:700;">⛶ Vollbild aktivieren</button>
         </div>
 
         <div class="hud-shop-section" style="background:#1e293b;padding:12px;border-radius:8px;font-size:11px;color:#94a3b8;line-height:1.5;">
@@ -1062,6 +1068,26 @@ export class HUD {
     btnLow?.addEventListener('click', () => setGfxActive(btnLow, 'low'));
     btnMed?.addEventListener('click', () => setGfxActive(btnMed, 'med'));
     btnUltra?.addEventListener('click', () => setGfxActive(btnUltra, 'ultra'));
+
+    const toggleFs = (): void => {
+      this.toggleFullscreen();
+    };
+    document.getElementById('m-btn-fullscreen')?.addEventListener('click', toggleFs);
+    document.getElementById('btn-toggle-fullscreen')?.addEventListener('click', toggleFs);
+
+    const updateFsButtons = (): void => {
+      if (typeof document === 'undefined') return;
+      const isFs = !!document.fullscreenElement;
+      const mBtn = document.getElementById('m-btn-fullscreen');
+      const setBtn = document.getElementById('btn-toggle-fullscreen');
+      if (mBtn) mBtn.textContent = isFs ? '🗗 FENSTER' : '⛶ VOLL';
+      if (setBtn) setBtn.textContent = isFs ? '🗗 Vollbild beenden' : '⛶ Vollbild aktivieren';
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('fullscreenchange', updateFsButtons);
+      document.addEventListener('webkitfullscreenchange', updateFsButtons);
+    }
   }
 
   private setupNetworkCallbacks(): void {
@@ -1204,6 +1230,29 @@ export class HUD {
     this.isSettingsOpen = force !== undefined ? force : !this.isSettingsOpen;
     this.settingsModalElement.style.display = this.isSettingsOpen ? 'block' : 'none';
     return this.isSettingsOpen;
+  }
+
+  public toggleFullscreen(): void {
+    if (typeof document === 'undefined') return;
+    try {
+      if (!document.fullscreenElement) {
+        const el = document.documentElement as unknown as {
+          requestFullscreen?: () => Promise<void>;
+          webkitRequestFullscreen?: () => Promise<void>;
+        };
+        if (typeof el.requestFullscreen === 'function') {
+          el.requestFullscreen().catch(() => {});
+        } else if (typeof el.webkitRequestFullscreen === 'function') {
+          el.webkitRequestFullscreen().catch(() => {});
+        }
+      } else {
+        if (typeof document.exitFullscreen === 'function') {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+    } catch (_e) {
+      void _e;
+    }
   }
 
   private bindCasinoHandlers(): void {

@@ -169,20 +169,73 @@ export class City {
       return { ...col, safeX: x2, safeZ: z2 };
     }
 
-    const steps = Math.max(1, Math.ceil(dist / 0.8));
+    // Spatial broadphase: filter only buildings overlapping the swept AABB
+    const sweepMinX = Math.min(x1, x2) - radius;
+    const sweepMaxX = Math.max(x1, x2) + radius;
+    const sweepMinZ = Math.min(z1, z2) - radius;
+    const sweepMaxZ = Math.max(z1, z2) + radius;
+
+    const candidates = this.buildingBounds.filter(
+      (b) =>
+        b.maxX >= sweepMinX && b.minX <= sweepMaxX && b.maxZ >= sweepMinZ && b.minZ <= sweepMaxZ,
+    );
+
+    const steps = Math.max(1, Math.min(10, Math.ceil(dist / 1.0)));
     for (let i = 1; i <= steps; i++) {
       const t = i / steps;
       const curX = x1 + (x2 - x1) * t;
       const curZ = z1 + (z2 - z1) * t;
-      const col = this.checkCollision(curX, curZ, radius);
-      if (col.collided) {
-        const safeT = Math.max(0, (i - 1) / steps);
+
+      for (const b of candidates) {
+        if (
+          curX + radius > b.minX &&
+          curX - radius < b.maxX &&
+          curZ + radius > b.minZ &&
+          curZ - radius < b.maxZ
+        ) {
+          const overlapLeft = curX + radius - b.minX;
+          const overlapRight = b.maxX - (curX - radius);
+          const overlapTop = curZ + radius - b.minZ;
+          const overlapBottom = b.maxZ - (curZ - radius);
+
+          const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+          let normalX = 0;
+          let normalZ = 0;
+          if (minOverlap === overlapLeft) normalX = -1;
+          else if (minOverlap === overlapRight) normalX = 1;
+          else if (minOverlap === overlapTop) normalZ = -1;
+          else normalZ = 1;
+
+          const safeT = Math.max(0, (i - 1) / steps);
+          return {
+            collided: true,
+            normalX,
+            normalZ,
+            safeX: x1 + (x2 - x1) * safeT,
+            safeZ: z1 + (z2 - z1) * safeT,
+          };
+        }
+      }
+
+      // Check map boundaries
+      const maxBoundary =
+        (CITY_CONFIG.GRID_SIZE * (CITY_CONFIG.BLOCK_SIZE + CITY_CONFIG.ROAD_WIDTH)) / 2;
+      if (Math.abs(curX) > maxBoundary) {
         return {
           collided: true,
-          normalX: col.normalX,
-          normalZ: col.normalZ,
-          safeX: x1 + (x2 - x1) * safeT,
-          safeZ: z1 + (z2 - z1) * safeT,
+          normalX: curX > 0 ? -1 : 1,
+          normalZ: 0,
+          safeX: x1,
+          safeZ: z1,
+        };
+      }
+      if (Math.abs(curZ) > maxBoundary) {
+        return {
+          collided: true,
+          normalX: 0,
+          normalZ: curZ > 0 ? -1 : 1,
+          safeX: x1,
+          safeZ: z1,
         };
       }
     }

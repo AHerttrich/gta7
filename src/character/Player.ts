@@ -11,6 +11,10 @@ export class Player {
   public rotationY: number = 0;
   public health: number = PLAYER_CONFIG.MAX_HEALTH;
 
+  public takeDamage(amount: number): void {
+    this.health = Math.max(0, this.health - amount);
+  }
+
   // Cyber Jetpack (Phase 13)
   public hasJetpack: boolean = false;
   public isJetpacking: boolean = false;
