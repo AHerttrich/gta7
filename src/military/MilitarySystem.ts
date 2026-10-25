@@ -41,28 +41,7 @@ export class MilitarySystem {
   private buildArea77Base(): void {
     const { x, z, width, depth } = this.baseConfig;
 
-    // 1. Perimeter Wire Fence & Concrete Barriers
-    const fenceMat = new THREE.MeshStandardMaterial({
-      color: 0x334155,
-      metalness: 0.9,
-      roughness: 0.4,
-    });
-    const fenceGeo = new THREE.BoxGeometry(width, 3.5, 0.4);
-
-    // North & South Fences
-    const fenceN = new THREE.Mesh(fenceGeo, fenceMat);
-    fenceN.position.set(x, 1.75, z + depth / 2);
-    const fenceS = new THREE.Mesh(fenceGeo, fenceMat);
-    fenceS.position.set(x, 1.75, z - depth / 2);
-
-    // East & West Fences
-    const fenceSideGeo = new THREE.BoxGeometry(0.4, 3.5, depth);
-    const fenceE = new THREE.Mesh(fenceSideGeo, fenceMat);
-    fenceE.position.set(x + width / 2, 1.75, z);
-    const fenceW = new THREE.Mesh(fenceSideGeo, fenceMat);
-    fenceW.position.set(x - width / 2, 1.75, z);
-
-    this.group.add(fenceN, fenceS, fenceE, fenceW);
+    // 1. Perimeter fence walls removed completely - no more solid black barrier walls blocking city roads!
 
     // 2. Watchtowers with Rotating Searchlights at Corners
     const corners = [
