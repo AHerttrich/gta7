@@ -29,16 +29,15 @@ flowchart LR
 
 ---
 
-## 🚀 Phase 2: Lebendige Stadt & Gangster-Feeling (Aktuelle Phase)
+## 🚀 Phase 2: Lebendige Stadt, Ragdoll-Physik & Mobile Support (✅ Erledigt & Live)
 
 | Meilenstein | Beschreibung | Status |
 |---|---|---|
 | **M2.1 Kalifornische Beleuchtung** | Frisches, klares Tageslicht mit blauem Himmel, warmen Sonnenstrahlen und scharfen Schatten für optimale Sicht | ✅ Erledigt |
 | **M2.2 Ziviler Stadtverkehr (Traffic)** | Bunte NPC-Autos (Taxis, Limousinen, SUVs, Pickups), die auf den Straßen fahren, anhalten und gecrasht werden können | ✅ Erledigt |
-| **M2.3 Passanten auf Gehwegen** | Zivilisten mit Geh-Animationen, die panisch ausweichen, wenn man hupt oder auf sie zurast | ✅ Erledigt |
-| **M2.4 Echtes Car-Jacking** | Der Spieler kann an JEDES vorbeifahrende Auto/Taxi herantreten, den Fahrer rauswerfen und den Wagen klauen | ✅ Erledigt |
-| **M2.5 Straßensperren & SWAT** | Bei 4 bis 5 Fahndungssternen errichten Polizisten Straßensperren quer über Kreuzungen | 📋 Next |
-| **M2.6 Pay 'n' Spray Werkstatt** | Eine Lackierwerkstatt in der Stadt: Reinfahren, umlackieren und die Polizeisterne sofort loswerden | 📋 Next |
+| **M2.3 Passanten & Ballistische Ragdoll-Physik** | Passanten laufen auf Gehwegen; fährt man sie an, werden sie mit 3D-Ballistik katapultiert, rotieren in der Luft, federn am Boden ab und stehen wieder auf | ✅ Erledigt |
+| **M2.4 Echtes Car-Jacking** | Der Spieler kann an JEDES vorbeifahrende Auto/Taxi herantreten, den Fahrer rauswerfen und den Wagen klauen (`E` / Mobile Icon) | ✅ Erledigt |
+| **M2.5 Mobile Touch Steuerung** | Virtuelle Touch-Buttons für Smartphone & Tablet (Lenkungs-D-Pad, Gas, Bremse, Nitro, Schießen, Einsteigen, Hupe & Schnellzugriffsleiste) | ✅ Erledigt |
 
 ---
 

@@ -4,11 +4,26 @@ export class Input {
   public isMouseDown: boolean = false;
   public wasMouseJustPressed: boolean = false;
 
+  // Mobile Touch Controls State
+  public touchState: { [key: string]: boolean } = {
+    forward: false,
+    backward: false,
+    left: false,
+    right: false,
+    nitro: false,
+    handbrake: false,
+    fire: false,
+    actionInteract: false,
+    horn: false,
+  };
+
   constructor() {
-    window.addEventListener('keydown', (e) => this.onKeyDown(e));
-    window.addEventListener('keyup', (e) => this.onKeyUp(e));
-    window.addEventListener('mousedown', (e) => this.onMouseDown(e));
-    window.addEventListener('mouseup', () => this.onMouseUp());
+    if (typeof window !== 'undefined') {
+      window.addEventListener('keydown', (e) => this.onKeyDown(e));
+      window.addEventListener('keyup', (e) => this.onKeyUp(e));
+      window.addEventListener('mousedown', (e) => this.onMouseDown(e));
+      window.addEventListener('mouseup', () => this.onMouseUp());
+    }
   }
 
   private onMouseDown(e: MouseEvent): void {
@@ -56,45 +71,52 @@ export class Input {
   }
 
   public get forward(): boolean {
-    return this.isDown('w') || this.isDown('arrowup');
+    return this.isDown('w') || this.isDown('arrowup') || this.touchState.forward;
   }
 
   public get backward(): boolean {
-    return this.isDown('s') || this.isDown('arrowdown');
+    return this.isDown('s') || this.isDown('arrowdown') || this.touchState.backward;
   }
 
   public get left(): boolean {
-    return this.isDown('a') || this.isDown('arrowleft');
+    return this.isDown('a') || this.isDown('arrowleft') || this.touchState.left;
   }
 
   public get right(): boolean {
-    return this.isDown('d') || this.isDown('arrowright');
+    return this.isDown('d') || this.isDown('arrowright') || this.touchState.right;
   }
 
   public get handbrake(): boolean {
-    return this.isDown(' ');
+    return this.isDown(' ') || this.touchState.handbrake;
   }
 
   public get sprint(): boolean {
-    return this.isDown('shift');
+    return this.isDown('shift') || this.touchState.forward;
   }
 
   public get nitro(): boolean {
-    return this.isDown('n') || this.isDown('shift');
+    return this.isDown('n') || this.isDown('shift') || this.touchState.nitro;
   }
 
   public get actionInteract(): boolean {
-    return this.wasJustPressed('e');
+    const act = this.wasJustPressed('e') || this.touchState.actionInteract;
+    this.touchState.actionInteract = false;
+    return act;
   }
 
   public get fire(): boolean {
-    const fired = this.wasMouseJustPressed || this.wasJustPressed('f') || this.wasJustPressed('x');
+    const fired =
+      this.wasMouseJustPressed ||
+      this.wasJustPressed('f') ||
+      this.wasJustPressed('x') ||
+      this.touchState.fire;
     this.wasMouseJustPressed = false;
+    this.touchState.fire = false;
     return fired;
   }
 
   public get horn(): boolean {
-    return this.isDown('h');
+    return this.isDown('h') || this.touchState.horn;
   }
 
   public get toggleShop(): boolean {

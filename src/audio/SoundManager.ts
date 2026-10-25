@@ -17,9 +17,11 @@ export class SoundManager {
         this.initAudioContext();
         window.removeEventListener('click', unlock);
         window.removeEventListener('keydown', unlock);
+        window.removeEventListener('touchstart', unlock);
       };
       window.addEventListener('click', unlock);
       window.addEventListener('keydown', unlock);
+      window.addEventListener('touchstart', unlock);
     }
   }
 
@@ -162,6 +164,27 @@ export class SoundManager {
     osc.stop(this.ctx.currentTime + 0.6);
   }
 
+  public playPedestrianHit(): void {
+    if (!this.ctx || this.isMuted) return;
+
+    // Slap / Thump sound + comical slide down
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(450, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(90, this.ctx.currentTime + 0.2);
+
+    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.22);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.22);
+  }
+
   public playSprayPaint(): void {
     if (!this.ctx || this.isMuted) return;
 
@@ -189,8 +212,8 @@ export class SoundManager {
     const gain = this.ctx.createGain();
 
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(880, this.ctx.currentTime); // A5
-    osc.frequency.exponentialRampToValueAtTime(1760, this.ctx.currentTime + 0.18); // A6
+    osc.frequency.setValueAtTime(880, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1760, this.ctx.currentTime + 0.18);
 
     gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.25);
@@ -205,7 +228,7 @@ export class SoundManager {
   public playFanfare(): void {
     if (!this.ctx || this.isMuted) return;
 
-    const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
+    const notes = [523.25, 659.25, 783.99, 1046.5];
     notes.forEach((freq, idx) => {
       const osc = this.ctx!.createOscillator();
       const gain = this.ctx!.createGain();

@@ -26,16 +26,22 @@ Unser detaillierter Zukunftsplan für die nächsten Phasen (Waffen, Schusswechse
 | Feature | Description | Status |
 |---|---|---|
 | **🏎️ Arcade Driving Physics** | Smooth acceleration, steering, drifting with handbrake, reverse, and suspension bounce | ✅ Included |
+| **📱 Mobile Touch Controls** | Full on-screen touch virtual controls for smartphones & tablets (Steering, Gas, Brake, Nitro, Jack, Shoot, Top Bar) | ✅ Included |
+| **🤸 Ballistic Ragdoll Pedestrians** | Pedestrians get launched into the air upon vehicle impact with 3D tumbling, flailing limbs, ground bouncing & recovery | ✅ Included |
+| **🌐 P2P WebRTC Multiplayer** | Real-time direct browser-to-browser multiplayer (Host/Join with 6-char code, synced cars, PvP ramming & shooting) | ✅ Included |
 | **☀️ California Sunlight** | Bright daylight with sharp sun shadows, blue sky and clear visibility across districts | ✅ Included |
 | **🚕 Living City Traffic** | NPC cars, yellow cabs, SUVs and coupes driving through streets, braking and reacting to crashes | ✅ Included |
-| **🚶 Pedestrians on Sidewalks** | Civilians walking on sidewalks, panicking and fleeing when honked at or threatened | ✅ Included |
-| **🚨 Real Car-Jacking** | Step up to ANY traffic car or taxi on foot, press `E`, eject the driver and steal it | ✅ Included |
+| **🚨 Real Car-Jacking** | Step up to ANY traffic car or taxi on foot, press `E` or tap mobile icon, eject the driver and steal it | ✅ Included |
+| **💥 Weapon Combat & Explosions** | Fists, baseball bat, pistol tracers, and RPG rocket launcher with devastating fireball shockwaves | ✅ Included |
+| **🛠️ Pay 'n' Spray Garage** | Drive into the green garage to repair 100% vehicle damage, repaint the chassis, and clear all wanted stars | ✅ Included |
+| **🏁 Checkpoint Races & Taxi Jobs** | Neon checkpoint street races against the clock and interactive taxi passenger missions | ✅ Included |
+| **🔥 Nitro Boost** | Twin-flame exhaust, cyan underglow neon, and top speed exceeding 245 km/h (`N` / `Shift` / Mobile fire button) | ✅ Included |
 | **🏙️ Procedural 3D City** | Multi-block metropolis with multi-lane roads, sidewalks, trees, street lights, and illuminated skyscrapers | ✅ Included |
 | **🎥 Dynamic Chase Camera** | Spring-arm camera with smooth follow, corner swing, and multi-angle views (`C` key) | ✅ Included |
-| **⭐ Wanted Level System** | 5-Star wanted system with HUD stars and cop response mechanics | ✅ Included |
+| **⭐ Wanted Level System** | 5-Star wanted system with HUD stars and aggressive cop chase AI | ✅ Included |
 | **🧭 Radar Minimap** | Real-time top-down 2D radar with car location, heading indicator, and city block layout | ✅ Included |
 | **⚡ Cyber HUD** | Speedometer ($km/h$), automatic gear indicator, controls helper, and mission banner | ✅ Included |
-| **🔊 Procedural Web Audio** | Dynamic engine pitch, tire screech, and horn honk synthesized via Web Audio API (no audio files needed) | ✅ Included |
+| **🔊 Procedural Web Audio** | Dynamic engine pitch, tire screech, crashes, pedestrian hits, and horn honk synthesized via Web Audio API | ✅ Included |
 | **🚀 Instant Browser Loading** | Zero gigabyte downloads — pure Three.js procedural graphics and fast Vite bundling | ✅ Included |
 
 ---

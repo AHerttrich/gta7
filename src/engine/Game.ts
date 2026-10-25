@@ -90,7 +90,7 @@ export class Game {
     // Multiplayer initialization
     this.network = new NetworkManager();
     this.remotePlayer = new RemotePlayer(this.renderer.scene);
-    this.hud = new HUD('hud-overlay', this.economy, this.network);
+    this.hud = new HUD('hud-overlay', this.economy, this.network, this.input);
 
     this.setupMultiplayerNetworking();
 
@@ -331,14 +331,16 @@ export class Game {
       // Check Collision with Pedestrians
       for (const ped of this.pedestrians.pedestrians) {
         const d = Math.hypot(this.car.physics.x - ped.x, this.car.physics.z - ped.z);
-        if (d < 1.8 && Math.abs(this.car.physics.speed) > 6.0) {
+        if (d < 2.0 && Math.abs(this.car.physics.speed) > 4.0 && ped.state === 'WALKING') {
+          this.sound.playPedestrianHit();
+          this.pedestrians.launchPedestrian(
+            ped,
+            Math.abs(this.car.physics.speed),
+            this.car.physics.heading,
+          );
           this.police.addCrimeSeverity(35);
-          this.economy.addCash(40);
-          this.hud.showNotification('⚠️ Passant angefahren! +$40 Beute | ⭐ Fahndung erhöht!');
-          ped.x += Math.sin(this.car.physics.heading) * 4;
-          ped.z += Math.cos(this.car.physics.heading) * 4;
-          ped.isPanicking = true;
-          ped.panicTimer = 5.0;
+          this.economy.addCash(50);
+          this.hud.showNotification('💥 Passant weggeschleudert! +$50 Beute | ⭐ Fahndung erhöht!');
         }
       }
 

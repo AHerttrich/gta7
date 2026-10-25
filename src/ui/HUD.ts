@@ -2,6 +2,7 @@ import { eventBus } from '../utils/EventBus';
 import { EVENTS, WeaponData, CITY_CONFIG } from '../utils/Constants';
 import { EconomySystem } from '../economy/EconomySystem';
 import { NetworkManager } from '../network/NetworkManager';
+import { Input } from '../engine/Input';
 
 export class HUD {
   private overlay: HTMLElement;
@@ -26,10 +27,12 @@ export class HUD {
   private isMultiOpen: boolean = false;
   private economy: EconomySystem;
   private network: NetworkManager | null = null;
+  private input: Input | null = null;
 
-  constructor(overlayId: string, economy: EconomySystem, network?: NetworkManager) {
+  constructor(overlayId: string, economy: EconomySystem, network?: NetworkManager, input?: Input) {
     this.economy = economy;
     this.network = network || null;
+    this.input = input || null;
 
     const el = document.getElementById(overlayId);
     if (!el) {
@@ -39,6 +42,7 @@ export class HUD {
 
     this.createHudElements();
     this.bindEvents();
+    this.setupTouchControls();
   }
 
   public setNetwork(network: NetworkManager): void {
@@ -51,24 +55,25 @@ export class HUD {
       <style>
         .hud-top-right {
           position: absolute;
-          top: 24px;
-          right: 28px;
+          top: 16px;
+          right: 18px;
           display: flex;
           flex-direction: column;
           align-items: flex-end;
-          gap: 8px;
+          gap: 6px;
+          z-index: 40;
         }
         .hud-cash {
           font-family: 'Impact', 'Arial Black', sans-serif;
-          font-size: 38px;
+          font-size: 34px;
           color: #22c55e;
           text-shadow: 2px 2px 0px #000, 0 0 12px rgba(34, 197, 94, 0.6);
           letter-spacing: 2px;
         }
         .hud-stars {
           display: flex;
-          gap: 6px;
-          font-size: 26px;
+          gap: 5px;
+          font-size: 22px;
         }
         .hud-star {
           color: #334155;
@@ -88,13 +93,13 @@ export class HUD {
           background: rgba(15, 23, 42, 0.85);
           border: 1px solid #38bdf8;
           border-radius: 8px;
-          padding: 6px 12px;
-          font-size: 13px;
+          padding: 5px 10px;
+          font-size: 12px;
           font-weight: 700;
           color: #38bdf8;
           display: flex;
           align-items: center;
-          gap: 6px;
+          gap: 5px;
           box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         }
         .hud-multi-badge {
@@ -103,7 +108,7 @@ export class HUD {
           color: #10b981;
           padding: 4px 10px;
           border-radius: 12px;
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 800;
           display: none;
         }
@@ -137,42 +142,49 @@ export class HUD {
 
         .hud-bottom-right {
           position: absolute;
-          bottom: 24px;
-          right: 28px;
+          bottom: 120px;
+          right: 18px;
           background: rgba(11, 15, 25, 0.85);
           backdrop-filter: blur(8px);
           border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 12px;
-          padding: 16px 20px;
+          padding: 12px 16px;
           display: flex;
           flex-direction: column;
           align-items: center;
-          min-width: 180px;
+          min-width: 160px;
           box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+          z-index: 30;
+        }
+        @media (min-width: 900px) {
+          .hud-bottom-right {
+            bottom: 24px;
+            right: 28px;
+          }
         }
         .hud-speed-val {
           font-family: 'Impact', sans-serif;
-          font-size: 48px;
+          font-size: 42px;
           color: #00d4ff;
           text-shadow: 0 0 14px rgba(0, 212, 255, 0.7);
           line-height: 1;
         }
         .hud-speed-unit {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 700;
           color: #94a3b8;
           margin-top: -2px;
         }
         .hud-gear {
-          margin-top: 6px;
-          font-size: 14px;
+          margin-top: 4px;
+          font-size: 13px;
           font-weight: 800;
           color: #f59e0b;
         }
 
         .hud-nitro-container {
           width: 100%;
-          margin-top: 10px;
+          margin-top: 8px;
         }
         .hud-nitro-bar {
           width: 100%;
@@ -189,20 +201,20 @@ export class HUD {
           transition: width 0.1s ease;
         }
         .hud-nitro-label {
-          font-size: 10px;
+          font-size: 9px;
           font-weight: 800;
           color: #38bdf8;
-          margin-top: 3px;
+          margin-top: 2px;
           text-align: right;
           letter-spacing: 1px;
         }
 
         .hud-health-bar {
           width: 100%;
-          height: 8px;
+          height: 7px;
           background: #1e293b;
           border-radius: 4px;
-          margin-top: 8px;
+          margin-top: 6px;
           overflow: hidden;
         }
         .hud-health-fill {
@@ -212,23 +224,32 @@ export class HUD {
           transition: width 0.2s ease, background-color 0.2s ease;
         }
         .hud-health-label {
-          font-size: 11px;
+          font-size: 10px;
           color: #94a3b8;
-          margin-top: 4px;
+          margin-top: 3px;
           font-weight: 600;
         }
 
         .hud-bottom-left {
           position: absolute;
-          bottom: 24px;
-          left: 28px;
+          bottom: 120px;
+          left: 18px;
           border: 3px solid rgba(0, 212, 255, 0.6);
           border-radius: 50%;
-          width: 150px;
-          height: 150px;
+          width: 120px;
+          height: 120px;
           overflow: hidden;
           background: rgba(11, 15, 25, 0.9);
           box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+          z-index: 30;
+        }
+        @media (min-width: 900px) {
+          .hud-bottom-left {
+            bottom: 24px;
+            left: 28px;
+            width: 140px;
+            height: 140px;
+          }
         }
         #minimap-canvas {
           width: 100%;
@@ -237,37 +258,40 @@ export class HUD {
 
         .hud-top-center {
           position: absolute;
-          top: 24px;
+          top: 50px;
           left: 50%;
           transform: translateX(-50%);
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
           pointer-events: none;
+          z-index: 35;
         }
         .hud-notification {
           background: rgba(15, 23, 42, 0.9);
           border: 1px solid #38bdf8;
           color: #fff;
           font-weight: 700;
-          font-size: 15px;
-          padding: 8px 20px;
+          font-size: 14px;
+          padding: 6px 18px;
           border-radius: 30px;
           opacity: 0;
           transition: opacity 0.3s ease;
           box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+          text-align: center;
         }
         .hud-prompt {
           background: rgba(234, 179, 8, 0.95);
           color: #000;
           font-weight: 800;
-          font-size: 14px;
-          padding: 6px 16px;
+          font-size: 13px;
+          padding: 5px 14px;
           border-radius: 6px;
           display: none;
           box-shadow: 0 4px 14px rgba(234, 179, 8, 0.5);
           animation: bouncePrompt 0.6s infinite alternate;
+          text-align: center;
         }
         @keyframes bouncePrompt {
           from { transform: translateY(0); }
@@ -276,24 +300,113 @@ export class HUD {
 
         .hud-controls-helper {
           position: absolute;
-          top: 24px;
-          left: 28px;
+          top: 16px;
+          left: 18px;
           background: rgba(15, 23, 42, 0.75);
           backdrop-filter: blur(4px);
           border: 1px solid rgba(255, 255, 255, 0.1);
-          padding: 10px 14px;
+          padding: 8px 12px;
           border-radius: 8px;
-          font-size: 12px;
+          font-size: 11px;
           color: #cbd5e1;
-          line-height: 1.5;
+          line-height: 1.4;
+          z-index: 30;
+        }
+        @media (max-width: 900px) {
+          .hud-controls-helper {
+            display: none;
+          }
         }
         .hud-controls-helper kbd {
           background: #334155;
           color: #fff;
-          padding: 2px 6px;
+          padding: 1px 5px;
           border-radius: 4px;
           font-weight: 700;
           font-family: monospace;
+        }
+
+        /* Mobile Quick Bar at Top */
+        .hud-mobile-quickbar {
+          position: absolute;
+          top: 12px;
+          left: 50%;
+          transform: translateX(-50%);
+          display: flex;
+          gap: 6px;
+          pointer-events: auto;
+          z-index: 45;
+        }
+        .hud-quick-btn {
+          background: rgba(15, 23, 42, 0.85);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          color: #fff;
+          padding: 6px 10px;
+          border-radius: 16px;
+          font-size: 11px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        /* Mobile Touch Controls */
+        .hud-touch-controls {
+          position: absolute;
+          bottom: 12px;
+          left: 0;
+          width: 100%;
+          display: flex;
+          justify-content: space-between;
+          padding: 0 16px;
+          box-sizing: border-box;
+          pointer-events: none;
+          z-index: 50;
+        }
+        .hud-touch-cluster {
+          display: flex;
+          gap: 10px;
+          pointer-events: auto;
+        }
+        .hud-touch-btn {
+          background: rgba(15, 23, 42, 0.85);
+          border: 2px solid rgba(255, 255, 255, 0.3);
+          color: #fff;
+          border-radius: 50%;
+          width: 62px;
+          height: 62px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 22px;
+          font-weight: 800;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+          touch-action: none;
+          user-select: none;
+          -webkit-user-select: none;
+        }
+        .hud-touch-btn:active, .hud-touch-btn.active {
+          background: rgba(0, 212, 255, 0.6);
+          border-color: #00d4ff;
+          transform: scale(0.92);
+        }
+        .hud-touch-gas {
+          background: rgba(34, 197, 94, 0.5);
+          border-color: #22c55e;
+          width: 68px;
+          height: 68px;
+        }
+        .hud-touch-brake {
+          background: rgba(239, 68, 68, 0.5);
+          border-color: #ef4444;
+          width: 64px;
+          height: 64px;
+        }
+        .hud-touch-nitro {
+          background: rgba(6, 182, 212, 0.5);
+          border-color: #06b6d4;
+        }
+        .hud-touch-fire {
+          background: rgba(245, 158, 11, 0.5);
+          border-color: #f59e0b;
         }
 
         /* Modals */
@@ -305,8 +418,8 @@ export class HUD {
           background: #0f172a;
           border: 2px solid #00d4ff;
           border-radius: 16px;
-          padding: 28px;
-          width: 520px;
+          padding: 24px;
+          width: 500px;
           max-width: 90vw;
           display: none;
           pointer-events: auto;
@@ -314,23 +427,23 @@ export class HUD {
           z-index: 100;
         }
         .hud-shop-title {
-          font-size: 24px;
+          font-size: 22px;
           font-weight: 800;
           color: #00d4ff;
-          margin-bottom: 16px;
+          margin-bottom: 14px;
           display: flex;
           justify-content: space-between;
           align-items: center;
         }
         .hud-shop-section {
-          margin-bottom: 20px;
+          margin-bottom: 16px;
         }
         .hud-shop-item {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 10px 14px;
-          margin-top: 8px;
+          padding: 8px 12px;
+          margin-top: 6px;
           background: #1e293b;
           border-radius: 8px;
         }
@@ -349,7 +462,6 @@ export class HUD {
           cursor: not-allowed;
         }
 
-        /* Multiplayer Modal */
         .hud-multi-modal {
           position: absolute;
           top: 50%;
@@ -358,7 +470,7 @@ export class HUD {
           background: #0f172a;
           border: 2px solid #10b981;
           border-radius: 16px;
-          padding: 28px;
+          padding: 24px;
           width: 480px;
           max-width: 90vw;
           display: none;
@@ -383,14 +495,22 @@ export class HUD {
 
       <div class="hud-crosshair"></div>
 
+      <!-- Quick Buttons on Top -->
+      <div class="hud-mobile-quickbar">
+        <button class="hud-quick-btn" id="m-btn-multi">🌐 MULTI</button>
+        <button class="hud-quick-btn" id="m-btn-shop">🛒 SHOP</button>
+        <button class="hud-quick-btn" id="m-btn-job">🚖 TAXI</button>
+        <button class="hud-quick-btn" id="m-btn-cam">🎥 CAM</button>
+        <button class="hud-quick-btn" id="m-btn-reset">🔄 RESET</button>
+      </div>
+
       <div class="hud-controls-helper">
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>: Fahren / Laufen</div>
         <div><kbd>N</kbd> / <kbd>Shift</kbd>: NITRO BOOST 🔥</div>
         <div><kbd>Klick</kbd> / <kbd>F</kbd>: Schießen / Schlagen 💥</div>
         <div><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd>: Waffe wechseln</div>
-        <div><kbd>P</kbd>: MULTIPLAYER (Mit Kumpel zocken) 🌐</div>
-        <div><kbd>G</kbd>: Garage & Shop | <kbd>J</kbd>: Taxi-Job</div>
-        <div><kbd>H</kbd>: Hupe | <kbd>C</kbd>: Kamera | <kbd>R</kbd>: Reset</div>
+        <div><kbd>P</kbd>: MULTIPLAYER 🌐</div>
+        <div><kbd>E</kbd>: Auto klauen | <kbd>G</kbd>: Shop | <kbd>J</kbd>: Taxi</div>
       </div>
 
       <div class="hud-top-right">
@@ -412,7 +532,7 @@ export class HUD {
       </div>
 
       <div class="hud-bottom-left">
-        <canvas id="minimap-canvas" width="150" height="150"></canvas>
+        <canvas id="minimap-canvas" width="140" height="140"></canvas>
       </div>
 
       <div class="hud-bottom-right">
@@ -424,13 +544,30 @@ export class HUD {
           <div class="hud-nitro-bar">
             <div class="hud-nitro-fill" id="hud-nitro-fill"></div>
           </div>
-          <div class="hud-nitro-label">NITRO BOOST [N]</div>
+          <div class="hud-nitro-label">NITRO BOOST</div>
         </div>
 
         <div class="hud-health-bar">
           <div class="hud-health-fill" id="hud-health-fill"></div>
         </div>
         <div class="hud-health-label" id="hud-health-label">AUTO INTEGRITÄT 100%</div>
+      </div>
+
+      <!-- Touch Controls Cluster -->
+      <div class="hud-touch-controls" id="hud-touch-controls">
+        <div class="hud-touch-cluster" style="align-items:flex-end;">
+          <button class="hud-touch-btn" id="t-btn-left">◀</button>
+          <button class="hud-touch-btn" id="t-btn-right">▶</button>
+          <button class="hud-touch-btn" id="t-btn-horn" style="width:48px;height:48px;font-size:16px;">📢</button>
+        </div>
+
+        <div class="hud-touch-cluster" style="align-items:flex-end;flex-wrap:wrap;justify-content:flex-end;max-width:230px;">
+          <button class="hud-touch-btn hud-touch-nitro" id="t-btn-nitro">🔥</button>
+          <button class="hud-touch-btn hud-touch-fire" id="t-btn-fire">💥</button>
+          <button class="hud-touch-btn" id="t-btn-action" style="font-size:16px;">🚗</button>
+          <button class="hud-touch-btn hud-touch-brake" id="t-btn-brake">▼</button>
+          <button class="hud-touch-btn hud-touch-gas" id="t-btn-gas">▲</button>
+        </div>
       </div>
 
       <!-- Garage & Weapon Shop Modal -->
@@ -505,6 +642,62 @@ export class HUD {
     });
 
     this.setupMultiplayerControls();
+  }
+
+  private setupTouchControls(): void {
+    if (!this.input) return;
+
+    const bindTouch = (btnId: string, controlKey: string, isTrigger: boolean = false): void => {
+      const btn = document.getElementById(btnId);
+      if (!btn) return;
+
+      const activate = (e: Event): void => {
+        e.preventDefault();
+        btn.classList.add('active');
+        if (this.input) {
+          this.input.touchState[controlKey] = true;
+        }
+      };
+
+      const deactivate = (e: Event): void => {
+        e.preventDefault();
+        btn.classList.remove('active');
+        if (!isTrigger && this.input) {
+          this.input.touchState[controlKey] = false;
+        }
+      };
+
+      btn.addEventListener('touchstart', activate, { passive: false });
+      btn.addEventListener('touchend', deactivate, { passive: false });
+      btn.addEventListener('touchcancel', deactivate, { passive: false });
+      btn.addEventListener('mousedown', activate);
+      btn.addEventListener('mouseup', deactivate);
+      btn.addEventListener('mouseleave', deactivate);
+    };
+
+    bindTouch('t-btn-left', 'left');
+    bindTouch('t-btn-right', 'right');
+    bindTouch('t-btn-gas', 'forward');
+    bindTouch('t-btn-brake', 'backward');
+    bindTouch('t-btn-nitro', 'nitro');
+    bindTouch('t-btn-horn', 'horn');
+    bindTouch('t-btn-action', 'actionInteract', true);
+    bindTouch('t-btn-fire', 'fire', true);
+
+    // Mobile Top Quickbar Hooks
+    document
+      .getElementById('m-btn-multi')
+      ?.addEventListener('click', () => this.toggleMultiplayer());
+    document.getElementById('m-btn-shop')?.addEventListener('click', () => this.toggleShop());
+    document.getElementById('m-btn-job')?.addEventListener('click', () => {
+      if (this.input) this.input.justPressed['j'] = true;
+    });
+    document.getElementById('m-btn-cam')?.addEventListener('click', () => {
+      if (this.input) this.input.justPressed['c'] = true;
+    });
+    document.getElementById('m-btn-reset')?.addEventListener('click', () => {
+      if (this.input) this.input.justPressed['r'] = true;
+    });
   }
 
   private setupMultiplayerControls(): void {
