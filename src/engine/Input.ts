@@ -22,6 +22,20 @@ export class Input {
     radioCycle: false,
   };
 
+  // Gamepad State (HTML5 Gamepad API)
+  public gamepadIndex: number | null = null;
+  public gamepadSteerAxis: number = 0;
+  public gamepadThrottle: number = 0;
+  public gamepadBrake: number = 0;
+  public gamepadHandbrake: boolean = false;
+  public gamepadNitro: boolean = false;
+  public gamepadAction: boolean = false;
+  public gamepadFire: boolean = false;
+  public gamepadHover: boolean = false;
+  public gamepadRadio: boolean = false;
+  public gamepadPause: boolean = false;
+  public gamepadReset: boolean = false;
+
   constructor() {
     if (typeof window !== 'undefined') {
       window.addEventListener('keydown', (e) => this.onKeyDown(e));
@@ -75,24 +89,166 @@ export class Input {
     return pressed;
   }
 
+  public pollGamepad(): void {
+    if (typeof navigator === 'undefined' || !navigator.getGamepads) return;
+    const gamepads = navigator.getGamepads();
+    let gp: Gamepad | null = null;
+    for (let i = 0; i < gamepads.length; i++) {
+      if (gamepads[i] && gamepads[i]!.connected) {
+        gp = gamepads[i];
+        this.gamepadIndex = i;
+        break;
+      }
+    }
+
+    if (!gp) {
+      this.gamepadSteerAxis = 0;
+      this.gamepadThrottle = 0;
+      this.gamepadBrake = 0;
+      this.gamepadHandbrake = false;
+      this.gamepadNitro = false;
+      this.gamepadAction = false;
+      this.gamepadFire = false;
+      this.gamepadHover = false;
+      this.gamepadRadio = false;
+      this.gamepadPause = false;
+      this.gamepadReset = false;
+      return;
+    }
+
+    // Left Stick X (-1 left, +1 right) with 0.18 deadzone
+    const rawX = gp.axes[0] !== undefined ? gp.axes[0] : 0;
+    this.gamepadSteerAxis = Math.abs(rawX) > 0.18 ? rawX : 0;
+
+    // Right Trigger (RT / R2: button index 7)
+    const btnRT = gp.buttons[7];
+    this.gamepadThrottle = btnRT ? (typeof btnRT === 'object' ? btnRT.value : btnRT ? 1 : 0) : 0;
+
+    // Left Trigger (LT / L2: button index 6)
+    const btnLT = gp.buttons[6];
+    this.gamepadBrake = btnLT ? (typeof btnLT === 'object' ? btnLT.value : btnLT ? 1 : 0) : 0;
+
+    // Buttons
+    // 0: A / Cross
+    this.gamepadHandbrake = !!(gp.buttons[0] && gp.buttons[0].pressed);
+    // 1: B / Circle
+    this.gamepadNitro = !!(gp.buttons[1] && gp.buttons[1].pressed);
+    // 2: X / Square
+    this.gamepadFire = !!(gp.buttons[2] && gp.buttons[2].pressed);
+
+    // 3: Y / Triangle
+    const actPressed = !!(gp.buttons[3] && gp.buttons[3].pressed);
+    if (actPressed && !this.gamepadAction) {
+      this.justPressed['e'] = true;
+    }
+    this.gamepadAction = actPressed;
+
+    // 4: LB / L1
+    const radioPressed = !!(gp.buttons[4] && gp.buttons[4].pressed);
+    if (radioPressed && !this.gamepadRadio) {
+      this.justPressed['b'] = true;
+    }
+    this.gamepadRadio = radioPressed;
+
+    // 5: RB / R1
+    const hoverPressed = !!(gp.buttons[5] && gp.buttons[5].pressed);
+    if (hoverPressed && !this.gamepadHover) {
+      this.justPressed['v'] = true;
+    }
+    this.gamepadHover = hoverPressed;
+
+    // 9: Start / Options
+    const pausePressed = !!(gp.buttons[9] && gp.buttons[9].pressed);
+    if (pausePressed && !this.gamepadPause) {
+      this.justPressed['escape'] = true;
+    }
+    this.gamepadPause = pausePressed;
+
+    // 8: Back / Select
+    const resetPressed = !!(gp.buttons[8] && gp.buttons[8].pressed);
+    if (resetPressed && !this.gamepadReset) {
+      this.justPressed['r'] = true;
+    }
+    this.gamepadReset = resetPressed;
+  }
+
+  public triggerRumble(intensity: number = 0.5, durationMs: number = 180): void {
+    if (typeof navigator === 'undefined' || !navigator.getGamepads) return;
+    try {
+      const gamepads = navigator.getGamepads();
+      for (const gp of gamepads) {
+        if (!gp) continue;
+        const actuator = (
+          gp as unknown as {
+            vibrationActuator?: {
+              playEffect: (type: string, params: unknown) => Promise<unknown>;
+            };
+          }
+        ).vibrationActuator;
+        if (actuator && typeof actuator.playEffect === 'function') {
+          actuator
+            .playEffect('dual-rumble', {
+              startDelay: 0,
+              duration: durationMs,
+              weakMagnitude: Math.min(1.0, Math.round(intensity * 70) / 100),
+              strongMagnitude: Math.min(1.0, Math.round(intensity * 100) / 100),
+            })
+            .catch(() => {});
+        }
+      }
+    } catch (_e) {
+      void _e;
+    }
+  }
+
+  public triggerHaptics(durationMs: number = 40): void {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      try {
+        navigator.vibrate(durationMs);
+      } catch (_e) {
+        void _e;
+      }
+    }
+  }
+
   public get forward(): boolean {
-    return this.isDown('w') || this.isDown('arrowup') || this.touchState.forward;
+    return (
+      this.isDown('w') ||
+      this.isDown('arrowup') ||
+      this.touchState.forward ||
+      this.gamepadThrottle > 0.15
+    );
   }
 
   public get backward(): boolean {
-    return this.isDown('s') || this.isDown('arrowdown') || this.touchState.backward;
+    return (
+      this.isDown('s') ||
+      this.isDown('arrowdown') ||
+      this.touchState.backward ||
+      this.gamepadBrake > 0.15
+    );
   }
 
   public get left(): boolean {
-    return this.isDown('a') || this.isDown('arrowleft') || this.touchState.left;
+    return (
+      this.isDown('a') ||
+      this.isDown('arrowleft') ||
+      this.touchState.left ||
+      this.gamepadSteerAxis < -0.2
+    );
   }
 
   public get right(): boolean {
-    return this.isDown('d') || this.isDown('arrowright') || this.touchState.right;
+    return (
+      this.isDown('d') ||
+      this.isDown('arrowright') ||
+      this.touchState.right ||
+      this.gamepadSteerAxis > 0.2
+    );
   }
 
   public get handbrake(): boolean {
-    return this.isDown(' ') || this.touchState.handbrake;
+    return this.isDown(' ') || this.touchState.handbrake || this.gamepadHandbrake;
   }
 
   public get sprint(): boolean {
@@ -100,7 +256,7 @@ export class Input {
   }
 
   public get nitro(): boolean {
-    return this.isDown('n') || this.isDown('shift') || this.touchState.nitro;
+    return this.isDown('n') || this.isDown('shift') || this.touchState.nitro || this.gamepadNitro;
   }
 
   public get actionInteract(): boolean {
@@ -110,7 +266,11 @@ export class Input {
   }
 
   public get fire(): boolean {
-    const fired = this.wasMouseJustPressed || this.wasJustPressed('f') || this.touchState.fire;
+    const fired =
+      this.wasMouseJustPressed ||
+      this.wasJustPressed('f') ||
+      this.touchState.fire ||
+      this.gamepadFire;
     this.wasMouseJustPressed = false;
     this.touchState.fire = false;
     return fired;
@@ -124,11 +284,11 @@ export class Input {
   }
 
   public get ascend(): boolean {
-    return this.isDown(' ') || this.touchState.ascend;
+    return this.isDown(' ') || this.touchState.ascend || this.gamepadHandbrake;
   }
 
   public get jump(): boolean {
-    return this.isDown(' ') || this.touchState.ascend;
+    return this.isDown(' ') || this.touchState.ascend || this.gamepadHandbrake;
   }
 
   public get descend(): boolean {
@@ -147,6 +307,10 @@ export class Input {
 
   public get toggleShop(): boolean {
     return this.wasJustPressed('g');
+  }
+
+  public get toggleSettings(): boolean {
+    return this.wasJustPressed('escape');
   }
 
   public get toggleMultiplayer(): boolean {

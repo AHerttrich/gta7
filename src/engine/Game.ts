@@ -75,6 +75,7 @@ export class Game {
   private lastTime: number = 0;
   private isRunning: boolean = false;
   private weaponCooldown: number = 0;
+  private prevCarBoosting: boolean = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new Renderer(canvas);
@@ -136,6 +137,7 @@ export class Game {
     this.remotePlayer = new RemotePlayer(this.renderer.scene);
     this.hud = new HUD('hud-overlay', this.economy, this.network, this.input);
     this.hud.setCasino(this.casino);
+    this.hud.setAudioSystems(this.sound, this.radio, this.renderer);
 
     this.setupMultiplayerNetworking();
 
@@ -301,6 +303,7 @@ export class Game {
     const dt = Math.max(0.001, Math.min(rawDt, 0.1));
 
     try {
+      this.input.pollGamepad();
       this.update(dt);
       this.renderer.updateAtmosphere(
         dt,
@@ -324,6 +327,9 @@ export class Game {
     }
 
     // 1. Process Actions & Subsystem Toggles
+    if (this.input.toggleSettings) {
+      this.hud.toggleSettings();
+    }
     if (this.input.toggleShop) {
       this.hud.toggleShop();
     }
@@ -383,6 +389,8 @@ export class Game {
       }
 
       this.weapons.fire(currentWeapon, originX, originY, originZ, heading);
+      this.input.triggerRumble(0.4, 90);
+      this.input.triggerHaptics(35);
 
       // Broadcast shot to remote player
       if (this.network.isConnected) {
@@ -450,13 +458,28 @@ export class Game {
         }
       }
 
+      // Turbo Blow-Off Valve on boost release & Rumble
+      if (this.prevCarBoosting && !this.car.physics.isBoosting) {
+        this.sound.playBlowOffValve();
+      }
+      this.prevCarBoosting = this.car.physics.isBoosting;
+      if (this.car.physics.isBoosting) {
+        this.input.triggerRumble(0.2, 50);
+      }
+
       if (stuntResult.stuntCompleted) {
         this.missions.handleStuntJump(stuntResult.distance, stuntResult.airtime);
       }
 
-      // Car Collision with Buildings
+      // Car Collision with Buildings (Continuous Anti-Tunneling Swept Collision)
       if (!this.car.physics.isAirborne) {
-        const col = this.city.checkCollision(this.car.physics.x, this.car.physics.z, 2.0);
+        const col = this.city.checkSweptCollision(
+          this.car.physics.prevX,
+          this.car.physics.prevZ,
+          this.car.physics.x,
+          this.car.physics.z,
+          2.0,
+        );
         if (col.collided) {
           const speed = Math.abs(this.car.physics.speed);
           if (speed > 4.0) {
@@ -464,10 +487,12 @@ export class Game {
             this.car.takeDamage(dmg);
             this.sound.playCrash();
             this.police.addCrimeSeverity(dmg);
+            this.input.triggerRumble(0.7, 200);
+            this.input.triggerHaptics(60);
           }
           this.car.physics.speed = -this.car.physics.speed * 0.4;
-          this.car.physics.x += col.normalX * 0.8;
-          this.car.physics.z += col.normalZ * 0.8;
+          this.car.physics.x = col.safeX + col.normalX * 0.4;
+          this.car.physics.z = col.safeZ + col.normalZ * 0.4;
         }
       }
 
@@ -483,6 +508,8 @@ export class Game {
             this.traffic.damageCar(tCar, dmg * 2);
             this.police.addCrimeSeverity(20);
             this.hud.showNotification('💥 Unfall verursacht! Fahndung steigt!');
+            this.input.triggerRumble(0.55, 160);
+            this.input.triggerHaptics(45);
           }
           const angle = Math.atan2(this.car.physics.x - tCar.x, this.car.physics.z - tCar.z);
           this.car.physics.x += Math.sin(angle) * 1.0;
@@ -598,6 +625,7 @@ export class Game {
         this.car.physics.heading,
         this.car.physics.speed,
         dt,
+        this.city,
       );
 
       // Audio (with Nitro scream & DeLorean Sci-Fi Hover hum!)
@@ -619,10 +647,18 @@ export class Game {
         this.car.physics.isHoverMode,
       );
 
-      // Exit Car Prompt
-      this.hud.setPrompt('Drücke [E] zum Aussteigen');
-      if (this.input.actionInteract && Math.abs(this.car.physics.speed) < 5) {
-        this.exitCar();
+      // Exit Car Prompt & Upside-Down Recovery
+      if (this.car.physics.isFlipped) {
+        this.hud.setPrompt('⚠️ Auto liegt auf dem Dach! Drücke [R] zum Aufrichten');
+        if (this.input.resetVehicle || this.input.actionInteract) {
+          this.car.physics.rightUpright();
+          this.hud.showNotification('🔄 Auto wieder aufgerichtet!');
+        }
+      } else {
+        this.hud.setPrompt('Drücke [E] zum Aussteigen');
+        if (this.input.actionInteract && Math.abs(this.car.physics.speed) < 5) {
+          this.exitCar();
+        }
       }
     } else if (this.mode === 'IN_HELI') {
       // Helicopter Flight Mode
@@ -735,7 +771,7 @@ export class Game {
     } else {
       // On Foot Mode
       this.player.update(dt, this.input, this.city);
-      this.camera.updateOnFoot(this.player.group.position, this.player.rotationY, dt);
+      this.camera.updateOnFoot(this.player.group.position, this.player.rotationY, dt, this.city);
       this.sound.updateEnginePitch(0, false);
       this.sound.updateRotorPitch(this.helicopter.rpm, false);
       this.hud.updateVehicleStats(0, 'FUSS', 100, 0, false);

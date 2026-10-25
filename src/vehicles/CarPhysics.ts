@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { VEHICLE_CONFIG } from '../utils/Constants';
 
 export interface CarInput {
@@ -55,20 +56,37 @@ export class CarPhysics {
   public armorPlating: boolean = false;
   public hasSpikePuncture: boolean = false;
 
+  // Smoothness & Dynamics (Sprint A)
+  public prevX: number = 0;
+  public prevZ: number = 0;
+  public roll: number = 0;
+  public pitch: number = 0;
+  public isFlipped: boolean = false;
+  public flippedTimer: number = 0;
+  private physicsAccumulator: number = 0;
+
   constructor(startX: number = 0, startZ: number = 0, initialHeading: number = 0) {
     this.x = startX;
     this.z = startZ;
     this.heading = initialHeading;
+    this.prevX = startX;
+    this.prevZ = startZ;
   }
 
   public reset(startX: number = 0, startZ: number = 0, initialHeading: number = 0): void {
     this.x = startX;
     this.y = 0.5;
     this.z = startZ;
+    this.prevX = startX;
+    this.prevZ = startZ;
     this.vy = 0;
     this.heading = initialHeading;
     this.speed = 0;
     this.steerAngle = 0;
+    this.roll = 0;
+    this.pitch = 0;
+    this.isFlipped = false;
+    this.flippedTimer = 0;
     this.isDrifting = false;
     this.isBoosting = false;
     this.isAirborne = false;
@@ -78,6 +96,17 @@ export class CarPhysics {
     this.rpm = 0.2;
     this.gear = 1;
     this.airtime = 0;
+    this.physicsAccumulator = 0;
+  }
+
+  public rightUpright(): void {
+    this.roll = 0;
+    this.pitch = 0;
+    this.y = 0.6;
+    this.vy = 2.5;
+    this.isFlipped = false;
+    this.flippedTimer = 0;
+    this.speed = 0;
   }
 
   public launchJump(upwardVelocity: number = 10.0): void {
@@ -96,6 +125,48 @@ export class CarPhysics {
   ): { stuntCompleted: boolean; distance: number; airtime: number } {
     let stuntResult = { stuntCompleted: false, distance: 0, airtime: 0 };
     if (dt <= 0 || dt > 0.5) return stuntResult;
+
+    this.prevX = this.x;
+    this.prevZ = this.z;
+
+    const FIXED_DT = 1 / 60;
+    this.physicsAccumulator += dt;
+
+    let steps = 0;
+    let activeInput = input;
+    while (this.physicsAccumulator >= FIXED_DT && steps < 6) {
+      const stepRes = this.stepPhysics(FIXED_DT, activeInput);
+      if (stepRes.stuntCompleted) {
+        stuntResult = stepRes;
+      }
+      // One-shot edge-triggered input should only trigger once per frame
+      if (activeInput.hoverToggle) {
+        activeInput = { ...activeInput, hoverToggle: false };
+      }
+      this.physicsAccumulator -= FIXED_DT;
+      steps++;
+    }
+
+    if (steps === 0 && this.physicsAccumulator >= 0.008) {
+      const stepRes = this.stepPhysics(this.physicsAccumulator, activeInput);
+      if (stepRes.stuntCompleted) {
+        stuntResult = stepRes;
+      }
+      this.physicsAccumulator = 0;
+    }
+
+    if (this.physicsAccumulator > FIXED_DT) {
+      this.physicsAccumulator = 0;
+    }
+
+    return stuntResult;
+  }
+
+  private stepPhysics(
+    dt: number,
+    input: CarInput,
+  ): { stuntCompleted: boolean; distance: number; airtime: number } {
+    let stuntResult = { stuntCompleted: false, distance: 0, airtime: 0 };
 
     // 1. Steering calculation
     let targetSteer = 0;
@@ -277,11 +348,30 @@ export class CarPhysics {
       }
     }
 
-    // 7. Wheel rotation
+    // 7. Dynamic Body Roll, Pitch & Flip Detection
+    const lateralSpeed = this.speed * Math.sin(this.steerAngle);
+    const targetRoll = -lateralSpeed * 0.022;
+    const isBraking = input.reverse && this.speed > 1.0;
+    const targetPitch = isBraking ? 0.06 : input.throttle && this.speed < 22 ? -0.035 : 0;
+
+    this.roll = THREE.MathUtils.lerp(this.roll, targetRoll, Math.min(1.0, 10.0 * dt));
+    this.pitch = THREE.MathUtils.lerp(this.pitch, targetPitch, Math.min(1.0, 10.0 * dt));
+
+    if (Math.abs(this.roll) > 1.2 || Math.abs(this.pitch) > 1.2) {
+      this.flippedTimer += dt;
+      if (this.flippedTimer > 1.8) {
+        this.isFlipped = true;
+      }
+    } else {
+      this.flippedTimer = 0;
+      this.isFlipped = false;
+    }
+
+    // 8. Wheel rotation
     const distanceTraveled = this.speed * dt;
     this.wheelRotation += distanceTraveled / VEHICLE_CONFIG.WHEEL_RADIUS;
 
-    // 8. Gear & RPM Calculation
+    // 9. Gear & RPM Calculation
     this.updateGearsAndRpm();
 
     return stuntResult;

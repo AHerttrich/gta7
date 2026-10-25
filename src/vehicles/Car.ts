@@ -478,15 +478,17 @@ export class Car {
         0.15,
       );
     } else {
-      // Ground body roll
-      const lateralSpeed = this.physics.speed * Math.sin(this.physics.steerAngle);
-      const rollAngle = -lateralSpeed * 0.015;
+      // Ground body roll and suspension pitch
       this.carBodyGroup.rotation.z = THREE.MathUtils.lerp(
         this.carBodyGroup.rotation.z,
-        rollAngle,
-        0.2,
+        this.physics.roll,
+        0.25,
       );
-      this.carBodyGroup.rotation.x = THREE.MathUtils.lerp(this.carBodyGroup.rotation.x, 0, 0.2);
+      this.carBodyGroup.rotation.x = THREE.MathUtils.lerp(
+        this.carBodyGroup.rotation.x,
+        this.physics.pitch,
+        0.25,
+      );
     }
 
     // Folding Hover Wheels (Back to the Future II)

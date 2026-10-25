@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CAMERA_CONFIG } from '../utils/Constants';
+import { City } from '../city/City';
 
 export type CameraMode = 'CHASE' | 'CLOSE' | 'COCKPIT' | 'TOP_DOWN';
 
@@ -22,7 +23,13 @@ export class GameCamera {
     return this.mode;
   }
 
-  public updateVehicle(carPos: THREE.Vector3, heading: number, speed: number, dt: number): void {
+  public updateVehicle(
+    carPos: THREE.Vector3,
+    heading: number,
+    speed: number,
+    dt: number,
+    city?: City,
+  ): void {
     let dist: number = CAMERA_CONFIG.CHASE_DISTANCE;
     let height: number = CAMERA_CONFIG.CHASE_HEIGHT;
 
@@ -62,6 +69,14 @@ export class GameCamera {
       targetCamX = carPos.x;
       targetCamZ = carPos.z + 0.1;
       targetCamY = carPos.y + height;
+    } else if (city) {
+      // Anti-clipping: check raycast against buildings
+      const col = city.checkCollision(targetCamX, targetCamZ, 0.8);
+      if (col.collided) {
+        targetCamX = carPos.x - forwardX * (dist * 0.35);
+        targetCamZ = carPos.z - forwardZ * (dist * 0.35);
+        targetCamY = carPos.y + height * 0.75;
+      }
     }
 
     // Smooth interpolation with delta time
@@ -87,16 +102,30 @@ export class GameCamera {
     this.camera.lookAt(this.currentTargetPos);
   }
 
-  public updateOnFoot(playerPos: THREE.Vector3, playerRotationY: number, dt: number): void {
+  public updateOnFoot(
+    playerPos: THREE.Vector3,
+    playerRotationY: number,
+    dt: number,
+    city?: City,
+  ): void {
     const dist = CAMERA_CONFIG.FOOT_DISTANCE;
     const height = CAMERA_CONFIG.FOOT_HEIGHT;
 
     const forwardX = Math.sin(playerRotationY);
     const forwardZ = Math.cos(playerRotationY);
 
-    const targetCamX = playerPos.x - forwardX * dist;
-    const targetCamZ = playerPos.z - forwardZ * dist;
-    const targetCamY = playerPos.y + height;
+    let targetCamX = playerPos.x - forwardX * dist;
+    let targetCamZ = playerPos.z - forwardZ * dist;
+    let targetCamY = playerPos.y + height;
+
+    if (city) {
+      const col = city.checkCollision(targetCamX, targetCamZ, 0.6);
+      if (col.collided) {
+        targetCamX = playerPos.x - forwardX * (dist * 0.35);
+        targetCamZ = playerPos.z - forwardZ * (dist * 0.35);
+        targetCamY = playerPos.y + height * 0.8;
+      }
+    }
 
     const lerpFactor = Math.min(1.0, 0.15 * 60 * dt);
     this.currentCameraPos.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), lerpFactor);

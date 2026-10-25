@@ -393,4 +393,21 @@ export class Renderer {
   public render(): void {
     this.renderer.render(this.scene, this.camera);
   }
+
+  public setGraphicsQuality(preset: 'low' | 'med' | 'ultra'): void {
+    if (preset === 'low') {
+      this.renderer.setPixelRatio(0.85);
+      this.renderer.shadowMap.enabled = false;
+    } else if (preset === 'med') {
+      this.renderer.setPixelRatio(1.0);
+      this.renderer.shadowMap.enabled = true;
+      this.renderer.shadowMap.type = THREE.BasicShadowMap;
+    } else {
+      const dpr = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio, 2.0) : 1.5;
+      this.renderer.setPixelRatio(dpr);
+      this.renderer.shadowMap.enabled = true;
+      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    }
+    this.renderer.shadowMap.needsUpdate = true;
+  }
 }

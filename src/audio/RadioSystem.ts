@@ -42,9 +42,17 @@ export class RadioSystem {
   private currentStep: number = 0;
   private masterGain: GainNode | null = null;
   private isMuted: boolean = false;
+  public musicVolume: number = 0.8;
 
   constructor(sound: SoundManager) {
     this.sound = sound;
+  }
+
+  public setMusicVolume(v: number): void {
+    this.musicVolume = Math.max(0, Math.min(1, v));
+    if (this.masterGain && this.sound.ctx) {
+      this.masterGain.gain.setValueAtTime(0.08 * this.musicVolume, this.sound.ctx.currentTime);
+    }
   }
 
   private ensureMasterGain(): GainNode | null {
@@ -53,8 +61,8 @@ export class RadioSystem {
     if (!ctx) return null;
 
     this.masterGain = ctx.createGain();
-    this.masterGain.gain.setValueAtTime(0.08, ctx.currentTime);
-    this.masterGain.connect(ctx.destination);
+    this.masterGain.gain.setValueAtTime(0.08 * this.musicVolume, ctx.currentTime);
+    this.masterGain.connect(this.sound.masterGain || ctx.destination);
     return this.masterGain;
   }
 
@@ -66,6 +74,14 @@ export class RadioSystem {
     this.currentStationIndex = (this.currentStationIndex + 1) % RADIO_STATIONS.length;
     this.stepTimer = 0;
     this.currentStep = 0;
+
+    // Smooth radio tuning dip & crossfade
+    if (this.masterGain && this.sound.ctx) {
+      const now = this.sound.ctx.currentTime;
+      this.masterGain.gain.setValueAtTime(0.01, now);
+      this.masterGain.gain.linearRampToValueAtTime(0.08 * this.musicVolume, now + 0.35);
+    }
+
     return this.getCurrentStation();
   }
 
@@ -73,6 +89,13 @@ export class RadioSystem {
     this.currentStationIndex = Math.max(0, Math.min(RADIO_STATIONS.length - 1, index));
     this.stepTimer = 0;
     this.currentStep = 0;
+
+    if (this.masterGain && this.sound.ctx) {
+      const now = this.sound.ctx.currentTime;
+      this.masterGain.gain.setValueAtTime(0.01, now);
+      this.masterGain.gain.linearRampToValueAtTime(0.08 * this.musicVolume, now + 0.35);
+    }
+
     return this.getCurrentStation();
   }
 

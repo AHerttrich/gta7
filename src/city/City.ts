@@ -155,4 +155,37 @@ export class City {
 
     return { collided: false, normalX: 0, normalZ: 0 };
   }
+
+  public checkSweptCollision(
+    x1: number,
+    z1: number,
+    x2: number,
+    z2: number,
+    radius: number = 1.2,
+  ): { collided: boolean; normalX: number; normalZ: number; safeX: number; safeZ: number } {
+    const dist = Math.hypot(x2 - x1, z2 - z1);
+    if (dist < 0.001) {
+      const col = this.checkCollision(x2, z2, radius);
+      return { ...col, safeX: x2, safeZ: z2 };
+    }
+
+    const steps = Math.max(1, Math.ceil(dist / 0.8));
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      const curX = x1 + (x2 - x1) * t;
+      const curZ = z1 + (z2 - z1) * t;
+      const col = this.checkCollision(curX, curZ, radius);
+      if (col.collided) {
+        const safeT = Math.max(0, (i - 1) / steps);
+        return {
+          collided: true,
+          normalX: col.normalX,
+          normalZ: col.normalZ,
+          safeX: x1 + (x2 - x1) * safeT,
+          safeZ: z1 + (z2 - z1) * safeT,
+        };
+      }
+    }
+    return { collided: false, normalX: 0, normalZ: 0, safeX: x2, safeZ: z2 };
+  }
 }

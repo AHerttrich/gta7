@@ -1,5 +1,9 @@
 export class SoundManager {
   public ctx: AudioContext | null = null;
+  public masterVolume: number = 1.0;
+  public sfxVolume: number = 0.9;
+  public masterGain: GainNode | null = null;
+  public sfxGain: GainNode | null = null;
   private isMuted: boolean = false;
 
   // Engine Audio Nodes
@@ -38,6 +42,15 @@ export class SoundManager {
 
     this.ctx = new AudioCtx();
 
+    // Master and SFX gain stages
+    this.masterGain = this.ctx.createGain();
+    this.masterGain.gain.setValueAtTime(this.masterVolume, this.ctx.currentTime);
+    this.masterGain.connect(this.ctx.destination);
+
+    this.sfxGain = this.ctx.createGain();
+    this.sfxGain.gain.setValueAtTime(this.sfxVolume, this.ctx.currentTime);
+    this.sfxGain.connect(this.masterGain);
+
     // Setup Engine Oscillator (Sawtooth waveform)
     this.engineOsc = this.ctx.createOscillator();
     this.engineOsc.type = 'sawtooth';
@@ -52,7 +65,7 @@ export class SoundManager {
 
     this.engineOsc.connect(filter);
     filter.connect(this.engineGain);
-    this.engineGain.connect(this.ctx.destination);
+    this.engineGain.connect(this.sfxGain);
     this.engineOsc.start();
 
     // Setup Police Siren
@@ -64,7 +77,7 @@ export class SoundManager {
     this.sirenGain.gain.setValueAtTime(0.0, this.ctx.currentTime);
 
     this.sirenOsc.connect(this.sirenGain);
-    this.sirenGain.connect(this.ctx.destination);
+    this.sirenGain.connect(this.sfxGain);
     this.sirenOsc.start();
 
     // Setup Helicopter Rotor Oscillator (Low Frequency Chopper Thump)
@@ -81,8 +94,52 @@ export class SoundManager {
 
     this.rotorOsc.connect(rotorFilter);
     rotorFilter.connect(this.rotorGain);
-    this.rotorGain.connect(this.ctx.destination);
+    this.rotorGain.connect(this.sfxGain);
     this.rotorOsc.start();
+  }
+
+  public setMasterVolume(v: number): void {
+    this.masterVolume = Math.max(0, Math.min(1, v));
+    if (this.masterGain && this.ctx) {
+      this.masterGain.gain.setValueAtTime(
+        this.isMuted ? 0 : this.masterVolume,
+        this.ctx.currentTime,
+      );
+    }
+  }
+
+  public setSfxVolume(v: number): void {
+    this.sfxVolume = Math.max(0, Math.min(1, v));
+    if (this.sfxGain && this.ctx) {
+      this.sfxGain.gain.setValueAtTime(this.sfxVolume, this.ctx.currentTime);
+    }
+  }
+
+  public playBlowOffValve(): void {
+    if (!this.ctx || this.isMuted) return;
+    try {
+      const bufferSize = Math.floor(this.ctx.sampleRate * 0.25);
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const output = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+      const whiteNoise = this.ctx.createBufferSource();
+      whiteNoise.buffer = buffer;
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(2400, this.ctx.currentTime);
+      filter.Q.setValueAtTime(3.0, this.ctx.currentTime);
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.08 * this.sfxVolume, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.25);
+      whiteNoise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.sfxGain || this.ctx.destination);
+      whiteNoise.start();
+    } catch (_e) {
+      void _e;
+    }
   }
 
   public updateRotorPitch(rpm: number, inHeli: boolean): void {

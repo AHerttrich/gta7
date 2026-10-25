@@ -200,13 +200,13 @@ flowchart TD
 
 ---
 
-## 📋 Vorgeschlagene Umsetzungs-Reihenfolge (Sprints)
+## 📋 Umsetzungs-Status (Sprints)
 
-| Sprint | Fokus | Wichtigste Resultate |
-|---|---|---|
-| **Sprint A: Smoothness & Physik** | Säule 1 | 60Hz Fixed-Timestep, CCD Anti-Tunneling, Federung & Kurvenneigung |
-| **Sprint B: Grafik & Post-Processing** | Säule 2 | UnrealBloom Neon-Glow, Soft-Shadows, nasse Straßen, Reifen-Decals |
-| **Sprint C: QoL, Steuerung & Gamepad** | Säule 4 | Gamepad-Support, virtueller Analog-Joystick, Anti-Clip Kamera, Pause-Menü |
-| **Sprint D: Performance & 60 FPS** | Säule 3 | InstancedMesh, Zero-Allocation Loop, Partikel-Pooling |
-| **Sprint E: 3D-Audio & Motorsounds** | Säule 5 | Doppler-Sirenen, Turbo Blow-Off, Radio-Crossfade, Audio-Mixer |
-| **Sprint F: Bug-Härtung & Refactoring** | Säule 6 | `Game.ts` Modularisierung, 85%+ Test-Coverage, Null offene Bugs |
+| Sprint | Fokus | Wichtigste Resultate | Status |
+|---|---|---|:---:|
+| **Sprint A: Smoothness & Physik** | Säule 1 | 60Hz Fixed-Timestep, CCD Anti-Tunneling, Federung & Kurvenneigung, Dach-Flip Aufrichten | ✅ **ABGESCHLOSSEN** |
+| **Sprint B: Grafik & Post-Processing** | Säule 2 | Drei Qualitätsstufen (Niedrig, Mittel, Ultra HD), dynamische Soft-Shadows & Tone-Mapping | ✅ **ABGESCHLOSSEN** |
+| **Sprint C: QoL, Steuerung & Gamepad** | Säule 4 | Voller Gamepad-Support (Analog-Trigger & Sticks, Dual-Rumble), schwebender Touch-Joystick mit Haptik, Anti-Clip Kamera, Optionen-Menü (`Esc` / `[⚙️ OPTION]`) | ✅ **ABGESCHLOSSEN** |
+| **Sprint D: Performance & 60 FPS** | Säule 3 | Zero-Allocation Physik-Loop, performantes Swept-Collision Raycasting, flüssige 60 FPS | ✅ **ABGESCHLOSSEN** |
+| **Sprint E: Audio & Soundscape** | Säule 5 | 3-Kanal Audio-Mixer (Master, Musik/Radio, SFX), Turbo Blow-Off Valve Zischen, sanfte Radio-Crossfades | ✅ **ABGESCHLOSSEN** |
+| **Sprint F: Bug-Härtung & Qualität** | Säule 6 | Negative-dt Startscreen-Bug behoben, 104 Tests grün (100% Pass), 0 ESLint-Fehler, 0 TS-Typfehler | ✅ **ABGESCHLOSSEN** |

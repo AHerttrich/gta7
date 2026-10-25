@@ -4,6 +4,9 @@ import { EconomySystem } from '../economy/EconomySystem';
 import { NetworkManager } from '../network/NetworkManager';
 import { Input } from '../engine/Input';
 import { CasinoSystem } from '../casino/CasinoSystem';
+import { SoundManager } from '../audio/SoundManager';
+import { RadioSystem } from '../audio/RadioSystem';
+import { Renderer } from '../engine/Renderer';
 
 export class HUD {
   private overlay: HTMLElement;
@@ -32,10 +35,15 @@ export class HUD {
   private isShopOpen: boolean = false;
   private isMultiOpen: boolean = false;
   private isCasinoOpen: boolean = false;
+  private isSettingsOpen: boolean = false;
+  private settingsModalElement!: HTMLElement;
   private economy: EconomySystem;
   private network: NetworkManager | null = null;
   private input: Input | null = null;
   private casino: CasinoSystem | null = null;
+  private sound: SoundManager | null = null;
+  private radio: RadioSystem | null = null;
+  private rendererRef: Renderer | null = null;
 
   constructor(overlayId: string, economy: EconomySystem, network?: NetworkManager, input?: Input) {
     this.economy = economy;
@@ -60,6 +68,12 @@ export class HUD {
 
   public setCasino(casino: CasinoSystem): void {
     this.casino = casino;
+  }
+
+  public setAudioSystems(sound: SoundManager, radio: RadioSystem, renderer?: Renderer): void {
+    this.sound = sound;
+    this.radio = radio;
+    if (renderer) this.rendererRef = renderer;
   }
 
   private createHudElements(): void {
@@ -520,14 +534,15 @@ export class HUD {
         <button class="hud-quick-btn" id="m-btn-shop">🛒 SHOP</button>
         <button class="hud-quick-btn" id="m-btn-cam">🎥 CAM</button>
         <button class="hud-quick-btn" id="m-btn-vr" style="border-color:#10b981;color:#10b981;">🥽 VR</button>
+        <button class="hud-quick-btn" id="m-btn-settings" style="border-color:#38bdf8;color:#38bdf8;">⚙️ OPTION</button>
         <button class="hud-quick-btn" id="m-btn-reset">🔄 RESET</button>
       </div>
 
       <div class="hud-controls-helper">
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>: Fahren / Laufen / Fliegen</div>
         <div><kbd>V</kbd> / <kbd>X</kbd>: DeLorean Flug | <kbd>J</kbd>: Jetpack 🚀</div>
-        <div><kbd>E</kbd>: Einsteigen (Auto / Heli / Panzer / Boot)</div>
-        <div><kbd>Tab</kbd>: Stunt-Editor 🏗️ | <kbd>C</kbd>: Cockpit-Kamera 🥽</div>
+        <div><kbd>E</kbd>: Einsteigen | <kbd>Tab</kbd>: Stunt-Editor 🏗️ | <kbd>C</kbd>: Cockpit 🥽</div>
+        <div><kbd>Esc</kbd>: Optionen & Pause ⚙️ | Controller (Gamepad) unterstützt 🎮</div>
         <div><kbd>L</kbd>: Tag/Nacht ☀️🌙 | <kbd>K</kbd>: Wetter 🌧️⚡</div>
         <div><kbd>B</kbd>: Radio 📻 | <kbd>N</kbd>: Nitro 🔥 | <kbd>F</kbd>: Schießen 💥</div>
       </div>
@@ -668,6 +683,52 @@ export class HUD {
           <button class="hud-shop-btn" id="hud-wheel-btn" onclick="window.gtaSpinWheel()" style="background:#38bdf8;color:#000;font-size:15px;padding:8px 24px;">Am Glücksrad drehen!</button>
         </div>
       </div>
+
+      <!-- Settings & Pause Modal -->
+      <div class="hud-shop-modal" id="hud-settings-modal" style="border-color:#38bdf8;box-shadow:0 0 45px rgba(56,189,248,0.45);max-width:440px;">
+        <div class="hud-shop-title" style="color:#38bdf8;">
+          <span>⚙️ OPTIONEN & PAUSE</span>
+          <button id="hud-settings-close-btn" style="background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;">✕</button>
+        </div>
+
+        <div class="hud-shop-section" style="background:#1e293b;padding:12px;border-radius:8px;margin-bottom:10px;">
+          <h4 style="color:#38bdf8;margin-bottom:8px;font-size:14px;">🔊 Audio-Lautstärke</h4>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0;font-size:12px;">
+            <span>Gesamtlautstärke (Master):</span>
+            <input type="range" id="setting-vol-master" min="0" max="100" value="100" style="width:130px;accent-color:#38bdf8;">
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0;font-size:12px;">
+            <span>Radio / Musik:</span>
+            <input type="range" id="setting-vol-music" min="0" max="100" value="80" style="width:130px;accent-color:#a855f7;">
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0;font-size:12px;">
+            <span>Effekte (SFX & Motoren):</span>
+            <input type="range" id="setting-vol-sfx" min="0" max="100" value="90" style="width:130px;accent-color:#22c55e;">
+          </div>
+        </div>
+
+        <div class="hud-shop-section" style="background:#1e293b;padding:12px;border-radius:8px;margin-bottom:10px;">
+          <h4 style="color:#facc15;margin-bottom:8px;font-size:14px;">✨ Grafik-Qualität</h4>
+          <div style="display:flex;gap:6px;">
+            <button class="hud-shop-btn" id="btn-gfx-low" style="flex:1;font-size:11px;padding:6px 0;">Niedrig</button>
+            <button class="hud-shop-btn" id="btn-gfx-med" style="flex:1;font-size:11px;padding:6px 0;">Mittel</button>
+            <button class="hud-shop-btn" id="btn-gfx-ultra" style="flex:1;font-size:11px;padding:6px 0;background:#00f0ff;color:#000;">Ultra (HD)</button>
+          </div>
+        </div>
+
+        <div class="hud-shop-section" style="background:#1e293b;padding:12px;border-radius:8px;font-size:11px;color:#94a3b8;line-height:1.5;">
+          <h4 style="color:#e2e8f0;margin-bottom:6px;font-size:13px;">🎮 Gamepad-Steuerung</h4>
+          <div>• <strong>Linker Stick:</strong> Lenken (Analog)</div>
+          <div>• <strong>RT / R2:</strong> Gaspedal | <strong>LT / L2:</strong> Bremse</div>
+          <div>• <strong>A / Cross:</strong> Handbremse | <strong>B / Circle:</strong> Nitro</div>
+          <div>• <strong>Y / Dreieck:</strong> Einsteigen | <strong>X:</strong> Schießen</div>
+        </div>
+      </div>
+
+      <!-- Floating Virtual Touch Joystick -->
+      <div id="hud-joystick-base" style="position:absolute;width:96px;height:96px;border-radius:50%;border:2px solid rgba(0,240,255,0.45);background:rgba(15,23,42,0.5);pointer-events:none;display:none;transform:translate(-50%,-50%);z-index:45;">
+        <div id="hud-joystick-knob" style="position:absolute;top:50%;left:50%;width:44px;height:44px;border-radius:50%;background:rgba(0,240,255,0.85);box-shadow:0 0 14px #00f0ff;transform:translate(-50%,-50%);"></div>
+      </div>
     `;
 
     this.speedElement = document.getElementById('hud-speed')!;
@@ -685,6 +746,7 @@ export class HUD {
     this.shopModalElement = document.getElementById('hud-shop-modal')!;
     this.multiModalElement = document.getElementById('hud-multi-modal')!;
     this.casinoModalElement = document.getElementById('hud-casino-modal')!;
+    this.settingsModalElement = document.getElementById('hud-settings-modal')!;
     this.raceLeaderboardElement = document.getElementById('hud-race-leaderboard')!;
     this.racePosBadge = document.getElementById('race-pos-badge')!;
     this.raceCheckpointInfo = document.getElementById('race-checkpoint-info')!;
@@ -702,9 +764,13 @@ export class HUD {
     document.getElementById('hud-casino-close-btn')!.addEventListener('click', () => {
       this.toggleCasino(false);
     });
+    document.getElementById('hud-settings-close-btn')!.addEventListener('click', () => {
+      this.toggleSettings(false);
+    });
 
     this.bindCasinoHandlers();
     this.setupMultiplayerControls();
+    this.setupSettingsControls();
   }
 
   private setupTouchControls(): void {
@@ -780,14 +846,23 @@ export class HUD {
     document.getElementById('m-btn-vr')?.addEventListener('click', () => {
       eventBus.emit('vr:toggle', {});
     });
+    document.getElementById('m-btn-settings')?.addEventListener('click', () => {
+      this.toggleSettings();
+    });
     document.getElementById('m-btn-reset')?.addEventListener('click', () => {
       if (this.input) this.input.justPressed['r'] = true;
     });
 
-    // Touch swipe look/turn on the game screen
+    // Touch controls: Floating Virtual Joystick (Left) + Swipe Camera (Right)
     if (typeof window !== 'undefined') {
       let lastTouchX: number | null = null;
-      let touchIdentifier: number | null = null;
+      let swipeTouchId: number | null = null;
+
+      let joystickTouchId: number | null = null;
+      let joystickOriginX: number = 0;
+      let joystickOriginY: number = 0;
+      const joystickBase = document.getElementById('hud-joystick-base');
+      const joystickKnob = document.getElementById('hud-joystick-knob');
 
       window.addEventListener(
         'touchstart',
@@ -800,11 +875,28 @@ export class HUD {
               !target.closest('.hud-touch-btn') &&
               !target.closest('.hud-shop-modal') &&
               !target.closest('.hud-multi-modal') &&
-              !target.closest('button')
+              !target.closest('button') &&
+              !target.closest('input')
             ) {
-              lastTouchX = t.clientX;
-              touchIdentifier = t.identifier;
-              break;
+              if (t.clientX < window.innerWidth * 0.45 && joystickTouchId === null) {
+                // Spawn floating joystick
+                joystickTouchId = t.identifier;
+                joystickOriginX = t.clientX;
+                joystickOriginY = t.clientY;
+                if (joystickBase && joystickKnob) {
+                  joystickBase.style.left = `${joystickOriginX}px`;
+                  joystickBase.style.top = `${joystickOriginY}px`;
+                  joystickBase.style.display = 'block';
+                  joystickKnob.style.transform = 'translate(-50%, -50%)';
+                }
+                if (this.input) {
+                  this.input.triggerHaptics(25);
+                }
+              } else if (t.clientX >= window.innerWidth * 0.45 && swipeTouchId === null) {
+                // Swipe turn
+                lastTouchX = t.clientX;
+                swipeTouchId = t.identifier;
+              }
             }
           }
         },
@@ -814,32 +906,60 @@ export class HUD {
       window.addEventListener(
         'touchmove',
         (e: TouchEvent) => {
-          if (lastTouchX === null || touchIdentifier === null || !this.input) return;
+          if (!this.input) return;
           for (let i = 0; i < e.changedTouches.length; i++) {
             const t = e.changedTouches[i];
-            if (t.identifier === touchIdentifier) {
+            if (t.identifier === joystickTouchId && joystickBase && joystickKnob) {
+              const dx = t.clientX - joystickOriginX;
+              const dy = t.clientY - joystickOriginY;
+              const dist = Math.hypot(dx, dy);
+              const maxR = 38;
+              const clamped = Math.min(dist, maxR);
+              const angle = Math.atan2(dy, dx);
+              const kx = Math.cos(angle) * clamped;
+              const ky = Math.sin(angle) * clamped;
+              joystickKnob.style.transform = `translate(calc(-50% + ${kx}px), calc(-50% + ${ky}px))`;
+
+              const threshold = 10;
+              this.input.touchState.left = dx < -threshold;
+              this.input.touchState.right = dx > threshold;
+              this.input.touchState.forward = dy < -threshold;
+              this.input.touchState.backward = dy > threshold;
+
+              if (Math.abs(dx) > threshold) {
+                this.input.touchTurnDelta += (dx / maxR) * 0.04;
+              }
+            } else if (t.identifier === swipeTouchId && lastTouchX !== null) {
               const dx = t.clientX - lastTouchX;
               lastTouchX = t.clientX;
               this.input.touchTurnDelta += dx * 0.007;
-              break;
             }
           }
         },
         { passive: true },
       );
 
-      const endTouchSwipe = (e: TouchEvent): void => {
+      const endTouch = (e: TouchEvent): void => {
         for (let i = 0; i < e.changedTouches.length; i++) {
-          if (e.changedTouches[i].identifier === touchIdentifier) {
+          const t = e.changedTouches[i];
+          if (t.identifier === joystickTouchId) {
+            joystickTouchId = null;
+            if (joystickBase) joystickBase.style.display = 'none';
+            if (this.input) {
+              this.input.touchState.left = false;
+              this.input.touchState.right = false;
+              this.input.touchState.forward = false;
+              this.input.touchState.backward = false;
+            }
+          } else if (t.identifier === swipeTouchId) {
+            swipeTouchId = null;
             lastTouchX = null;
-            touchIdentifier = null;
-            break;
           }
         }
       };
 
-      window.addEventListener('touchend', endTouchSwipe, { passive: true });
-      window.addEventListener('touchcancel', endTouchSwipe, { passive: true });
+      window.addEventListener('touchend', endTouch, { passive: true });
+      window.addEventListener('touchcancel', endTouch, { passive: true });
     }
   }
 
@@ -887,6 +1007,61 @@ export class HUD {
         joinBtn.textContent = 'Verbindung fehlgeschlagen';
       }
     });
+  }
+
+  private setupSettingsControls(): void {
+    const volMaster = document.getElementById('setting-vol-master') as HTMLInputElement | null;
+    const volMusic = document.getElementById('setting-vol-music') as HTMLInputElement | null;
+    const volSfx = document.getElementById('setting-vol-sfx') as HTMLInputElement | null;
+
+    if (volMaster) {
+      volMaster.addEventListener('input', () => {
+        const val = parseFloat(volMaster.value) / 100;
+        if (this.sound) this.sound.setMasterVolume(val);
+      });
+    }
+
+    if (volMusic) {
+      volMusic.addEventListener('input', () => {
+        const val = parseFloat(volMusic.value) / 100;
+        if (this.radio) this.radio.setMusicVolume(val);
+      });
+    }
+
+    if (volSfx) {
+      volSfx.addEventListener('input', () => {
+        const val = parseFloat(volSfx.value) / 100;
+        if (this.sound) this.sound.setSfxVolume(val);
+      });
+    }
+
+    const btnLow = document.getElementById('btn-gfx-low');
+    const btnMed = document.getElementById('btn-gfx-med');
+    const btnUltra = document.getElementById('btn-gfx-ultra');
+
+    const setGfxActive = (
+      activeBtn: HTMLElement | null,
+      quality: 'low' | 'med' | 'ultra',
+    ): void => {
+      [btnLow, btnMed, btnUltra].forEach((b) => {
+        if (b) {
+          b.style.background = '#0f172a';
+          b.style.color = '#fff';
+        }
+      });
+      if (activeBtn) {
+        activeBtn.style.background = '#00f0ff';
+        activeBtn.style.color = '#000';
+      }
+      if (this.rendererRef) {
+        this.rendererRef.setGraphicsQuality(quality);
+      }
+      this.showNotification(`Grafik-Preset: ${quality.toUpperCase()}`);
+    };
+
+    btnLow?.addEventListener('click', () => setGfxActive(btnLow, 'low'));
+    btnMed?.addEventListener('click', () => setGfxActive(btnMed, 'med'));
+    btnUltra?.addEventListener('click', () => setGfxActive(btnUltra, 'ultra'));
   }
 
   private setupNetworkCallbacks(): void {
@@ -1023,6 +1198,12 @@ export class HUD {
       this.bindCasinoHandlers();
     }
     return this.isCasinoOpen;
+  }
+
+  public toggleSettings(force?: boolean): boolean {
+    this.isSettingsOpen = force !== undefined ? force : !this.isSettingsOpen;
+    this.settingsModalElement.style.display = this.isSettingsOpen ? 'block' : 'none';
+    return this.isSettingsOpen;
   }
 
   private bindCasinoHandlers(): void {
