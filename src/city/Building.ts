@@ -140,6 +140,25 @@ export class Building {
     neonRoof.position.set(x, height + 0.22, z);
     group.add(neonRoof);
 
+    // Vertical Cyber Neon Corner Pillars on taller skyscrapers
+    if (height > 30) {
+      const pillarGeo = new THREE.BoxGeometry(0.3, height, 0.3);
+      const pillarMat = new THREE.MeshBasicMaterial({ color: accentColor });
+      const hw = width / 2;
+      const hd = depth / 2;
+      const cornerOffsets = [
+        [-hw, -hd],
+        [hw, -hd],
+        [-hw, hd],
+        [hw, hd],
+      ];
+      for (const [ox, oz] of cornerOffsets) {
+        const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+        pillar.position.set(x + ox, height / 2, z + oz);
+        group.add(pillar);
+      }
+    }
+
     // 4. Rooftop AC & Generator Units
     const acGeo = new THREE.BoxGeometry(width * 0.28, 2.2, depth * 0.28);
     const acMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.7 });

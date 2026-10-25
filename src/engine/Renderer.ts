@@ -1,13 +1,19 @@
 import * as THREE from 'three';
 import { CAMERA_CONFIG } from '../utils/Constants';
+import { PostProcessingManager } from './PostProcessing';
 
 export class Renderer {
   public scene: THREE.Scene;
   public camera: THREE.PerspectiveCamera;
   public renderer: THREE.WebGLRenderer;
+  public postProcessing!: PostProcessingManager;
   private canvas: HTMLCanvasElement;
 
   private skyMesh: THREE.Mesh | null = null;
+  private starfield!: THREE.Points;
+  private starfieldMat!: THREE.PointsMaterial;
+  private moonMesh!: THREE.Mesh;
+  private moonLight!: THREE.PointLight;
 
   // Dynamic Lighting, Day/Night & Cyber Weather (Phase 11)
   public sunLight!: THREE.DirectionalLight;
@@ -20,6 +26,9 @@ export class Renderer {
   public weather: 'clear' | 'rain' | 'thunder' = 'clear';
   private rainParticles!: THREE.Points;
   private rainPositions!: Float32Array;
+  private rainSplashParticles!: THREE.Points;
+  private rainSplashPositions!: Float32Array;
+  private rainSplashMat!: THREE.PointsMaterial;
   private lightningLight!: THREE.PointLight;
   private lightningTimer: number = 4.0;
   private lightningFlashTime: number = 0;
@@ -67,9 +76,13 @@ export class Renderer {
 
     this.setupLighting();
     this.setupAtmosphericSky();
+    this.initStarfieldAndMoon();
     this.initAtmosphericParticles();
     this.initWeather();
     this.initSpeedStreaks();
+
+    // Cinematic Post-Processing Pipeline (Unreal Bloom & Hyperspace Speed Warp)
+    this.postProcessing = new PostProcessingManager(this.renderer, this.scene, this.camera);
 
     if (typeof window !== 'undefined') {
       window.addEventListener('resize', () => this.onWindowResize());
@@ -138,6 +151,44 @@ export class Renderer {
     this.scene.add(this.skyMesh);
   }
 
+  private initStarfieldAndMoon(): void {
+    // Starfield for deep cyber night sky
+    const starCount = 500;
+    const starPositions = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(Math.random() * 2 - 1);
+      const r = 620;
+      starPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      starPositions[i * 3 + 1] = Math.abs(r * Math.cos(phi)) + 12; // upper hemisphere
+      starPositions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+    }
+    const starGeo = new THREE.BufferGeometry();
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    this.starfieldMat = new THREE.PointsMaterial({
+      color: 0x93c5fd,
+      size: 1.6,
+      transparent: true,
+      opacity: 0.0,
+      depthWrite: false,
+    });
+    this.starfield = new THREE.Points(starGeo, this.starfieldMat);
+    this.scene.add(this.starfield);
+
+    // Glowing Cyber Moon
+    const moonGeo = new THREE.SphereGeometry(18, 16, 16);
+    const moonMat = new THREE.MeshBasicMaterial({
+      color: 0xe0f2fe,
+      transparent: true,
+      opacity: 0.0,
+    });
+    this.moonMesh = new THREE.Mesh(moonGeo, moonMat);
+    this.scene.add(this.moonMesh);
+
+    this.moonLight = new THREE.PointLight(0x38bdf8, 0, 450);
+    this.scene.add(this.moonLight);
+  }
+
   private initAtmosphericParticles(): void {
     const count = 250;
     this.dustPositions = new Float32Array(count * 3);
@@ -181,6 +232,26 @@ export class Renderer {
     });
     this.rainParticles = new THREE.Points(geo, mat);
     this.scene.add(this.rainParticles);
+
+    // Ground Rain Splashes & Ripples on road pavement
+    const splashCount = 200;
+    this.rainSplashPositions = new Float32Array(splashCount * 3);
+    for (let i = 0; i < splashCount; i++) {
+      this.rainSplashPositions[i * 3] = (Math.random() - 0.5) * 60;
+      this.rainSplashPositions[i * 3 + 1] = 0.06;
+      this.rainSplashPositions[i * 3 + 2] = (Math.random() - 0.5) * 60;
+    }
+    const splashGeo = new THREE.BufferGeometry();
+    splashGeo.setAttribute('position', new THREE.BufferAttribute(this.rainSplashPositions, 3));
+    this.rainSplashMat = new THREE.PointsMaterial({
+      color: 0xbae6fd,
+      size: 0.38,
+      transparent: true,
+      opacity: 0.0,
+      blending: THREE.AdditiveBlending,
+    });
+    this.rainSplashParticles = new THREE.Points(splashGeo, this.rainSplashMat);
+    this.scene.add(this.rainSplashParticles);
   }
 
   private initSpeedStreaks(): void {
@@ -304,6 +375,54 @@ export class Renderer {
       this.skyMesh.position.copy(camPos);
     }
 
+    // Position cyber moon opposite of the sun
+    const moonAngle = sunAngle + Math.PI;
+    const moonX = Math.cos(moonAngle) * 550;
+    const moonY = Math.sin(moonAngle) * 550;
+    const moonZ = Math.sin(moonAngle * 0.5) * 200;
+    if (this.moonMesh) {
+      this.moonMesh.position.set(camPos.x + moonX, Math.max(15, moonY), camPos.z + moonZ);
+      this.moonLight.position.copy(this.moonMesh.position);
+    }
+
+    // Night Sky & Moon Opacity
+    const nightFactor = THREE.MathUtils.clamp(-sunY / 150, 0, 1);
+    if (this.starfieldMat) {
+      this.starfieldMat.opacity = nightFactor * 0.95;
+      this.starfield.position.copy(camPos);
+    }
+    if (this.moonMesh) {
+      (this.moonMesh.material as THREE.MeshBasicMaterial).opacity = nightFactor * 0.92;
+      this.moonLight.intensity = nightFactor * 2.4;
+    }
+
+    // Rain Ground Splashes on pavement
+    if (this.rainSplashParticles) {
+      this.rainSplashMat.opacity = THREE.MathUtils.lerp(
+        this.rainSplashMat.opacity,
+        isRaining ? 0.65 : 0.0,
+        0.15,
+      );
+      if (isRaining && this.rainSplashPositions) {
+        this.rainSplashParticles.position.x = camPos.x;
+        this.rainSplashParticles.position.z = camPos.z;
+        for (let i = 0; i < this.rainSplashPositions.length / 3; i++) {
+          if (Math.random() < 0.15) {
+            this.rainSplashPositions[i * 3] = (Math.random() - 0.5) * 60;
+            this.rainSplashPositions[i * 3 + 2] = (Math.random() - 0.5) * 60;
+          }
+        }
+        this.rainSplashParticles.geometry.attributes.position.needsUpdate = true;
+      }
+    }
+
+    // Sun shadow camera target tracks camera for pin-sharp local shadows
+    this.sunLight.target.position.set(camPos.x, 0, camPos.z);
+    this.sunLight.target.updateMatrixWorld();
+
+    // Cinematic Post-Processing Update (Dynamic Bloom & Hyperspace Speed Warp)
+    this.postProcessing.update(dt, this.timeOfDay, this.weather, carSpeed, isBoosting);
+
     // Floating Dust Motes drift gently
     if (this.dustPositions) {
       for (let i = 0; i < this.dustPositions.length / 3; i++) {
@@ -388,13 +507,23 @@ export class Renderer {
     this.camera.aspect = window.innerWidth / window.innerHeight;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+    if (this.postProcessing) {
+      this.postProcessing.setSize(window.innerWidth, window.innerHeight);
+    }
   }
 
   public render(): void {
-    this.renderer.render(this.scene, this.camera);
+    if (this.postProcessing) {
+      this.postProcessing.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
   }
 
   public setGraphicsQuality(preset: 'low' | 'med' | 'ultra'): void {
+    if (this.postProcessing) {
+      this.postProcessing.setQuality(preset);
+    }
     if (preset === 'low') {
       this.renderer.setPixelRatio(0.85);
       this.renderer.shadowMap.enabled = false;

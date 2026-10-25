@@ -92,6 +92,32 @@ export class Road {
     lantern.position.set(0, 6.25, 1.6);
     group.add(lantern);
 
+    // Volumetric Soft Light Halo
+    const haloGeo = new THREE.SphereGeometry(0.55, 8, 8);
+    const haloMat = new THREE.MeshBasicMaterial({
+      color: 0xffe899,
+      transparent: true,
+      opacity: 0.65,
+    });
+    const halo = new THREE.Mesh(haloGeo, haloMat);
+    halo.position.set(0, 6.25, 1.6);
+    group.add(halo);
+
+    // Downward soft street illumination cone
+    const coneGeo = new THREE.ConeGeometry(3.2, 5.8, 8, 1, true);
+    coneGeo.rotateX(Math.PI);
+    const coneMat = new THREE.MeshBasicMaterial({
+      color: 0xfff3c4,
+      transparent: true,
+      opacity: 0.08,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    });
+    const lightCone = new THREE.Mesh(coneGeo, coneMat);
+    lightCone.position.set(0, 3.2, 1.6);
+    group.add(lightCone);
+
     group.position.set(x, 0, z);
     group.rotation.y = rotY;
     return group;

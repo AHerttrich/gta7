@@ -9,6 +9,11 @@ import { RadioSystem } from '../audio/RadioSystem';
 import { Renderer } from '../engine/Renderer';
 import { Player } from '../character/Player';
 import { SkidmarkSystem } from '../vehicles/SkidmarkSystem';
+import { PostProcessingManager } from '../engine/PostProcessing';
+import { Car } from '../vehicles/Car';
+import { CarInput } from '../vehicles/CarPhysics';
+import { Building } from '../city/Building';
+import { Road } from '../city/Road';
 
 // Mock WebGLRenderer for Node/headless vitest environment
 vi.mock('three', async () => {
@@ -503,6 +508,100 @@ describe('Quality of Life, Polish & Smoothness Master Suite', () => {
 
       const newDist = Math.hypot(playerX - copX, playerZ - copZ);
       expect(newDist).toBeGreaterThanOrEqual(minDist); // Fully separated!
+    });
+  });
+
+  describe('Cinematic Graphics, Post-Processing & Visual FX Suite', () => {
+    it('should configure PostProcessingManager quality presets', () => {
+      const mockCanvas = {
+        width: 800,
+        height: 600,
+        style: {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        getContext: () => null,
+      } as unknown as HTMLCanvasElement;
+      const renderer = new THREE.WebGLRenderer({ canvas: mockCanvas });
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera();
+
+      const ppm = new PostProcessingManager(renderer, scene, camera);
+      expect(ppm.baseBloomStrength).toBe(0.65);
+
+      ppm.setQuality('low');
+      expect(ppm.isEnabled).toBe(false);
+
+      ppm.setQuality('med');
+      expect(ppm.isEnabled).toBe(true);
+      expect(ppm.baseBloomStrength).toBe(0.45);
+
+      ppm.setQuality('ultra');
+      expect(ppm.isEnabled).toBe(true);
+      expect(ppm.baseBloomStrength).toBe(0.72);
+    });
+
+    it('should dynamically adapt bloom strength for night and rain', () => {
+      const mockCanvas = {
+        width: 800,
+        height: 600,
+        style: {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        getContext: () => null,
+      } as unknown as HTMLCanvasElement;
+      const renderer = new THREE.WebGLRenderer({ canvas: mockCanvas });
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera();
+      const ppm = new PostProcessingManager(renderer, scene, camera);
+
+      // Daytime clear weather
+      ppm.update(0.016, 0.5, 'clear', 10, false);
+      expect(ppm.currentBloomStrength).toBeCloseTo(0.65, 1);
+
+      // Night rain weather with nitro boost
+      ppm.update(0.016, 0.05, 'rain', 35, true);
+      expect(ppm.currentBloomStrength).toBeGreaterThan(0.65);
+    });
+
+    it('should equip car with volumetric 3D headlight light cones and responsive brake lights', () => {
+      const car = new Car(0, 0, 0);
+
+      // Verify headlights and cones toggle together
+      const initialState = car.toggleHeadlights();
+      expect(typeof initialState).toBe('boolean');
+
+      const toggledState = car.toggleHeadlights();
+      expect(toggledState).toBe(!initialState);
+
+      // Test brake illumination logic
+      const brakeInput: CarInput = {
+        throttle: false,
+        reverse: true,
+        steerLeft: false,
+        steerRight: false,
+        handbrake: false,
+      };
+      car.physics.speed = 15.0; // Moving forward while reversing = braking
+      car.update(0.016, brakeInput);
+
+      // Taillight emissive intensity increases during heavy braking
+      const tlMat = (car as unknown as { taillightMaterial: THREE.MeshStandardMaterial })
+        .taillightMaterial;
+      expect(tlMat.emissiveIntensity).toBeGreaterThanOrEqual(2.0);
+    });
+
+    it('should generate vertical cyber neon corner pillars on tall skyscrapers', () => {
+      const building = Building.createBuilding(0, 0, 24, 24, 60, 0x00d4ff);
+      expect(building.bounds.height).toBeGreaterThan(30);
+
+      // Group should contain child meshes for main tower, tier, spire, beacon, roof neon, and 4 corner pillars
+      expect(building.mesh.children.length).toBeGreaterThanOrEqual(6);
+    });
+
+    it('should generate street lamps with volumetric light halo and downward street illumination cone', () => {
+      const lamp = Road.createStreetLamp(0, 0);
+      // Group contains pole, arm, lantern, halo, and lightCone
+      expect(lamp.children.length).toBeGreaterThanOrEqual(5);
     });
   });
 });

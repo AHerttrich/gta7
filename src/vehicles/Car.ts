@@ -31,6 +31,9 @@ export class Car {
 
   private headlightLeft!: THREE.SpotLight;
   private headlightRight!: THREE.SpotLight;
+  private headlightConeLeft!: THREE.Mesh;
+  private headlightConeRight!: THREE.Mesh;
+  private headlightConeMat!: THREE.MeshBasicMaterial;
   private taillightMaterial!: THREE.MeshStandardMaterial;
 
   // Nitro twin exhaust flame cones
@@ -213,6 +216,23 @@ export class Car {
     this.headlightRight.target.position.set(0.55, 0, VEHICLE_CONFIG.CAR_LENGTH / 2 + 25);
     this.carBodyGroup.add(this.headlightRight);
     this.carBodyGroup.add(this.headlightRight.target);
+
+    // Volumetric 3D Headlight Light Beams (Soft Additive Light Cones)
+    const coneGeo = new THREE.CylinderGeometry(0.12, 1.45, 18, 12, 1, true);
+    coneGeo.rotateX(Math.PI / 2);
+    this.headlightConeMat = new THREE.MeshBasicMaterial({
+      color: 0xfffaed,
+      transparent: true,
+      opacity: 0.14,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    });
+    this.headlightConeLeft = new THREE.Mesh(coneGeo, this.headlightConeMat);
+    this.headlightConeLeft.position.set(-0.55, 0.44, VEHICLE_CONFIG.CAR_LENGTH / 2 + 9.0);
+    this.headlightConeRight = new THREE.Mesh(coneGeo, this.headlightConeMat);
+    this.headlightConeRight.position.set(0.55, 0.44, VEHICLE_CONFIG.CAR_LENGTH / 2 + 9.0);
+    this.carBodyGroup.add(this.headlightConeLeft, this.headlightConeRight);
 
     // 7. Wide Segmented Cyber Taillight Bar
     this.taillightMaterial = new THREE.MeshStandardMaterial({
@@ -442,6 +462,8 @@ export class Car {
     const newState = !this.headlightLeft.visible;
     this.headlightLeft.visible = newState;
     this.headlightRight.visible = newState;
+    if (this.headlightConeLeft) this.headlightConeLeft.visible = newState;
+    if (this.headlightConeRight) this.headlightConeRight.visible = newState;
     return newState;
   }
 
@@ -540,11 +562,14 @@ export class Car {
       hoverMat.opacity = 0;
     }
 
-    // Taillight glow on brake
-    if (input.reverse && this.physics.speed > 0) {
-      this.taillightMaterial.emissive.setHex(0xff1111);
+    // Taillight glow on brake / reverse / handbrake
+    const isBraking = (input.reverse && this.physics.speed > 0.4) || input.handbrake;
+    if (isBraking) {
+      this.taillightMaterial.emissive.setHex(0xff0022);
+      this.taillightMaterial.emissiveIntensity = 2.4;
     } else {
-      this.taillightMaterial.emissive.setHex(0x550000);
+      this.taillightMaterial.emissive.setHex(0x660011);
+      this.taillightMaterial.emissiveIntensity = 0.8;
     }
 
     // Nitro Flame Cones animation
