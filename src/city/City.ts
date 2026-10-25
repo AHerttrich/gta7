@@ -6,10 +6,23 @@ import { Building, BuildingBox } from './Building';
 export class City {
   public group: THREE.Group;
   public buildingBounds: BuildingBox[] = [];
+  public groundMat!: THREE.MeshStandardMaterial;
 
   constructor() {
     this.group = new THREE.Group();
     this.generateCity();
+  }
+
+  public setWeatherMode(weather: 'clear' | 'rain' | 'thunder'): void {
+    if (weather === 'rain' || weather === 'thunder') {
+      this.groundMat.roughness = 0.22;
+      this.groundMat.metalness = 0.75;
+      this.groundMat.color.setHex(0x0c1017);
+    } else {
+      this.groundMat.roughness = 0.7;
+      this.groundMat.metalness = 0.25;
+      this.groundMat.color.setHex(0x161a23);
+    }
   }
 
   private generateCity(): void {
@@ -21,8 +34,8 @@ export class City {
     // 1. Ground asphalt plane
     const groundGeo = new THREE.PlaneGeometry(totalSize + 200, totalSize + 200);
     groundGeo.rotateX(-Math.PI / 2);
-    const groundMat = Road.createRoadMaterial();
-    const groundMesh = new THREE.Mesh(groundGeo, groundMat);
+    this.groundMat = Road.createRoadMaterial();
+    const groundMesh = new THREE.Mesh(groundGeo, this.groundMat);
     groundMesh.receiveShadow = true;
     this.group.add(groundMesh);
 

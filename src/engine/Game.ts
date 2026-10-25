@@ -31,6 +31,7 @@ import { StorySystem } from '../story/StorySystem';
 import { StuntEditor } from '../editor/StuntEditor';
 import { eventBus } from '../utils/EventBus';
 import { GangSystem } from '../gangs/GangSystem';
+import { SkidmarkSystem } from '../vehicles/SkidmarkSystem';
 
 export type PlayerMode = 'IN_CAR' | 'ON_FOOT' | 'IN_HELI' | 'IN_TANK' | 'IN_BOAT';
 
@@ -41,6 +42,7 @@ export class Game {
   public city: City;
   public garage: Garage;
   public car: Car;
+  public skidmarks: SkidmarkSystem;
   public helicopter: Helicopter;
   public player: Player;
   public police: PoliceSystem;
@@ -93,6 +95,7 @@ export class Game {
     // Initial Car at road intersection
     this.car = new Car(44, 44, 0, 0xe62429);
     this.renderer.scene.add(this.car.group);
+    this.skidmarks = new SkidmarkSystem(this.renderer.scene);
 
     // Player character (hidden when in car)
     this.player = new Player(44, 44);
@@ -248,6 +251,7 @@ export class Game {
     if (btnWeather) {
       btnWeather.addEventListener('click', () => {
         const name = this.renderer.cycleWeather();
+        this.city.setWeatherMode(this.renderer.weather);
         this.hud.showNotification(`🌦️ Wetter: ${name}`);
       });
     }
@@ -259,6 +263,7 @@ export class Game {
         this.hud.showNotification(`🕒 Beleuchtung: ${name}`);
       } else if (e.key === 'k' || e.key === 'K') {
         const name = this.renderer.cycleWeather();
+        this.city.setWeatherMode(this.renderer.weather);
         this.hud.showNotification(`🌦️ Wetter: ${name}`);
       }
     });
@@ -362,6 +367,9 @@ export class Game {
     // 1. Process Actions & Subsystem Toggles
     if (this.input.toggleSettings) {
       this.hud.toggleSettings();
+    }
+    if (this.input.wasJustPressed('m')) {
+      this.hud.toggleMinimapZoom();
     }
     if (this.input.toggleShop) {
       this.hud.toggleShop();
@@ -694,6 +702,18 @@ export class Game {
         this.city,
       );
 
+      // Tire Skidmarks & Burnout Smoke
+      this.skidmarks.update(
+        dt,
+        this.car.physics.x,
+        this.car.physics.z,
+        this.car.physics.heading,
+        this.car.physics.speed,
+        this.car.physics.isDrifting,
+        this.input.nitro || (this.input.backward && this.car.physics.speed > 5),
+        this.car.physics.isAirborne || this.car.physics.isHoverMode,
+      );
+
       // Audio (with Nitro scream & DeLorean Sci-Fi Hover hum!)
       this.sound.updateEnginePitch(
         this.car.physics.rpm,
@@ -703,7 +723,7 @@ export class Game {
       );
       this.sound.updateRotorPitch(0, false);
 
-      // HUD Stats
+      // HUD Stats (including dynamic RPM tachometer)
       this.hud.updateVehicleStats(
         this.car.physics.getSpeedKmh(),
         this.car.physics.gear,
@@ -711,10 +731,18 @@ export class Game {
         this.car.physics.nitro,
         true,
         this.car.physics.isHoverMode,
+        this.car.physics.rpm,
       );
 
-      // Exit Car Prompt & Upside-Down Recovery
-      if (this.car.physics.isFlipped) {
+      // Exit Car Prompt, Water Rescue & Upside-Down Recovery
+      if (this.car.physics.y < -0.8) {
+        this.hud.setPrompt('⚠️ Auto im Wasser versunken! Drücke [R] zur Bergung');
+        if (this.input.resetVehicle || this.input.actionInteract) {
+          this.car.physics.reset(44, 44, 0);
+          this.car.repair();
+          this.hud.showNotification('⚓ Auto vom Bergungsdienst an Land gezogen!');
+        }
+      } else if (this.car.physics.isFlipped) {
         this.hud.setPrompt('⚠️ Auto liegt auf dem Dach! Drücke [R] zum Aufrichten');
         if (this.input.resetVehicle || this.input.actionInteract) {
           this.car.physics.rightUpright();
@@ -1074,7 +1102,14 @@ export class Game {
     const exitZ = this.helicopter.z + Math.sin(this.helicopter.heading) * 2.5;
     this.player.setPosition(exitX, this.helicopter.y, exitZ);
     this.player.group.visible = true;
-    this.hud.showNotification('Aus dem Helikopter ausgestiegen.');
+
+    // High altitude cyber parachute bailout
+    if (this.helicopter.y > 6.0) {
+      this.player.vy = -3.5;
+      this.hud.showNotification('🪂 Cyber-Fallschirm aktiviert! Sanfte Landung');
+    } else {
+      this.hud.showNotification('Aus dem Helikopter ausgestiegen.');
+    }
   }
 
   private enterTank(): void {

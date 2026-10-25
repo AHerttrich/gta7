@@ -37,6 +37,9 @@ export class HUD {
   private isCasinoOpen: boolean = false;
   private isSettingsOpen: boolean = false;
   private settingsModalElement!: HTMLElement;
+  private rpmFillElement!: HTMLElement;
+  private minimapHintElement!: HTMLElement;
+  public isMinimapZoomed: boolean = false;
   private economy: EconomySystem;
   private network: NetworkManager | null = null;
   private input: Input | null = null;
@@ -575,14 +578,18 @@ export class HUD {
         </div>
       </div>
 
-      <div class="hud-bottom-left">
+      <div class="hud-bottom-left" id="hud-minimap-container" style="cursor:pointer;" title="Klicken für Stadt-Übersicht / Nahbereich (Taste [M])">
         <canvas id="minimap-canvas" width="140" height="140"></canvas>
+        <div id="hud-minimap-hint" style="font-size:10px;text-align:center;color:#64748b;font-weight:700;margin-top:2px;">[M] RADAR NAH</div>
       </div>
 
       <div class="hud-bottom-right">
         <div class="hud-speed-val" id="hud-speed">0</div>
         <div class="hud-speed-unit">KM/H</div>
         <div class="hud-gear" id="hud-gear">GANG: P</div>
+        <div class="hud-rpm-bar" style="width:100%;height:5px;background:#1e293b;border-radius:3px;overflow:hidden;margin:4px 0;">
+          <div id="hud-rpm-fill" style="width:20%;height:100%;background:#00f0ff;box-shadow:0 0 6px #00f0ff;transition:width 0.05s ease-out;"></div>
+        </div>
 
         <div class="hud-nitro-container" id="hud-nitro-container">
           <div class="hud-nitro-bar">
@@ -760,6 +767,12 @@ export class HUD {
 
     this.minimapCanvas = document.getElementById('minimap-canvas') as HTMLCanvasElement;
     this.minimapCtx = this.minimapCanvas.getContext('2d')!;
+    this.rpmFillElement = document.getElementById('hud-rpm-fill')!;
+    this.minimapHintElement = document.getElementById('hud-minimap-hint')!;
+
+    document.getElementById('hud-minimap-container')?.addEventListener('click', () => {
+      this.toggleMinimapZoom();
+    });
 
     document.getElementById('hud-shop-close-btn')!.addEventListener('click', () => {
       this.toggleShop(false);
@@ -861,6 +874,26 @@ export class HUD {
 
     // Touch controls: Floating Virtual Joystick (Left) + Swipe Camera (Right)
     if (typeof window !== 'undefined') {
+      window.addEventListener('keydown', (e: KeyboardEvent) => {
+        if (e.key === 'm' || e.key === 'M') {
+          this.toggleMinimapZoom();
+        }
+      });
+
+      const touchControls = document.getElementById('hud-touch-controls');
+      const mobileQuickbar = document.querySelector('.hud-mobile-quickbar') as HTMLElement | null;
+      let fadeTimer: number | null = null;
+      const resetFade = (): void => {
+        if (touchControls) touchControls.style.opacity = '1.0';
+        if (mobileQuickbar) mobileQuickbar.style.opacity = '1.0';
+        if (fadeTimer) window.clearTimeout(fadeTimer);
+        fadeTimer = window.setTimeout(() => {
+          if (touchControls) touchControls.style.opacity = '0.65';
+          if (mobileQuickbar) mobileQuickbar.style.opacity = '0.55';
+        }, 5000);
+      };
+      window.addEventListener('touchstart', resetFade, { passive: true });
+
       let lastTouchX: number | null = null;
       let swipeTouchId: number | null = null;
 
@@ -1255,6 +1288,18 @@ export class HUD {
     }
   }
 
+  public toggleMinimapZoom(): void {
+    this.isMinimapZoomed = !this.isMinimapZoomed;
+    if (this.minimapHintElement) {
+      this.minimapHintElement.textContent = this.isMinimapZoomed
+        ? '[M] STADT VOLL'
+        : '[M] RADAR NAH';
+    }
+    this.showNotification(
+      this.isMinimapZoomed ? '🗺️ Minimap: Stadt-Übersicht (Weit)' : '🗺️ Minimap: Nahbereich-Radar',
+    );
+  }
+
   private bindCasinoHandlers(): void {
     (window as unknown as { gtaSpinSlots: (bet: number) => void }).gtaSpinSlots = (
       bet: number,
@@ -1385,6 +1430,7 @@ export class HUD {
     nitro: number = 100,
     inCar: boolean = true,
     isHoverMode: boolean = false,
+    rpm: number = 0.2,
   ): void {
     this.speedElement.textContent = String(Math.abs(speedKmh));
 
@@ -1396,6 +1442,18 @@ export class HUD {
       this.gearElement.textContent = `GANG: ${gear}`;
       this.gearElement.style.color = '#38bdf8';
       this.gearElement.style.textShadow = 'none';
+    }
+
+    if (this.rpmFillElement) {
+      const rpmPct = Math.max(8, Math.min(100, Math.round(rpm * 100)));
+      this.rpmFillElement.style.width = `${rpmPct}%`;
+      if (rpm >= 0.82) {
+        this.rpmFillElement.style.backgroundColor = '#ef4444';
+        this.rpmFillElement.style.boxShadow = '0 0 8px #ef4444';
+      } else {
+        this.rpmFillElement.style.backgroundColor = '#00f0ff';
+        this.rpmFillElement.style.boxShadow = '0 0 6px #00f0ff';
+      }
     }
 
     this.nitroContainerElement.style.display = inCar ? 'block' : 'none';
@@ -1429,7 +1487,7 @@ export class HUD {
     const w = this.minimapCanvas.width;
     const h = this.minimapCanvas.height;
     const center = w / 2;
-    const scale = 0.45;
+    const scale = this.isMinimapZoomed ? 0.21 : 0.48;
 
     ctx.clearRect(0, 0, w, h);
 

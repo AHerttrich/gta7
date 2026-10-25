@@ -218,7 +218,7 @@ export class Player {
         }
       }
 
-      this.group.position.set(this.x, 0, this.z);
+      this.group.position.set(this.x, this.y, this.z);
 
       // Walking swing animation
       this.walkAnimTimer += dt * (input.sprint ? 14 : 9) * Math.sign(moveDir);
@@ -265,6 +265,15 @@ export class Player {
         this.y = 0;
         this.vy = 0;
         this.jetpackFuel = Math.min(100, this.jetpackFuel + 30.0 * dt);
+      }
+    } else if (this.y > 0) {
+      // Safe descent / cyber parachute glide when bailing out of high vehicles
+      const maxGlideFall = -5.0;
+      this.vy = Math.max(maxGlideFall, this.vy - 16.0 * dt);
+      this.y += this.vy * dt;
+      if (this.y <= 0) {
+        this.y = 0;
+        this.vy = 0;
       }
     } else {
       this.y = 0;

@@ -8,6 +8,7 @@ import { SoundManager } from '../audio/SoundManager';
 import { RadioSystem } from '../audio/RadioSystem';
 import { Renderer } from '../engine/Renderer';
 import { Player } from '../character/Player';
+import { SkidmarkSystem } from '../vehicles/SkidmarkSystem';
 
 // Mock WebGLRenderer for Node/headless vitest environment
 vi.mock('three', async () => {
@@ -339,6 +340,48 @@ describe('Quality of Life, Polish & Smoothness Master Suite', () => {
       expect(player.health).toBe(100);
       player.takeDamage(25);
       expect(player.health).toBe(75);
+    });
+
+    it('should safely glide down with cyber parachute when high in the air', () => {
+      const player = new Player(0, 0);
+      const city = new City();
+      const input = new Input();
+
+      player.setPosition(0, 30, 0);
+      player.vy = -12;
+      player.update(0.1, input, city);
+
+      expect(player.y).toBeLessThan(30);
+      expect(player.y).toBeGreaterThan(0);
+      expect(player.vy).toBeGreaterThanOrEqual(-6.0); // Safe glide cap
+    });
+  });
+
+  describe('Wet Asphalt Reflections & Skidmark Drift Visuals', () => {
+    it('should toggle wet asphalt reflection roughness and metalness during rain', () => {
+      const city = new City();
+      expect(city.groundMat.roughness).toBe(0.7);
+
+      city.setWeatherMode('rain');
+      expect(city.groundMat.roughness).toBeLessThan(0.3);
+      expect(city.groundMat.metalness).toBeGreaterThan(0.6);
+
+      city.setWeatherMode('clear');
+      expect(city.groundMat.roughness).toBe(0.7);
+    });
+
+    it('should create and clear skidmarks during drifts and burnouts', () => {
+      const scene = new THREE.Scene();
+      const skidmarks = new SkidmarkSystem(scene);
+
+      expect(skidmarks.group).toBeDefined();
+
+      // Trigger drift skidmarks
+      skidmarks.update(0.05, 10, 10, 0, 15, true, false, false);
+      skidmarks.update(0.05, 10, 12, 0, 15, true, false, false);
+
+      skidmarks.clear();
+      expect(skidmarks.smokeParticles).toBeDefined();
     });
   });
 });
