@@ -12,14 +12,15 @@ export class SoundManager {
   private sirenTimer: number = 0;
 
   constructor() {
-    // User interaction unlock
-    const unlock = (): void => {
-      this.initAudioContext();
-      window.removeEventListener('click', unlock);
-      window.removeEventListener('keydown', unlock);
-    };
-    window.addEventListener('click', unlock);
-    window.addEventListener('keydown', unlock);
+    if (typeof window !== 'undefined') {
+      const unlock = (): void => {
+        this.initAudioContext();
+        window.removeEventListener('click', unlock);
+        window.removeEventListener('keydown', unlock);
+      };
+      window.addEventListener('click', unlock);
+      window.addEventListener('keydown', unlock);
+    }
   }
 
   private initAudioContext(): void {
@@ -119,6 +120,68 @@ export class SoundManager {
     osc2.start();
     osc1.stop(this.ctx.currentTime + 0.35);
     osc2.stop(this.ctx.currentTime + 0.35);
+  }
+
+  public playGunshot(): void {
+    if (!this.ctx || this.isMuted) return;
+
+    // High frequency pop + quick decay
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.08);
+
+    gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.09);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.09);
+  }
+
+  public playExplosion(): void {
+    if (!this.ctx || this.isMuted) return;
+
+    // Deep sub-bass boom + noise
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(140, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(25, this.ctx.currentTime + 0.5);
+
+    gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.6);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.6);
+  }
+
+  public playSprayPaint(): void {
+    if (!this.ctx || this.isMuted) return;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(1200, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(400, this.ctx.currentTime + 0.4);
+
+    gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.4);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.4);
   }
 
   public playCrash(): void {

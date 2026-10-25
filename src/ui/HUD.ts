@@ -1,5 +1,5 @@
 import { eventBus } from '../utils/EventBus';
-import { EVENTS } from '../utils/Constants';
+import { EVENTS, WeaponData, CITY_CONFIG } from '../utils/Constants';
 import { EconomySystem } from '../economy/EconomySystem';
 
 export class HUD {
@@ -10,6 +10,7 @@ export class HUD {
   private healthTextElement!: HTMLElement;
   private starsContainer!: HTMLElement;
   private cashElement!: HTMLElement;
+  private weaponElement!: HTMLElement;
   private notificationElement!: HTMLElement;
   private promptElement!: HTMLElement;
   private shopModalElement!: HTMLElement;
@@ -68,6 +69,46 @@ export class HUD {
         @keyframes pulseStar {
           from { transform: scale(1); }
           to { transform: scale(1.2); }
+        }
+        .hud-weapon {
+          background: rgba(15, 23, 42, 0.85);
+          border: 1px solid #38bdf8;
+          border-radius: 8px;
+          padding: 6px 12px;
+          font-size: 13px;
+          font-weight: 700;
+          color: #38bdf8;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+
+        .hud-crosshair {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 22px;
+          height: 22px;
+          pointer-events: none;
+        }
+        .hud-crosshair::before, .hud-crosshair::after {
+          content: '';
+          position: absolute;
+          background: rgba(255, 255, 255, 0.7);
+        }
+        .hud-crosshair::before {
+          top: 10px;
+          left: 0;
+          width: 22px;
+          height: 2px;
+        }
+        .hud-crosshair::after {
+          top: 0;
+          left: 10px;
+          width: 2px;
+          height: 22px;
         }
 
         .hud-bottom-right {
@@ -185,7 +226,7 @@ export class HUD {
           position: absolute;
           top: 24px;
           left: 28px;
-          background: rgba(15, 23, 42, 0.7);
+          background: rgba(15, 23, 42, 0.75);
           backdrop-filter: blur(4px);
           border: 1px solid rgba(255, 255, 255, 0.1);
           padding: 10px 14px;
@@ -257,12 +298,14 @@ export class HUD {
         }
       </style>
 
+      <div class="hud-crosshair"></div>
+
       <div class="hud-controls-helper">
-        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / Pfeile: Fahren / Laufen</div>
-        <div><kbd>Leertaste</kbd>: Handbremse (Drift)</div>
-        <div><kbd>E</kbd> / <kbd>F</kbd>: Auto klauen / Einsteigen / Aussteigen</div>
-        <div><kbd>G</kbd>: Garage & Waffenladen</div>
-        <div><kbd>J</kbd>: Job starten ($$$)</div>
+        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>: Fahren / Laufen</div>
+        <div><kbd>Klick</kbd> / <kbd>F</kbd>: Schießen / Schlagen 💥</div>
+        <div><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd>: Waffe wechseln</div>
+        <div><kbd>E</kbd>: Auto klauen / Ein-/Aussteigen</div>
+        <div><kbd>G</kbd>: Garage & Waffenladen | <kbd>J</kbd>: Job ($)</div>
         <div><kbd>H</kbd>: Hupe | <kbd>C</kbd>: Kamera | <kbd>R</kbd>: Reset</div>
       </div>
 
@@ -275,6 +318,7 @@ export class HUD {
           <span class="hud-star">★</span>
           <span class="hud-star">★</span>
         </div>
+        <div class="hud-weapon" id="hud-weapon">🥊 Faustschlag</div>
       </div>
 
       <div class="hud-top-center">
@@ -303,11 +347,11 @@ export class HUD {
           <button id="hud-shop-close-btn" style="background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;">✕</button>
         </div>
         <div class="hud-shop-section">
-          <h4 style="color:#f59e0b;margin-bottom:6px;">🚗 Autos kaufen & tunen:</h4>
+          <h4 style="color:#f59e0b;margin-bottom:6px;">🚗 Autos kaufen:</h4>
           <div id="hud-car-list"></div>
         </div>
         <div class="hud-shop-section">
-          <h4 style="color:#f59e0b;margin-bottom:6px;">🔫 Waffen & Ausrüstung:</h4>
+          <h4 style="color:#f59e0b;margin-bottom:6px;">🔫 Waffen & Munition:</h4>
           <div id="hud-weapon-list"></div>
         </div>
       </div>
@@ -319,6 +363,7 @@ export class HUD {
     this.healthTextElement = document.getElementById('hud-health-label')!;
     this.starsContainer = document.getElementById('hud-stars')!;
     this.cashElement = document.getElementById('hud-cash')!;
+    this.weaponElement = document.getElementById('hud-weapon')!;
     this.notificationElement = document.getElementById('hud-notification')!;
     this.promptElement = document.getElementById('hud-prompt')!;
     this.shopModalElement = document.getElementById('hud-shop-modal')!;
@@ -353,6 +398,24 @@ export class HUD {
       const d = data as { text: string };
       this.showNotification(d.text);
     });
+
+    eventBus.on(EVENTS.WEAPON_CHANGE, (data) => {
+      const w = data as WeaponData;
+      this.updateWeaponDisplay(w);
+    });
+  }
+
+  public updateWeaponDisplay(weapon: WeaponData): void {
+    const ammoStr = weapon.ammo === Infinity ? '∞' : `${weapon.ammo}`;
+    const icon =
+      weapon.id === 'rocket_launcher'
+        ? '🚀'
+        : weapon.id === 'pistol'
+          ? '🔫'
+          : weapon.id === 'baseball_bat'
+            ? '🏏'
+            : '🥊';
+    this.weaponElement.textContent = `${icon} ${weapon.name} (${ammoStr})`;
   }
 
   public showNotification(text: string): void {
@@ -410,12 +473,12 @@ export class HUD {
       <div class="hud-shop-item">
         <div>
           <strong>${w.name}</strong>
-          <div style="font-size:12px;color:#94a3b8;">Schaden: ${w.damage}</div>
+          <div style="font-size:12px;color:#94a3b8;">Schaden: ${w.damage} | Munition: ${w.ammo === Infinity ? 'Unbegrenzt' : w.ammo}</div>
         </div>
         <div>
           ${
             w.unlocked
-              ? `<span style="color:#22c55e;font-weight:700;">Ausgerüstet</span>`
+              ? `<button class="hud-shop-btn" onclick="window.gtaEquipWeapon('${w.id}')">Ausrüsten</button>`
               : `<button class="hud-shop-btn" onclick="window.gtaBuyWeapon('${w.id}')">$${w.price}</button>`
           }
         </div>
@@ -424,7 +487,6 @@ export class HUD {
       )
       .join('');
 
-    // Window global hooks for button onclick
     (window as unknown as { gtaBuyCar: (id: string) => void }).gtaBuyCar = (id: string): void => {
       if (this.economy.buyCar(id)) {
         this.renderShopContent();
@@ -440,6 +502,12 @@ export class HUD {
       } else {
         alert('Nicht genug Geld!');
       }
+    };
+    (window as unknown as { gtaEquipWeapon: (id: string) => void }).gtaEquipWeapon = (
+      id: string,
+    ): void => {
+      this.economy.equipWeapon(id);
+      this.renderShopContent();
     };
   }
 
@@ -467,20 +535,20 @@ export class HUD {
     playerZ: number,
     heading: number,
     cops: { x: number; z: number }[],
+    trafficCars: { x: number; z: number }[] = [],
   ): void {
     const ctx = this.minimapCtx;
     const w = this.minimapCanvas.width;
     const h = this.minimapCanvas.height;
     const center = w / 2;
-    const scale = 0.45; // Radar zoom factor
+    const scale = 0.45;
 
     ctx.clearRect(0, 0, w, h);
 
-    // Save context
     ctx.save();
     ctx.translate(center, center);
 
-    // Draw city grid roads in radar
+    // City grid roads
     ctx.strokeStyle = '#334155';
     ctx.lineWidth = 6;
     for (let x = -200; x <= 200; x += 88) {
@@ -496,7 +564,23 @@ export class HUD {
       ctx.stroke();
     }
 
-    // Draw Police Cops (Red/Blue dots)
+    // Pay 'n' Spray Garage Icon (Green Square 🟩)
+    const gx = (CITY_CONFIG.GARAGE_X - playerX) * scale;
+    const gz = (CITY_CONFIG.GARAGE_Z - playerZ) * scale;
+    ctx.fillStyle = '#22c55e';
+    ctx.fillRect(gx - 4, gz - 4, 8, 8);
+
+    // Traffic Cars (Yellow dots)
+    trafficCars.forEach((tc) => {
+      const tx = (tc.x - playerX) * scale;
+      const tz = (tc.z - playerZ) * scale;
+      ctx.fillStyle = '#facc15';
+      ctx.beginPath();
+      ctx.arc(tx, tz, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // Police Cops (Red dots)
     cops.forEach((cop) => {
       const cx = (cop.x - playerX) * scale;
       const cz = (cop.z - playerZ) * scale;
@@ -506,7 +590,7 @@ export class HUD {
       ctx.fill();
     });
 
-    // Draw Player Arrow at center
+    // Player Arrow at center
     ctx.rotate(heading);
     ctx.fillStyle = '#00d4ff';
     ctx.beginPath();

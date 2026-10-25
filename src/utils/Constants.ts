@@ -1,5 +1,5 @@
 export const GAME_TITLE = 'GTA 7';
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';
 
 // Vehicle tuning
 export const VEHICLE_CONFIG = {
@@ -37,6 +37,8 @@ export const CITY_CONFIG = {
   GRID_SIZE: 5, // 5x5 blocks
   SIDEWALK_WIDTH: 3.0,
   SIDEWALK_HEIGHT: 0.25,
+  GARAGE_X: -44,
+  GARAGE_Z: 44,
 } as const;
 
 // Camera Presets
@@ -99,14 +101,58 @@ export interface WeaponData {
   name: string;
   price: number;
   damage: number;
+  ammo: number;
+  maxAmmo: number;
+  fireRate: number; // Seconds between shots
+  isRanged: boolean;
   unlocked: boolean;
 }
 
 export const WEAPON_CATALOG: WeaponData[] = [
-  { id: 'fists', name: 'Faustschlag', price: 0, damage: 10, unlocked: true },
-  { id: 'baseball_bat', name: 'Baseballschläger', price: 150, damage: 30, unlocked: false },
-  { id: 'pistol', name: 'Pistole 9mm', price: 600, damage: 65, unlocked: false },
-  { id: 'rocket_launcher', name: 'RPG Raketenwerfer', price: 3000, damage: 300, unlocked: false },
+  {
+    id: 'fists',
+    name: 'Faustschlag',
+    price: 0,
+    damage: 15,
+    ammo: Infinity,
+    maxAmmo: Infinity,
+    fireRate: 0.4,
+    isRanged: false,
+    unlocked: true,
+  },
+  {
+    id: 'baseball_bat',
+    name: 'Baseballschläger',
+    price: 150,
+    damage: 40,
+    ammo: Infinity,
+    maxAmmo: Infinity,
+    fireRate: 0.5,
+    isRanged: false,
+    unlocked: false,
+  },
+  {
+    id: 'pistol',
+    name: 'Pistole 9mm',
+    price: 600,
+    damage: 55,
+    ammo: 60,
+    maxAmmo: 120,
+    fireRate: 0.25,
+    isRanged: true,
+    unlocked: false,
+  },
+  {
+    id: 'rocket_launcher',
+    name: 'RPG Raketenwerfer',
+    price: 3000,
+    damage: 250,
+    ammo: 10,
+    maxAmmo: 20,
+    fireRate: 1.2,
+    isRanged: true,
+    unlocked: false,
+  },
 ];
 
 // Events
@@ -123,4 +169,7 @@ export const EVENTS = {
   JOB_COMPLETE: 'job:complete',
   NOTIFICATION: 'ui:notification',
   SHOP_TOGGLE: 'shop:toggle',
+  WEAPON_CHANGE: 'weapon:change',
+  WEAPON_FIRE: 'weapon:fire',
+  EXPLOSION: 'combat:explosion',
 } as const;

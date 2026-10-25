@@ -42,30 +42,31 @@ flowchart LR
 
 ---
 
-## 🔫 Phase 3: Waffen, Ballern & Zerstörung
+## 🔫 Phase 3: Waffen, Ballern & Pay 'n' Spray (✅ Erledigt & Live)
 
-Ziel: Den Waffenladen mit echter Action füllen!
+Ziel: Den Waffenladen mit echter Action füllen & Pay 'n' Spray Werkstatt einweihen!
 
-| Meilenstein | Beschreibung | Priorität |
+| Meilenstein | Beschreibung | Status |
 |---|---|---|
-| **M3.1 Nahkampf & Faustschlag** | Passanten und Autos per Mausklick / Leertaste mit Faust oder Baseballschläger attackieren | Hoch |
-| **M3.2 Pistole & Fadenkreuz** | Schnelle Projektile mit Mündungsfeuer, Treffer-Funken und Schuss-Sounds | Hoch |
-| **M3.3 Drive-by-Shooting** | Aus dem fahrenden Auto schießen und gegnerische Reifen oder Motoren zersieben | Mittel |
-| **M3.4 RPG Raketenwerfer & Explosionen** | Dicke Feuerball-Explosionen, die Autos in die Luft schleudern | Hoch |
-| **M3.5 Hubschrauber bei 5 Sternen** | Ein Polizeihubschrauber mit Suchscheinwerfer kreist über dem Spieler | Mittel |
+| **M3.1 Nahkampf & Faustschlag / Schläger** | Passanten und Autos per Mausklick / `F` mit Faust oder Baseballschläger demolieren | ✅ Erledigt |
+| **M3.2 Pistole & Fadenkreuz** | Schnelle gelbe Leuchtspur-Projektile mit Mündungsfeuer, Waffensounds & Trefferschaden | ✅ Erledigt |
+| **M3.3 Drive-by-Shooting** | Aus dem fahrenden Auto schießen und gegnerische Autos oder Streifenwagen beschießen | ✅ Erledigt |
+| **M3.4 RPG Raketenwerfer & Explosionen** | Dicke Feuerball-Explosionen mit Stoßwelle, die Autos in die Luft schleudern | ✅ Erledigt |
+| **M3.5 Pay 'n' Spray Werkstatt** | Grünes Werkstattgebäude in der Stadt: Reinfahren, umlackieren, 100% reparieren & alle Fahndungssterne loswerden | ✅ Erledigt |
+| **M3.6 Schnellauswahl (1, 2, 3, 4)** | Sofortiger Waffenwechsel über die Zifferntasten `1` (Faust), `2` (Schläger), `3` (Pistole), `4` (RPG) | ✅ Erledigt |
 
 ---
 
-## 🏆 Phase 4: Missionen, Tuning-Garage & Mini-Games
+## 🏆 Phase 4: Missionen, Tuning-Garage & Mini-Games (Nächste Phase)
 
-Ziel: Noch mehr Möglichkeiten, um an fette Kohle ($) zu kommen!
+Ziel: Mehr Missionen, Fahrgäste und noch krassere Tuning-Upgrades!
 
 | Meilenstein | Beschreibung | Priorität |
 |---|---|---|
-| **M4.1 Interaktive Taxi-Missionen** | Passanten winken am Straßenrand, steigen ein und wollen zu einer bestimmten Adresse gebracht werden | Hoch |
-| **M4.2 Stunt-Schanzen-Highscore** | Weitsprung-Messung bei den Schanzen: Jeder Meter Airtime bringt Extra-Dollar | Mittel |
-| **M4.3 Checkpoint-Straßenrennen** | Rennen gegen die Zeit oder gegen KI-Sportwagen durch die Innenstadt | Hoch |
-| **M4.4 Tuning-Werkstatt (Garage)** | Spoiler montieren, neonfarbene Unterbodenbeleuchtung, Nitro-Boost einbauen | Hoch |
+| **M4.1 Echte Taxi-Fahrgäste** | Passanten winken am Straßenrand, steigen ins Taxi ein und man fährt sie zum Ziel für fettes Trinkgeld | Hoch |
+| **M4.2 Stunt-Schanzen-Highscore** | Weitsprung-Messung bei den Schanzen: Jeder Meter Airtime wird live auf dem Bildschirm gezählt und bar ausgezahlt | Hoch |
+| **M4.3 Checkpoint-Straßenrennen** | Rote Wegpunkte im City-Grid abfahren gegen die tickende Uhr mit Preisgeld | Hoch |
+| **M4.4 Tuning-Werkstatt (Garage)** | Spoiler montieren, neonfarbene Unterbodenbeleuchtung, Nitro-Boost (Taste `N`) | Hoch |
 
 ---
 

@@ -1,10 +1,29 @@
 export class Input {
   public keys: { [key: string]: boolean } = {};
   public justPressed: { [key: string]: boolean } = {};
+  public isMouseDown: boolean = false;
+  public wasMouseJustPressed: boolean = false;
 
   constructor() {
     window.addEventListener('keydown', (e) => this.onKeyDown(e));
     window.addEventListener('keyup', (e) => this.onKeyUp(e));
+    window.addEventListener('mousedown', (e) => this.onMouseDown(e));
+    window.addEventListener('mouseup', () => this.onMouseUp());
+  }
+
+  private onMouseDown(e: MouseEvent): void {
+    // Only fire if not clicking inside shop modal or UI buttons
+    const target = e.target as HTMLElement;
+    if (target && (target.closest('.hud-shop-modal') || target.tagName === 'BUTTON')) {
+      return;
+    }
+    this.isMouseDown = true;
+    this.wasMouseJustPressed = true;
+  }
+
+  private onMouseUp(): void {
+    this.isMouseDown = false;
+    this.wasMouseJustPressed = false;
   }
 
   private onKeyDown(e: KeyboardEvent): void {
@@ -61,7 +80,13 @@ export class Input {
   }
 
   public get actionInteract(): boolean {
-    return this.wasJustPressed('e') || this.wasJustPressed('f');
+    return this.wasJustPressed('e');
+  }
+
+  public get fire(): boolean {
+    const fired = this.wasMouseJustPressed || this.wasJustPressed('f') || this.wasJustPressed('x');
+    this.wasMouseJustPressed = false;
+    return fired;
   }
 
   public get horn(): boolean {

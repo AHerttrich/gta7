@@ -127,16 +127,29 @@ export class EconomySystem {
     return false;
   }
 
+  public getSelectedWeapon(): WeaponData {
+    return this.weapons.find((w) => w.id === this.selectedWeaponId) || this.weapons[0];
+  }
+
+  public equipWeapon(weaponId: string): boolean {
+    const weapon = this.weapons.find((w) => w.id === weaponId);
+    if (!weapon || !weapon.unlocked) return false;
+
+    this.selectedWeaponId = weapon.id;
+    eventBus.emit(EVENTS.WEAPON_CHANGE, weapon);
+    eventBus.emit(EVENTS.NOTIFICATION, {
+      text: `Waffe gewechselt: ${weapon.name}!`,
+    });
+    return true;
+  }
+
   public buyWeapon(weaponId: string): boolean {
     const weapon = this.weapons.find((w) => w.id === weaponId);
     if (!weapon || weapon.unlocked) return false;
 
     if (this.spendCash(weapon.price)) {
       weapon.unlocked = true;
-      this.selectedWeaponId = weapon.id;
-      eventBus.emit(EVENTS.NOTIFICATION, {
-        text: `🔫 Waffe ausgerüstet: ${weapon.name}!`,
-      });
+      this.equipWeapon(weapon.id);
       return true;
     }
     return false;

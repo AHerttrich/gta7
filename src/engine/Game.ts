@@ -3,11 +3,13 @@ import { Renderer } from './Renderer';
 import { Input } from './Input';
 import { GameCamera } from './Camera';
 import { City } from '../city/City';
+import { Garage } from '../city/Garage';
 import { Car } from '../vehicles/Car';
 import { Player } from '../character/Player';
 import { PoliceSystem } from '../police/PoliceSystem';
 import { TrafficSystem, TrafficCar } from '../traffic/TrafficSystem';
 import { PedestrianSystem } from '../pedestrians/PedestrianSystem';
+import { WeaponSystem } from '../combat/WeaponSystem';
 import { EconomySystem } from '../economy/EconomySystem';
 import { SoundManager } from '../audio/SoundManager';
 import { HUD } from '../ui/HUD';
@@ -20,11 +22,13 @@ export class Game {
   public input: Input;
   public camera: GameCamera;
   public city: City;
+  public garage: Garage;
   public car: Car;
   public player: Player;
   public police: PoliceSystem;
   public traffic: TrafficSystem;
   public pedestrians: PedestrianSystem;
+  public weapons: WeaponSystem;
   public economy: EconomySystem;
   public sound: SoundManager;
   public hud: HUD;
@@ -33,13 +37,19 @@ export class Game {
 
   private lastTime: number = 0;
   private isRunning: boolean = false;
+  private weaponCooldown: number = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new Renderer(canvas);
     this.input = new Input();
     this.camera = new GameCamera(this.renderer.camera);
+
+    // City & Garage
     this.city = new City();
     this.renderer.scene.add(this.city.group);
+
+    this.garage = new Garage();
+    this.renderer.scene.add(this.garage.group);
 
     // Initial Car at road intersection
     this.car = new Car(44, 44, 0, 0xe62429);
@@ -50,20 +60,39 @@ export class Game {
     this.player.group.visible = false;
     this.renderer.scene.add(this.player.group);
 
-    // City Life: Traffic & Pedestrians
+    // Subsystems
+    this.sound = new SoundManager();
     this.traffic = new TrafficSystem(this.renderer.scene);
     this.pedestrians = new PedestrianSystem(this.renderer.scene);
-
-    // Police, Economy, Sound, HUD
     this.police = new PoliceSystem(this.renderer.scene, this.city);
     this.economy = new EconomySystem();
-    this.sound = new SoundManager();
+
+    this.weapons = new WeaponSystem(
+      this.renderer.scene,
+      this.sound,
+      this.traffic,
+      this.police,
+      this.pedestrians,
+    );
+
     this.hud = new HUD('hud-overlay', this.economy);
 
-    // Keyboard debug for wanted stars
+    // Number keys 1-4 for quick weapon selection
     window.addEventListener('keydown', (e) => {
-      if (['1', '2', '3', '4', '5'].includes(e.key)) {
-        this.police.setWantedLevel(parseInt(e.key, 10));
+      const weaponMap: { [key: string]: string } = {
+        '1': 'fists',
+        '2': 'baseball_bat',
+        '3': 'pistol',
+        '4': 'rocket_launcher',
+      };
+      if (weaponMap[e.key]) {
+        const weaponId = weaponMap[e.key];
+        const weapon = this.economy.weapons.find((w) => w.id === weaponId);
+        if (weapon && weapon.unlocked) {
+          this.economy.equipWeapon(weaponId);
+        } else if (weapon && !weapon.unlocked) {
+          this.hud.showNotification(`🔒 ${weapon.name} noch nicht im Shop gekauft!`);
+        }
       }
     });
   }
@@ -88,6 +117,10 @@ export class Game {
   }
 
   private update(dt: number): void {
+    if (this.weaponCooldown > 0) {
+      this.weaponCooldown -= dt;
+    }
+
     // 1. Process Actions & Subsystem Toggles
     if (this.input.toggleShop) {
       this.hud.toggleShop();
@@ -117,7 +150,34 @@ export class Game {
       this.pedestrians.scareNearby(pX, pZ, 20);
     }
 
-    // 2. Player State Mode (In Car vs On Foot)
+    // 2. Weapon Combat (Mouse Click or F key)
+    if (this.input.fire && this.weaponCooldown <= 0) {
+      const currentWeapon = this.economy.getSelectedWeapon();
+      this.weaponCooldown = currentWeapon.fireRate;
+
+      let originX: number;
+      let originY: number;
+      let originZ: number;
+      let heading: number;
+
+      if (this.mode === 'IN_CAR') {
+        // Drive-by shooting from car
+        originX = this.car.physics.x + Math.sin(this.car.physics.heading) * 1.5;
+        originY = 1.0;
+        originZ = this.car.physics.z + Math.cos(this.car.physics.heading) * 1.5;
+        heading = this.car.physics.heading;
+      } else {
+        // Shooting on foot
+        originX = this.player.x + Math.sin(this.player.rotationY) * 0.6;
+        originY = 1.4;
+        originZ = this.player.z + Math.cos(this.player.rotationY) * 0.6;
+        heading = this.player.rotationY;
+      }
+
+      this.weapons.fire(currentWeapon, originX, originY, originZ, heading);
+    }
+
+    // 3. Player State Mode (In Car vs On Foot)
     const playerPos =
       this.mode === 'IN_CAR'
         ? new THREE.Vector3(this.car.physics.x, 0.5, this.car.physics.z)
@@ -161,7 +221,6 @@ export class Game {
             this.police.addCrimeSeverity(20);
             this.hud.showNotification('💥 Unfall verursacht! Fahndung steigt!');
           }
-          // Push apart
           const angle = Math.atan2(this.car.physics.x - tCar.x, this.car.physics.z - tCar.z);
           this.car.physics.x += Math.sin(angle) * 1.0;
           this.car.physics.z += Math.cos(angle) * 1.0;
@@ -174,15 +233,17 @@ export class Game {
         const d = Math.hypot(this.car.physics.x - ped.x, this.car.physics.z - ped.z);
         if (d < 1.8 && Math.abs(this.car.physics.speed) > 6.0) {
           this.police.addCrimeSeverity(35);
-          this.economy.addCash(40); // Dropped cash
+          this.economy.addCash(40);
           this.hud.showNotification('⚠️ Passant angefahren! +$40 Beute | ⭐ Fahndung erhöht!');
-          // Knock away pedestrian
           ped.x += Math.sin(this.car.physics.heading) * 4;
           ped.z += Math.cos(this.car.physics.heading) * 4;
           ped.isPanicking = true;
           ped.panicTimer = 5.0;
         }
       }
+
+      // Pay 'n' Spray Garage check
+      this.garage.update(dt, this.car, this.police, this.economy, this.sound, this.hud);
 
       // Camera Follow
       this.camera.updateVehicle(
@@ -214,13 +275,13 @@ export class Game {
       this.sound.updateEnginePitch(0, false);
       this.hud.updateVehicleStats(0, 'FUSS', 100);
 
-      // 1. Check distance to player's own car
+      // 1. Distance to own car
       const distToOwnCar = Math.hypot(
         this.player.x - this.car.physics.x,
         this.player.z - this.car.physics.z,
       );
 
-      // 2. Check distance to all traffic cars (Car-Jacking!)
+      // 2. Distance to traffic cars (Car-Jacking)
       let nearestTrafficCar: TrafficCar | null = null;
       let nearestDist = 9999;
       for (const tCar of this.traffic.cars) {
@@ -246,7 +307,8 @@ export class Game {
       }
     }
 
-    // 3. Update Subsystems
+    // 4. Update Subsystems
+    this.weapons.update(dt);
     this.traffic.update(dt, playerPos.x, playerPos.z);
     this.pedestrians.update(
       dt,
@@ -258,11 +320,18 @@ export class Game {
     this.sound.updateSiren(this.police.wantedLevel, dt);
     this.economy.update(dt, playerPos.x, playerPos.z);
 
-    // 4. Update Minimap Radar (Player + Cops)
+    // 5. Update Minimap Radar (Player + Cops + Traffic + Pay 'n' Spray)
     const currentHeading =
       this.mode === 'IN_CAR' ? this.car.physics.heading : this.player.rotationY;
     const copPositions = this.police.copCars.map((c) => ({ x: c.x, z: c.z }));
-    this.hud.updateMinimap(playerPos.x, playerPos.z, currentHeading, copPositions);
+    const trafficPositions = this.traffic.cars.map((c) => ({ x: c.x, z: c.z }));
+    this.hud.updateMinimap(
+      playerPos.x,
+      playerPos.z,
+      currentHeading,
+      copPositions,
+      trafficPositions,
+    );
   }
 
   private enterCar(): void {
@@ -281,7 +350,6 @@ export class Game {
   }
 
   private jackTrafficCar(trafficCar: TrafficCar): void {
-    // Car-jacking event!
     this.car.physics.reset(trafficCar.x, trafficCar.z, trafficCar.heading);
     this.car.setColor(trafficCar.color);
     this.car.repair();
@@ -291,7 +359,7 @@ export class Game {
     this.mode = 'IN_CAR';
     this.player.group.visible = false;
 
-    this.police.addCrimeSeverity(25); // Car theft gives instant wanted points!
+    this.police.addCrimeSeverity(25);
     this.hud.showNotification('🚗💨 Auto geklaut! Fahrer rausgeworfen — Polizei sucht dich!');
   }
 }
