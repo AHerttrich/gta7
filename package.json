@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "peerjs": "^1.5.5",
-    "three": "^0.172.0"
+    "three": "^0.186.1"
   },
   "devDependencies": {
     "@types/three": "^0.172.0",
