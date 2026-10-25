@@ -1,6 +1,7 @@
 import { eventBus } from '../utils/EventBus';
 import { EVENTS, WeaponData, CITY_CONFIG } from '../utils/Constants';
 import { EconomySystem } from '../economy/EconomySystem';
+import { NetworkManager } from '../network/NetworkManager';
 
 export class HUD {
   private overlay: HTMLElement;
@@ -16,14 +17,20 @@ export class HUD {
   private notificationElement!: HTMLElement;
   private promptElement!: HTMLElement;
   private shopModalElement!: HTMLElement;
+  private multiModalElement!: HTMLElement;
+  private multiStatusBadge!: HTMLElement;
   private minimapCanvas!: HTMLCanvasElement;
   private minimapCtx!: CanvasRenderingContext2D;
 
   private isShopOpen: boolean = false;
+  private isMultiOpen: boolean = false;
   private economy: EconomySystem;
+  private network: NetworkManager | null = null;
 
-  constructor(overlayId: string, economy: EconomySystem) {
+  constructor(overlayId: string, economy: EconomySystem, network?: NetworkManager) {
     this.economy = economy;
+    this.network = network || null;
+
     const el = document.getElementById(overlayId);
     if (!el) {
       throw new Error(`HUD overlay element #${overlayId} not found.`);
@@ -32,6 +39,11 @@ export class HUD {
 
     this.createHudElements();
     this.bindEvents();
+  }
+
+  public setNetwork(network: NetworkManager): void {
+    this.network = network;
+    this.setupNetworkCallbacks();
   }
 
   private createHudElements(): void {
@@ -84,6 +96,16 @@ export class HUD {
           align-items: center;
           gap: 6px;
           box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        .hud-multi-badge {
+          background: rgba(16, 185, 129, 0.2);
+          border: 1px solid #10b981;
+          color: #10b981;
+          padding: 4px 10px;
+          border-radius: 12px;
+          font-size: 12px;
+          font-weight: 800;
+          display: none;
         }
 
         .hud-crosshair {
@@ -274,7 +296,7 @@ export class HUD {
           font-family: monospace;
         }
 
-        /* Shop Modal */
+        /* Modals */
         .hud-shop-modal {
           position: absolute;
           top: 50%;
@@ -326,6 +348,37 @@ export class HUD {
           color: #94a3b8;
           cursor: not-allowed;
         }
+
+        /* Multiplayer Modal */
+        .hud-multi-modal {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: #0f172a;
+          border: 2px solid #10b981;
+          border-radius: 16px;
+          padding: 28px;
+          width: 480px;
+          max-width: 90vw;
+          display: none;
+          pointer-events: auto;
+          box-shadow: 0 0 40px rgba(16, 185, 129, 0.4);
+          z-index: 100;
+        }
+        .hud-input {
+          background: #1e293b;
+          border: 1px solid #475569;
+          color: #fff;
+          padding: 10px 14px;
+          border-radius: 8px;
+          font-size: 16px;
+          width: 100%;
+          box-sizing: border-box;
+          margin: 8px 0;
+          letter-spacing: 2px;
+          font-weight: 700;
+        }
       </style>
 
       <div class="hud-crosshair"></div>
@@ -335,7 +388,7 @@ export class HUD {
         <div><kbd>N</kbd> / <kbd>Shift</kbd>: NITRO BOOST 🔥</div>
         <div><kbd>Klick</kbd> / <kbd>F</kbd>: Schießen / Schlagen 💥</div>
         <div><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd>: Waffe wechseln</div>
-        <div><kbd>E</kbd>: Auto klauen / Ein-/Aussteigen</div>
+        <div><kbd>P</kbd>: MULTIPLAYER (Mit Kumpel zocken) 🌐</div>
         <div><kbd>G</kbd>: Garage & Shop | <kbd>J</kbd>: Taxi-Job</div>
         <div><kbd>H</kbd>: Hupe | <kbd>C</kbd>: Kamera | <kbd>R</kbd>: Reset</div>
       </div>
@@ -350,6 +403,7 @@ export class HUD {
           <span class="hud-star">★</span>
         </div>
         <div class="hud-weapon" id="hud-weapon">🥊 Faustschlag</div>
+        <div class="hud-multi-badge" id="hud-multi-badge">🟢 KUMPEL VERBUNDEN</div>
       </div>
 
       <div class="hud-top-center">
@@ -394,6 +448,35 @@ export class HUD {
           <div id="hud-weapon-list"></div>
         </div>
       </div>
+
+      <!-- Multiplayer P2P Modal -->
+      <div class="hud-multi-modal" id="hud-multi-modal">
+        <div class="hud-shop-title" style="color:#10b981;">
+          <span>🌐 GTA 7 P2P MULTIPLAYER</span>
+          <button id="hud-multi-close-btn" style="background:transparent;border:none;color:#fff;font-size:20px;cursor:pointer;">✕</button>
+        </div>
+        <div style="font-size:13px;color:#94a3b8;margin-bottom:14px;">
+          Zocke direkt im Browser mit deinem Kumpel — ohne Installation & ohne Serverkosten!
+        </div>
+
+        <div class="hud-shop-section" style="background:#1e293b;padding:14px;border-radius:8px;">
+          <h4 style="color:#38bdf8;">1. Spiel hosten (Raum erstellen)</h4>
+          <div style="margin-top:6px;">
+            <button class="hud-shop-btn" id="hud-host-btn">Raum erstellen</button>
+            <div id="hud-room-code-display" style="display:none;margin-top:10px;font-size:15px;color:#facc15;">
+              Dein Raumcode: <strong id="hud-room-code" style="font-size:22px;letter-spacing:3px;">------</strong>
+              <button class="hud-shop-btn" id="hud-copy-code-btn" style="margin-left:8px;padding:3px 8px;font-size:12px;">Kopieren</button>
+              <div style="font-size:12px;color:#94a3b8;margin-top:4px;">Schicke diesen Code deinem Kumpel!</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="hud-shop-section" style="background:#1e293b;padding:14px;border-radius:8px;">
+          <h4 style="color:#38bdf8;">2. Spiel beitreten</h4>
+          <input type="text" id="hud-join-input" class="hud-input" placeholder="6-STELLIGEN CODE EINGEBEN" maxlength="6" />
+          <button class="hud-shop-btn" id="hud-join-btn">Verbinden</button>
+        </div>
+      </div>
     `;
 
     this.speedElement = document.getElementById('hud-speed')!;
@@ -405,15 +488,83 @@ export class HUD {
     this.starsContainer = document.getElementById('hud-stars')!;
     this.cashElement = document.getElementById('hud-cash')!;
     this.weaponElement = document.getElementById('hud-weapon')!;
+    this.multiStatusBadge = document.getElementById('hud-multi-badge')!;
     this.notificationElement = document.getElementById('hud-notification')!;
     this.promptElement = document.getElementById('hud-prompt')!;
     this.shopModalElement = document.getElementById('hud-shop-modal')!;
+    this.multiModalElement = document.getElementById('hud-multi-modal')!;
 
     this.minimapCanvas = document.getElementById('minimap-canvas') as HTMLCanvasElement;
     this.minimapCtx = this.minimapCanvas.getContext('2d')!;
 
     document.getElementById('hud-shop-close-btn')!.addEventListener('click', () => {
       this.toggleShop(false);
+    });
+    document.getElementById('hud-multi-close-btn')!.addEventListener('click', () => {
+      this.toggleMultiplayer(false);
+    });
+
+    this.setupMultiplayerControls();
+  }
+
+  private setupMultiplayerControls(): void {
+    const hostBtn = document.getElementById('hud-host-btn')!;
+    const codeDisplay = document.getElementById('hud-room-code-display')!;
+    const codeSpan = document.getElementById('hud-room-code')!;
+    const copyBtn = document.getElementById('hud-copy-code-btn')!;
+    const joinBtn = document.getElementById('hud-join-btn')!;
+    const joinInput = document.getElementById('hud-join-input') as HTMLInputElement;
+
+    hostBtn.addEventListener('click', async () => {
+      if (!this.network) return;
+      hostBtn.textContent = 'Erstelle Raum...';
+      try {
+        const code = await this.network.host();
+        codeSpan.textContent = code;
+        codeDisplay.style.display = 'block';
+        hostBtn.style.display = 'none';
+        this.showNotification(`Raum ${code} erstellt! Warte auf Kumpel...`);
+      } catch {
+        hostBtn.textContent = 'Fehler beim Erstellen';
+      }
+    });
+
+    copyBtn.addEventListener('click', () => {
+      const code = codeSpan.textContent || '';
+      navigator.clipboard?.writeText(code);
+      copyBtn.textContent = 'Kopiert!';
+      setTimeout(() => (copyBtn.textContent = 'Kopieren'), 2000);
+    });
+
+    joinBtn.addEventListener('click', async () => {
+      if (!this.network) return;
+      const code = joinInput.value.trim();
+      if (code.length < 4) {
+        alert('Bitte gültigen Code eingeben!');
+        return;
+      }
+      joinBtn.textContent = 'Verbinde...';
+      try {
+        await this.network.join(code);
+        this.showNotification(`Verbinde mit Raum ${code}...`);
+      } catch {
+        joinBtn.textContent = 'Verbindung fehlgeschlagen';
+      }
+    });
+  }
+
+  private setupNetworkCallbacks(): void {
+    if (!this.network) return;
+
+    this.network.onStatus((status) => {
+      if (status === 'connected') {
+        this.multiStatusBadge.style.display = 'block';
+        this.toggleMultiplayer(false);
+        this.showNotification('🎉 Kumpel verbunden! Ihr spielt jetzt zusammen!');
+      } else if (status === 'disconnected') {
+        this.multiStatusBadge.style.display = 'none';
+        this.showNotification('Verbindung zum Kumpel getrennt.');
+      }
     });
   }
 
@@ -483,6 +634,12 @@ export class HUD {
       this.renderShopContent();
     }
     return this.isShopOpen;
+  }
+
+  public toggleMultiplayer(force?: boolean): boolean {
+    this.isMultiOpen = force !== undefined ? force : !this.isMultiOpen;
+    this.multiModalElement.style.display = this.isMultiOpen ? 'block' : 'none';
+    return this.isMultiOpen;
   }
 
   private renderShopContent(): void {
@@ -587,6 +744,7 @@ export class HUD {
     cops: { x: number; z: number }[],
     trafficCars: { x: number; z: number }[] = [],
     activeTarget: { x: number; z: number; color?: string } | null = null,
+    remotePeer: { x: number; z: number } | null = null,
   ): void {
     const ctx = this.minimapCtx;
     const w = this.minimapCanvas.width;
@@ -633,7 +791,7 @@ export class HUD {
     ctx.closePath();
     ctx.fill();
 
-    // Active Mission Target (Pulsing Star or Circle)
+    // Active Mission Target
     if (activeTarget) {
       const ax = (activeTarget.x - playerX) * scale;
       const az = (activeTarget.z - playerZ) * scale;
@@ -653,6 +811,19 @@ export class HUD {
       ctx.fill();
     });
 
+    // Remote Buddy Player (Pulsating Blue Dot with Ring)
+    if (remotePeer) {
+      const px = (remotePeer.x - playerX) * scale;
+      const pz = (remotePeer.z - playerZ) * scale;
+      ctx.fillStyle = '#00e5ff';
+      ctx.beginPath();
+      ctx.arc(px, pz, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
     // Police Cops (Red dots)
     cops.forEach((cop) => {
       const cx = (cop.x - playerX) * scale;
@@ -663,7 +834,7 @@ export class HUD {
       ctx.fill();
     });
 
-    // Player Arrow at center
+    // Local Player Arrow at center
     ctx.rotate(heading);
     ctx.fillStyle = '#00d4ff';
     ctx.beginPath();

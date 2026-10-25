@@ -70,16 +70,27 @@ Ziel: Mehr Missionen, Fahrgäste, Checkpoint-Rennen und Nitro-Speed!
 
 ---
 
-## 🌐 Phase 5: P2P WebRTC Multiplayer (Nächste Phase — Zusammen spielen!)
+## 🌐 Phase 5: P2P WebRTC Multiplayer (✅ Erledigt & Live!)
 
-Ziel: Wie in *Mattis Abenteuer* können Matti und sein Kumpel gemeinsam über das Internet auf einem Server cruisen!
+Ziel: Wie in *Mattis Abenteuer* können Matti und sein Kumpel gemeinsam über das Internet in derselben Stadt rumfahren, Rennen fahren und sich gegenseitig rammen!
+
+| Meilenstein | Beschreibung | Status |
+|---|---|---|
+| **M5.1 PeerJS WebRTC P2P** | Direkte Peer-to-Peer Verbindung ohne Serverkosten (Taste `P` öffnet Host / Join Menü mit 6-stelligem Code) | ✅ Erledigt |
+| **M5.2 Synchronisierte Autos & Positionen** | Gegenseitiges Sehen der Autos in Echtzeit (Position, Heading, Lenkung, Räder & Nitro-Flammen) | ✅ Erledigt |
+| **M5.3 3D Nametag & Minimap-Radar** | Schwebendes Namensschild `🎮 KUMPEL` über dem Wagen und pulsierender blauer Punkt auf dem Minimap-Radar | ✅ Erledigt |
+| **M5.4 PvP Crash-Physik & Rammen** | Rammt man das Auto seines Kumpels mit hoher Geschwindigkeit, gibt es Crash-Sound, Schadensübertragung und Stoßwirkung | ✅ Erledigt |
+| **M5.5 Synchronisiertes Ballern** | Schüsse und Raketen des Kumpels fliegen auch auf dem eigenen Bildschirm durch die Stadt | ✅ Erledigt |
+
+---
+
+## 🚁 Phase 6: Luft- & Wasser-Fahrzeuge & Custom Radio (Zukunftsausblick)
 
 | Meilenstein | Beschreibung | Priorität |
 |---|---|---|
-| **M5.1 PeerJS WebRTC P2P** | Direkte Peer-to-Peer Verbindung ohne Serverkosten (Host / Join Menü mit 5-stelligem Code) | Hoch |
-| **M5.2 Synchronisierte Autos & Positionen** | Gegenseitiges Sehen der Autos in Echtzeit (Position, Drehung, Farbe, Nitro-Flammen) | Hoch |
-| **M5.3 Gemeinsame Verfolgungsjagden** | Cops verfolgen beide Spieler; gegenseitiges Rammen und Rennen | Hoch |
-| **M5.4 Co-op Jobs** | Gemeinsam Missionen fahren oder sich gegenseitig jagen | Mittel |
+| **M6.1 Fliegender Helikopter** | Hubschrauber auf dem Dach des höchsten Wolkenkratzers mit Rotorblatt-Animation & Höhensteuerung (`Shift`/`Strg`) | Hoch |
+| **M6.2 Radio-Sender (GTA-Style)** | Umschaltbare Web-Radio-Stationen (Synthwave 80s, Hip-Hop Beats, Rock Radio) per Taste `R` | Hoch |
+| **M6.3 Polizei-Helikopter bei 5 Sternen** | Verfolgungs-Helikopter der Polizei mit Suchscheinwerfer, der den Spieler von oben jagt | Mittel |
 
 ---
 

@@ -101,6 +101,10 @@ export class Input {
     return this.wasJustPressed('g');
   }
 
+  public get toggleMultiplayer(): boolean {
+    return this.wasJustPressed('p');
+  }
+
   public get startJob(): boolean {
     return this.wasJustPressed('j');
   }

@@ -14,6 +14,9 @@ import { MissionSystem } from '../missions/MissionSystem';
 import { EconomySystem } from '../economy/EconomySystem';
 import { SoundManager } from '../audio/SoundManager';
 import { HUD } from '../ui/HUD';
+import { NetworkManager } from '../network/NetworkManager';
+import { RemotePlayer } from '../network/RemotePlayer';
+import { NetMsgKind, PlayerSyncMsg } from '../network/NetProtocol';
 import { PLAYER_CONFIG, RACE_CIRCUIT } from '../utils/Constants';
 
 export type PlayerMode = 'IN_CAR' | 'ON_FOOT';
@@ -34,6 +37,11 @@ export class Game {
   public economy: EconomySystem;
   public sound: SoundManager;
   public hud: HUD;
+
+  // Multiplayer
+  public network: NetworkManager;
+  public remotePlayer: RemotePlayer;
+  private netSyncTimer: number = 0;
 
   public mode: PlayerMode = 'IN_CAR';
 
@@ -78,7 +86,13 @@ export class Game {
     );
 
     this.missions = new MissionSystem(this.renderer.scene, this.sound, this.economy);
-    this.hud = new HUD('hud-overlay', this.economy);
+
+    // Multiplayer initialization
+    this.network = new NetworkManager();
+    this.remotePlayer = new RemotePlayer(this.renderer.scene);
+    this.hud = new HUD('hud-overlay', this.economy, this.network);
+
+    this.setupMultiplayerNetworking();
 
     // Number keys 1-4 for quick weapon selection
     window.addEventListener('keydown', (e) => {
@@ -100,11 +114,29 @@ export class Game {
     });
   }
 
+  private setupMultiplayerNetworking(): void {
+    this.network.onMessage((msg) => {
+      if (msg.kind === NetMsgKind.PLAYER_SYNC) {
+        this.remotePlayer.applySync(msg);
+      } else if (msg.kind === NetMsgKind.COMBAT_FIRE) {
+        const weapon =
+          this.economy.weapons.find((w) => w.id === msg.weaponId) || this.economy.weapons[2];
+        this.weapons.fire(weapon, msg.x, msg.y, msg.z, msg.heading);
+      } else if (msg.kind === NetMsgKind.VEHICLE_RAM) {
+        this.sound.playCrash();
+        this.car.takeDamage(msg.damage);
+        this.car.physics.x += msg.pushX;
+        this.car.physics.z += msg.pushZ;
+        this.hud.showNotification('💥 Kumpel hat dich gerammt!');
+      }
+    });
+  }
+
   public start(): void {
     this.isRunning = true;
     this.lastTime = performance.now();
     this.hud.showNotification(
-      'Willkommen in GTA 7! Gas: [W] | Nitro: [N] | Schießen: [Klick] | Rennen am Tor!',
+      'Willkommen in GTA 7! Gas: [W] | Nitro: [N] | Schießen: [Klick] | Multiplayer: [P]!',
     );
     requestAnimationFrame((time) => this.loop(time));
   }
@@ -130,8 +162,10 @@ export class Game {
     if (this.input.toggleShop) {
       this.hud.toggleShop();
     }
+    if (this.input.toggleMultiplayer) {
+      this.hud.toggleMultiplayer();
+    }
     if (this.input.startJob) {
-      // Toggle Taxi mission
       this.missions.startTaxiMission();
     }
     if (this.input.cycleCamera) {
@@ -179,6 +213,18 @@ export class Game {
       }
 
       this.weapons.fire(currentWeapon, originX, originY, originZ, heading);
+
+      // Broadcast shot to remote player
+      if (this.network.isConnected) {
+        this.network.send({
+          kind: NetMsgKind.COMBAT_FIRE,
+          weaponId: currentWeapon.id,
+          x: originX,
+          y: originY,
+          z: originZ,
+          heading,
+        });
+      }
     }
 
     // 3. Player State Mode (In Car vs On Foot)
@@ -188,7 +234,7 @@ export class Game {
         : new THREE.Vector3(this.player.x, 0, this.player.z);
 
     if (this.mode === 'IN_CAR') {
-      // Check Stunt Ramps in city (at [0, 40] and [88, -40])
+      // Check Stunt Ramps in city
       const ramp1Dist = Math.hypot(this.car.physics.x - 0, this.car.physics.z - 40);
       const ramp2Dist = Math.hypot(this.car.physics.x - 88, this.car.physics.z - -40);
 
@@ -214,7 +260,7 @@ export class Game {
         this.missions.handleStuntJump(stuntResult.distance, stuntResult.airtime);
       }
 
-      // Car Collision with Buildings (only when ground bound)
+      // Car Collision with Buildings
       if (!this.car.physics.isAirborne) {
         const col = this.city.checkCollision(this.car.physics.x, this.car.physics.z, 2.0);
         if (col.collided) {
@@ -231,7 +277,7 @@ export class Game {
         }
       }
 
-      // Check Collision with Traffic Cars
+      // Collision with Traffic Cars
       for (const tCar of this.traffic.cars) {
         const d = Math.hypot(this.car.physics.x - tCar.x, this.car.physics.z - tCar.z);
         if (d < 3.2) {
@@ -248,6 +294,37 @@ export class Game {
           this.car.physics.x += Math.sin(angle) * 1.0;
           this.car.physics.z += Math.cos(angle) * 1.0;
           this.car.physics.speed *= 0.4;
+        }
+      }
+
+      // Multiplayer Ramming: Local Car vs Remote Buddy Car
+      if (this.network.isConnected && this.remotePlayer.mode === 'IN_CAR') {
+        const distToBuddy = Math.hypot(
+          this.car.physics.x - this.remotePlayer.targetX,
+          this.car.physics.z - this.remotePlayer.targetZ,
+        );
+        if (distToBuddy < 3.2) {
+          const impact = Math.abs(this.car.physics.speed) + Math.abs(this.remotePlayer.speed);
+          if (impact > 4.0) {
+            this.sound.playCrash();
+            const dmg = Math.round(impact * 1.3);
+            this.car.takeDamage(dmg);
+
+            const pushAngle = Math.atan2(
+              this.remotePlayer.targetX - this.car.physics.x,
+              this.remotePlayer.targetZ - this.car.physics.z,
+            );
+            const pushX = Math.sin(pushAngle) * 2.0;
+            const pushZ = Math.cos(pushAngle) * 2.0;
+
+            this.network.send({
+              kind: NetMsgKind.VEHICLE_RAM,
+              damage: dmg,
+              pushX,
+              pushZ,
+            });
+            this.hud.showNotification('💥 Du hast deinen Kumpel gerammt!');
+          }
         }
       }
 
@@ -344,7 +421,31 @@ export class Game {
     this.sound.updateSiren(this.police.wantedLevel, dt);
     this.economy.update(dt, playerPos.x, playerPos.z);
 
-    // 5. Update Minimap Radar with Active Target
+    // 5. Update Remote Peer & Sync Broadcast (every 50ms)
+    this.remotePlayer.update(dt);
+    if (this.network.isConnected) {
+      this.netSyncTimer += dt;
+      if (this.netSyncTimer >= 0.05) {
+        this.netSyncTimer = 0;
+        const syncMsg: PlayerSyncMsg = {
+          kind: NetMsgKind.PLAYER_SYNC,
+          x: playerPos.x,
+          y: playerPos.y,
+          z: playerPos.z,
+          heading: this.mode === 'IN_CAR' ? this.car.physics.heading : this.player.rotationY,
+          speed: this.mode === 'IN_CAR' ? this.car.physics.speed : 0,
+          mode: this.mode,
+          carColor: 0xe62429,
+          isBoosting: this.mode === 'IN_CAR' && this.car.physics.isBoosting,
+          isDrifting: this.mode === 'IN_CAR' && this.car.physics.isDrifting,
+          health: this.car.health,
+          t: performance.now(),
+        };
+        this.network.send(syncMsg);
+      }
+    }
+
+    // 6. Update Minimap Radar with Active Target & Remote Buddy
     let activeTarget: { x: number; z: number; color?: string } | null = null;
     if (this.missions.race.isActive) {
       const pt = RACE_CIRCUIT[this.missions.race.currentCheckpointIndex];
@@ -365,6 +466,10 @@ export class Game {
       }
     }
 
+    const remotePos = this.network.isConnected
+      ? { x: this.remotePlayer.targetX, z: this.remotePlayer.targetZ }
+      : null;
+
     const currentHeading =
       this.mode === 'IN_CAR' ? this.car.physics.heading : this.player.rotationY;
     const copPositions = this.police.copCars.map((c) => ({ x: c.x, z: c.z }));
@@ -376,6 +481,7 @@ export class Game {
       copPositions,
       trafficPositions,
       activeTarget,
+      remotePos,
     );
   }
 
