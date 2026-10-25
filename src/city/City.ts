@@ -26,8 +26,10 @@ export class City {
     groundMesh.receiveShadow = true;
     this.group.add(groundMesh);
 
-    // 2. City Blocks with Buildings & Sidewalks
+    // 2. City Blocks with Buildings, Sidewalks, Palm Trees & Street Lamps
     const neonColors = [0x00d4ff, 0xff007f, 0x10b981, 0xf59e0b, 0xa855f7];
+    const billboardLabels = ['GTA 7', 'DELOREAN', 'MATTI & CO', 'CYBER CITY', 'NEON SPEED'];
+    let billboardIdx = 0;
 
     for (let i = 0; i < GRID_SIZE; i++) {
       for (let j = 0; j < GRID_SIZE; j++) {
@@ -46,16 +48,19 @@ export class City {
         sidewalkMesh.receiveShadow = true;
         this.group.add(sidewalkMesh);
 
-        // Place 1 to 4 buildings in this block
+        // Place buildings in this block
         const distFromCenter = Math.hypot(i - GRID_SIZE / 2, j - GRID_SIZE / 2);
         const isDowntown = distFromCenter < 1.5;
 
         // Heights
-        const baseHeight = isDowntown ? 50 + Math.random() * 50 : 18 + Math.random() * 30;
+        const baseHeight = isDowntown ? 52 + Math.random() * 45 : 20 + Math.random() * 28;
         const color = neonColors[(i + j) % neonColors.length];
 
-        const bWidth = BLOCK_SIZE * 0.75;
-        const bDepth = BLOCK_SIZE * 0.75;
+        const bWidth = BLOCK_SIZE * 0.74;
+        const bDepth = BLOCK_SIZE * 0.74;
+
+        const hasBillboard = isDowntown && billboardIdx < billboardLabels.length;
+        const billboardText = hasBillboard ? billboardLabels[billboardIdx++] : undefined;
 
         const building = Building.createBuilding(
           blockCenterX,
@@ -64,13 +69,25 @@ export class City {
           bDepth,
           baseHeight,
           color,
+          billboardText,
         );
         this.group.add(building.mesh);
         this.buildingBounds.push(building.bounds);
+
+        // Boulevard Palm Trees at sidewalk edges
+        const halfB = BLOCK_SIZE / 2 - 3.5;
+        const palm1 = Road.createPalmTree(blockCenterX - halfB, blockCenterZ - halfB);
+        const palm2 = Road.createPalmTree(blockCenterX + halfB, blockCenterZ + halfB);
+        this.group.add(palm1, palm2);
+
+        // Modern Street Lamps at opposite sidewalk corners
+        const lamp1 = Road.createStreetLamp(blockCenterX - halfB, blockCenterZ + halfB, 0);
+        const lamp2 = Road.createStreetLamp(blockCenterX + halfB, blockCenterZ - halfB, Math.PI);
+        this.group.add(lamp1, lamp2);
       }
     }
 
-    // 3. Lane Dash Markings along roads
+    // 3. Lane Dash Markings & Crosswalks along roads
     for (let i = 0; i <= GRID_SIZE; i++) {
       const roadCoord = -halfSize + i * step;
 
@@ -81,6 +98,14 @@ export class City {
       // Vertical road lane line
       const lineV = Road.createLaneDashes(roadCoord, -halfSize, roadCoord, halfSize, true);
       this.group.add(lineV);
+
+      // Cyber Crosswalks at intersections
+      for (let j = 0; j <= GRID_SIZE; j++) {
+        const roadCoord2 = -halfSize + j * step;
+        const cw1 = Road.createCrosswalk(roadCoord2 + 10, roadCoord, true);
+        const cw2 = Road.createCrosswalk(roadCoord2, roadCoord + 10, false);
+        this.group.add(cw1, cw2);
+      }
     }
 
     // 4. Stunt Ramps in selected intersections

@@ -39,28 +39,62 @@ export class RemotePlayer {
   }
 
   private buildRemoteCar(): void {
-    // Body
-    const bodyGeo = new THREE.BoxGeometry(VEHICLE_CONFIG.CAR_WIDTH, 0.6, VEHICLE_CONFIG.CAR_LENGTH);
+    // DeLorean Body
+    const bodyGeo = new THREE.BoxGeometry(
+      VEHICLE_CONFIG.CAR_WIDTH,
+      0.48,
+      VEHICLE_CONFIG.CAR_LENGTH,
+    );
     const bodyMat = new THREE.MeshStandardMaterial({
-      color: 0x00d4ff, // Default Cyan for remote buddy
-      metalness: 0.8,
-      roughness: 0.2,
+      color: 0xd1d5db, // DeLorean Brushed Metallic
+      metalness: 0.94,
+      roughness: 0.22,
     });
     this.carBodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
-    this.carBodyMesh.position.y = 0.5;
+    this.carBodyMesh.position.y = 0.44;
     this.carBodyMesh.castShadow = true;
     this.carGroup.add(this.carBodyMesh);
 
+    // Front wedge hood
+    const hoodMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(VEHICLE_CONFIG.CAR_WIDTH * 0.94, 0.2, 1.5),
+      bodyMat,
+    );
+    hoodMesh.position.set(0, 0.52, 1.4);
+    hoodMesh.rotation.x = -0.08;
+    this.carGroup.add(hoodMesh);
+
     // Cabin
-    const cabinGeo = new THREE.BoxGeometry(VEHICLE_CONFIG.CAR_WIDTH * 0.85, 0.55, 2.2);
+    const cabinGeo = new THREE.BoxGeometry(VEHICLE_CONFIG.CAR_WIDTH * 0.84, 0.52, 2.1);
     const glassMat = new THREE.MeshStandardMaterial({
-      color: 0x111625,
-      metalness: 0.9,
-      roughness: 0.1,
+      color: 0x0f172a,
+      metalness: 0.95,
+      roughness: 0.08,
     });
     const cabin = new THREE.Mesh(cabinGeo, glassMat);
-    cabin.position.set(0, 0.95, -0.2);
+    cabin.position.set(0, 0.88, -0.15);
     this.carGroup.add(cabin);
+
+    // Rear window louvers
+    const louverMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.6 });
+    for (let l = 0; l < 4; l++) {
+      const louver = new THREE.Mesh(
+        new THREE.BoxGeometry(VEHICLE_CONFIG.CAR_WIDTH * 0.8, 0.03, 0.16),
+        louverMat,
+      );
+      louver.position.set(0, 0.78 + l * 0.07, -0.75 - l * 0.22);
+      this.carGroup.add(louver);
+    }
+
+    // Rear nuclear thruster vents
+    const ventMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8 });
+    const ventGeo = new THREE.CylinderGeometry(0.22, 0.26, 0.4, 12);
+    ventGeo.rotateX(Math.PI / 2);
+    const ventL = new THREE.Mesh(ventGeo, ventMat);
+    ventL.position.set(-0.48, 0.7, -VEHICLE_CONFIG.CAR_LENGTH / 2 - 0.12);
+    const ventR = ventL.clone();
+    ventR.position.x = 0.48;
+    this.carGroup.add(ventL, ventR);
 
     // Wheels
     const wheelPositions = [
@@ -71,7 +105,7 @@ export class RemotePlayer {
     ];
     const wheelGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.32, 12);
     wheelGeo.rotateZ(Math.PI / 2);
-    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x1f2937 });
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, metalness: 0.8 });
 
     wheelPositions.forEach(([wx, wy, wz]) => {
       const wheel = new THREE.Mesh(wheelGeo, wheelMat);
@@ -82,18 +116,18 @@ export class RemotePlayer {
     });
 
     // Nitro Flames
-    const flameGeo = new THREE.ConeGeometry(0.18, 0.9, 8);
+    const flameGeo = new THREE.ConeGeometry(0.2, 1.0, 8);
     flameGeo.rotateX(Math.PI / 2);
     const flameMat = new THREE.MeshBasicMaterial({
-      color: 0x00e5ff,
+      color: 0x00f0ff,
       transparent: true,
       opacity: 0.0,
     });
 
     this.nitroFlameLeft = new THREE.Mesh(flameGeo, flameMat);
-    this.nitroFlameLeft.position.set(-0.45, 0.35, -VEHICLE_CONFIG.CAR_LENGTH / 2 - 0.45);
+    this.nitroFlameLeft.position.set(-0.48, 0.7, -VEHICLE_CONFIG.CAR_LENGTH / 2 - 0.6);
     this.nitroFlameRight = new THREE.Mesh(flameGeo, flameMat);
-    this.nitroFlameRight.position.set(0.45, 0.35, -VEHICLE_CONFIG.CAR_LENGTH / 2 - 0.45);
+    this.nitroFlameRight.position.set(0.48, 0.7, -VEHICLE_CONFIG.CAR_LENGTH / 2 - 0.6);
 
     this.carGroup.add(this.nitroFlameLeft, this.nitroFlameRight);
   }
@@ -185,10 +219,20 @@ export class RemotePlayer {
     this.group.position.z = THREE.MathUtils.lerp(this.group.position.z, this.targetZ, 0.25);
     this.group.rotation.y = THREE.MathUtils.lerp(this.group.rotation.y, this.targetHeading, 0.25);
 
-    // Wheel roll rotation
+    // Wheel roll & hover folding
     if (this.mode === 'IN_CAR') {
-      this.wheelRotation += (this.speed * dt) / 0.4;
-      this.wheels.forEach((w) => (w.rotation.x = this.wheelRotation));
+      const isFlying = this.targetY > 0.9;
+      const targetFold = isFlying ? Math.PI / 2 : 0;
+      this.wheels.forEach((w, idx) => {
+        const isLeft = idx % 2 === 0;
+        w.rotation.z = THREE.MathUtils.lerp(w.rotation.z, isLeft ? targetFold : -targetFold, 0.2);
+        if (!isFlying) {
+          w.rotation.x = this.wheelRotation;
+        }
+      });
+      if (!isFlying) {
+        this.wheelRotation += (this.speed * dt) / 0.4;
+      }
     }
   }
 

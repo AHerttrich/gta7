@@ -25,8 +25,11 @@ Unser detaillierter Zukunftsplan für die nächsten Phasen (Waffen, Schusswechse
 
 | Feature | Description | Status |
 |---|---|---|
+| **🛸 Futuristic DeLorean Hover Flight** | Authentic DeLorean DMC-12 time machine with brushed stainless steel, folding hover thruster wheels, vertical climb & flight mode (`V`/`X` / mobile `🚀 HOVER`) | ✅ Included |
+| **🌆 Next-Gen City Graphics** | Procedural skyscraper window grid facades, rooftop helipads, antennas with blinking warning beacons, boulevard palm trees & street lamps | ✅ Included |
+| **🌌 Atmospheric Sky Dome & Warp FX** | Gradient sky dome (space cobalt to golden sunset haze), floating cyber dust motes, and hyperspace speed warp streak lines | ✅ Included |
 | **🏎️ Arcade Driving Physics** | Smooth acceleration, steering, drifting with handbrake, reverse, and suspension bounce | ✅ Included |
-| **📱 Mobile Touch Controls** | Full on-screen touch virtual controls for smartphones & tablets (Steering, Gas, Brake, Nitro, Jack, Shoot, Top Bar) | ✅ Included |
+| **📱 Mobile Touch Controls** | Full on-screen touch virtual controls for smartphones & tablets (Steering, Gas, Brake, Nitro, Flight, Jack, Shoot, Top Bar) | ✅ Included |
 | **🤸 Ballistic Ragdoll Pedestrians** | Pedestrians get launched into the air upon vehicle impact with 3D tumbling, flailing limbs, ground bouncing & recovery | ✅ Included |
 | **🌐 P2P WebRTC Multiplayer** | Real-time direct browser-to-browser multiplayer (Host/Join with 6-char code, synced cars, PvP ramming & shooting) | ✅ Included |
 | **☀️ California Sunlight** | Bright daylight with sharp sun shadows, blue sky and clear visibility across districts | ✅ Included |
@@ -63,19 +66,20 @@ Unser detaillierter Zukunftsplan für die nächsten Phasen (Waffen, Schusswechse
 
 | Key | Action |
 |---|---|
-| `W` / `Arrow Up` | Throttle forward |
-| `S` / `Arrow Down` | Brake / Reverse |
-| `A` / `Arrow Left` | Steer left |
-| `D` / `Arrow Right` | Steer right |
+| `W` / `Arrow Up` | Throttle forward / Fly forward |
+| `S` / `Arrow Down` | Brake / Reverse / Air thrusters |
+| `A` / `Arrow Left` | Steer left / Flight banking roll |
+| `D` / `Arrow Right` | Steer right / Flight banking roll |
+| `V` / `X` | **DeLorean Hover-Flugmodus umschalten** 🚀 |
+| `Space` | Steigen im Flugmodus (oder Handbremse am Boden / Sprung zu Fuß) |
+| `C` | Sinken im Flugmodus (oder Kameraperspektive wechseln) |
 | `N` / `Shift` (in car) | **NITRO BOOST** (Twin flame exhaust, 245 km/h) |
-| `Space` | Handbrake & Drift (or Jump on foot) |
 | `Left Click` / `F` | Shoot weapon / Melee attack |
 | `1` – `4` | Quick weapon switch (Fists, Bat, Pistol, RPG) |
 | `E` | Jack traffic car / Enter / Exit vehicle |
 | `G` | Open Garage & Weapon Shop |
 | `J` | Start interactive Taxi passenger job |
 | `H` | Honk horn (scares pedestrians!) |
-| `C` | Switch camera angle |
 | `L` | Toggle headlights |
 | `R` | Reset car orientation |
 | `M` | Mute / Unmute audio |

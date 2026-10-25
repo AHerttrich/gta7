@@ -72,7 +72,12 @@ export class SoundManager {
     return this.isMuted;
   }
 
-  public updateEnginePitch(rpm: number, inCar: boolean, isBoosting: boolean = false): void {
+  public updateEnginePitch(
+    rpm: number,
+    inCar: boolean,
+    isBoosting: boolean = false,
+    isHoverMode: boolean = false,
+  ): void {
     if (!this.ctx || !this.engineOsc || this.isMuted) return;
 
     if (!inCar) {
@@ -80,10 +85,38 @@ export class SoundManager {
       return;
     }
 
+    if (isHoverMode) {
+      // Futuristic sci-fi hover hum
+      const hoverFreq = 160 + Math.sin(this.ctx.currentTime * 8) * 20 + rpm * 80;
+      this.engineOsc.frequency.setTargetAtTime(hoverFreq, this.ctx.currentTime, 0.05);
+      this.engineGain?.gain.setValueAtTime(isBoosting ? 0.08 : 0.05, this.ctx.currentTime);
+      return;
+    }
+
     const boostMultiplier = isBoosting ? 1.4 : 1.0;
     const freq = (45 + rpm * 110) * boostMultiplier;
     this.engineOsc.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.05);
     this.engineGain?.gain.setValueAtTime(isBoosting ? 0.07 : 0.04, this.ctx.currentTime);
+  }
+
+  public playHoverEngage(): void {
+    if (!this.ctx || this.isMuted) return;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.35);
+
+    gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.4);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.4);
   }
 
   public updateSiren(wantedLevel: number, dt: number): void {

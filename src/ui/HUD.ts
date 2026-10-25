@@ -497,6 +497,7 @@ export class HUD {
 
       <!-- Quick Buttons on Top -->
       <div class="hud-mobile-quickbar">
+        <button class="hud-quick-btn" id="m-btn-hover" style="border-color:#06b6d4;color:#06b6d4;">🚀 HOVER</button>
         <button class="hud-quick-btn" id="m-btn-multi">🌐 MULTI</button>
         <button class="hud-quick-btn" id="m-btn-shop">🛒 SHOP</button>
         <button class="hud-quick-btn" id="m-btn-job">🚖 TAXI</button>
@@ -506,10 +507,11 @@ export class HUD {
 
       <div class="hud-controls-helper">
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>: Fahren / Laufen</div>
+        <div><kbd>V</kbd> / <kbd>X</kbd>: DeLorean Flugmodus 🚀</div>
+        <div><kbd>Leertaste</kbd>: Steigen | <kbd>C</kbd>: Sinken</div>
         <div><kbd>N</kbd> / <kbd>Shift</kbd>: NITRO BOOST 🔥</div>
         <div><kbd>Klick</kbd> / <kbd>F</kbd>: Schießen / Schlagen 💥</div>
-        <div><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd>: Waffe wechseln</div>
-        <div><kbd>P</kbd>: MULTIPLAYER 🌐</div>
+        <div><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd>: Waffe | <kbd>P</kbd>: Multiplayer</div>
         <div><kbd>E</kbd>: Auto klauen | <kbd>G</kbd>: Shop | <kbd>J</kbd>: Taxi</div>
       </div>
 
@@ -563,6 +565,7 @@ export class HUD {
 
         <div class="hud-touch-cluster" style="align-items:flex-end;flex-wrap:wrap;justify-content:flex-end;max-width:230px;">
           <button class="hud-touch-btn hud-touch-nitro" id="t-btn-nitro">🔥</button>
+          <button class="hud-touch-btn" id="t-btn-hover" style="font-size:16px;background:rgba(6,182,212,0.45);border-color:#06b6d4;">🚀</button>
           <button class="hud-touch-btn hud-touch-fire" id="t-btn-fire">💥</button>
           <button class="hud-touch-btn" id="t-btn-action" style="font-size:16px;">🚗</button>
           <button class="hud-touch-btn hud-touch-brake" id="t-btn-brake">▼</button>
@@ -681,10 +684,14 @@ export class HUD {
     bindTouch('t-btn-brake', 'backward');
     bindTouch('t-btn-nitro', 'nitro');
     bindTouch('t-btn-horn', 'horn');
+    bindTouch('t-btn-hover', 'hoverToggle', true);
     bindTouch('t-btn-action', 'actionInteract', true);
     bindTouch('t-btn-fire', 'fire', true);
 
     // Mobile Top Quickbar Hooks
+    document.getElementById('m-btn-hover')?.addEventListener('click', () => {
+      if (this.input) this.input.touchState.hoverToggle = true;
+    });
     document
       .getElementById('m-btn-multi')
       ?.addEventListener('click', () => this.toggleMultiplayer());
@@ -908,9 +915,19 @@ export class HUD {
     health: number,
     nitro: number = 100,
     inCar: boolean = true,
+    isHoverMode: boolean = false,
   ): void {
     this.speedElement.textContent = String(Math.abs(speedKmh));
-    this.gearElement.textContent = `GANG: ${gear}`;
+
+    if (isHoverMode) {
+      this.gearElement.textContent = 'MODUS: 🚀 HOVER FLUG';
+      this.gearElement.style.color = '#00f0ff';
+      this.gearElement.style.textShadow = '0 0 10px #00f0ff';
+    } else {
+      this.gearElement.textContent = `GANG: ${gear}`;
+      this.gearElement.style.color = '#38bdf8';
+      this.gearElement.style.textShadow = 'none';
+    }
 
     this.nitroContainerElement.style.display = inCar ? 'block' : 'none';
     this.nitroFillElement.style.width = `${Math.max(0, Math.min(100, nitro))}%`;

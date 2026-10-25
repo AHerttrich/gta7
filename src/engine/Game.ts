@@ -136,7 +136,7 @@ export class Game {
     this.isRunning = true;
     this.lastTime = performance.now();
     this.hud.showNotification(
-      'Willkommen in GTA 7! Gas: [W] | Nitro: [N] | Schießen: [Klick] | Multiplayer: [P]!',
+      'Willkommen in GTA 7! Gas: [W] | Nitro: [N] | DeLorean Flugmodus: [V]/[X] | Multiplayer: [P]!',
     );
     requestAnimationFrame((time) => this.loop(time));
   }
@@ -148,6 +148,13 @@ export class Game {
     this.lastTime = time;
 
     this.update(dt);
+    this.renderer.updateAtmosphere(
+      dt,
+      this.renderer.camera.position,
+      this.mode === 'IN_CAR' ? this.car.physics.speed : 0,
+      this.mode === 'IN_CAR' && this.car.physics.isBoosting,
+      this.mode === 'IN_CAR' && this.car.physics.isHoverMode,
+    );
     this.renderer.render();
 
     requestAnimationFrame((t) => this.loop(t));
@@ -246,6 +253,10 @@ export class Game {
         this.car.physics.launchJump(12.5);
       }
 
+      // DeLorean Hover Mode toggle trigger
+      const wasHover = this.car.physics.isHoverMode;
+      const hoverToggled = this.input.hoverToggle;
+
       // Car controls
       const stuntResult = this.car.update(dt, {
         throttle: this.input.forward,
@@ -254,7 +265,21 @@ export class Game {
         steerRight: this.input.right,
         handbrake: this.input.handbrake,
         nitro: this.input.nitro,
+        hoverToggle: hoverToggled,
+        ascend: this.input.ascend,
+        descend: this.input.descend,
       });
+
+      if (this.car.physics.isHoverMode !== wasHover) {
+        if (this.car.physics.isHoverMode) {
+          this.sound.playHoverEngage();
+          this.hud.showNotification(
+            '⚡ DELOREAN HOVER-FLUG! [Leertaste] Steigen | [C] Sinken | [V]/[X] Landen',
+          );
+        } else {
+          this.hud.showNotification('🛬 DeLorean gelandet — Straßenmodus aktiv');
+        }
+      }
 
       if (stuntResult.stuntCompleted) {
         this.missions.handleStuntJump(stuntResult.distance, stuntResult.airtime);
@@ -355,8 +380,13 @@ export class Game {
         dt,
       );
 
-      // Audio (with Nitro scream!)
-      this.sound.updateEnginePitch(this.car.physics.rpm, true, this.car.physics.isBoosting);
+      // Audio (with Nitro scream & DeLorean Sci-Fi Hover hum!)
+      this.sound.updateEnginePitch(
+        this.car.physics.rpm,
+        true,
+        this.car.physics.isBoosting,
+        this.car.physics.isHoverMode,
+      );
 
       // HUD Stats
       this.hud.updateVehicleStats(
@@ -365,6 +395,7 @@ export class Game {
         this.car.health,
         this.car.physics.nitro,
         true,
+        this.car.physics.isHoverMode,
       );
 
       // Exit Car Prompt

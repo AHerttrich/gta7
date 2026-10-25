@@ -7,6 +7,9 @@ export interface CarInput {
   steerRight: boolean;
   handbrake: boolean;
   nitro?: boolean;
+  hoverToggle?: boolean;
+  ascend?: boolean;
+  descend?: boolean;
 }
 
 export interface CarState {
@@ -36,6 +39,7 @@ export class CarPhysics {
   public isDrifting: boolean = false;
   public isBoosting: boolean = false;
   public isAirborne: boolean = false;
+  public isHoverMode: boolean = false;
   public nitro: number = VEHICLE_CONFIG.MAX_NITRO;
   public wheelRotation: number = 0;
   public rpm: number = 0.2;
@@ -63,6 +67,7 @@ export class CarPhysics {
     this.isDrifting = false;
     this.isBoosting = false;
     this.isAirborne = false;
+    this.isHoverMode = false;
     this.nitro = VEHICLE_CONFIG.MAX_NITRO;
     this.wheelRotation = 0;
     this.rpm = 0.2;
@@ -189,8 +194,51 @@ export class CarPhysics {
     this.x += forwardX * this.speed * dt;
     this.z += forwardZ * this.speed * dt;
 
-    // 6. Vertical Jump / Airborne Physics
-    if (this.isAirborne) {
+    // 6. Vertical Jump & DeLorean Hover Flight Physics
+    if (input.hoverToggle) {
+      this.isHoverMode = !this.isHoverMode;
+      if (this.isHoverMode && this.y <= 0.8) {
+        this.isAirborne = true;
+        this.vy = 8.0;
+      }
+    }
+
+    if (this.isHoverMode) {
+      this.isAirborne = true;
+      this.airtime += dt;
+
+      // Ascend / Descend controls
+      if (input.ascend) {
+        this.vy = Math.min(20.0, this.vy + 26.0 * dt);
+      } else if (input.descend) {
+        this.vy = Math.max(-18.0, this.vy - 24.0 * dt);
+      } else {
+        // Anti-gravity auto-leveling hover stabilization
+        const targetVy = Math.sin(this.airtime * 2.5) * 0.35;
+        this.vy += (targetVy - this.vy) * Math.min(1.0, 5.0 * dt);
+      }
+
+      this.y += this.vy * dt;
+
+      // Maximum flight ceiling
+      if (this.y > 80.0) {
+        this.y = 80.0;
+        this.vy = Math.min(0, this.vy);
+      }
+
+      // Smooth landing or touch down
+      if (this.y <= 0.55) {
+        if (!input.ascend && input.descend) {
+          this.y = 0.5;
+          this.vy = 0;
+          this.isHoverMode = false;
+          this.isAirborne = false;
+        } else {
+          this.y = 0.65;
+          this.vy = Math.max(0, this.vy);
+        }
+      }
+    } else if (this.isAirborne) {
       this.airtime += dt;
       this.vy -= 22.0 * dt; // Gravity
       this.y += this.vy * dt;

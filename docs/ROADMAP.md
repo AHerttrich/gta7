@@ -83,13 +83,26 @@ Ziel: Wie in *Mattis Abenteuer* können Matti und sein Kumpel gemeinsam über da
 
 ---
 
-## 🚁 Phase 6: Luft- & Wasser-Fahrzeuge & Custom Radio (Zukunftsausblick)
+## 🚀 Phase 6: DeLorean Flugmodus & Next-Gen Grafik-Engine (✅ Erledigt & Live)
+
+| Meilenstein | Beschreibung | Status |
+|---|---|---|
+| **M6.1 DeLorean DMC-12 Time Machine** | Ikonisches Edelstahl-Finish, Keil-Silhouette, Heckscheiben-Lamellen, Doppel-Reaktor-Auspuff und Zeitkreis-Lichtleiter | ✅ Erledigt |
+| **M6.2 Klappbare Hover-Thruster (BTTF Part II)** | Beim Fliegen klappen alle 4 Räder 90° horizontal unter die Kotflügel; darunter zünden leuchtende Cyan-Plasma-Triebwerke | ✅ Erledigt |
+| **M6.3 Echte 3D-Hover-Flugsteuerung** | Taste `V` / `X` oder Touch-Button `🚀 HOVER`: Abheben, freies Fliegen über die Stadt, Steigen (`Leertaste`), Sinken (`C`), Schräglagen-Banking | ✅ Erledigt |
+| **M6.4 Next-Gen Wolkenkratzer & Neons** | Hochhausfassaden mit beleuchteten Bürofenster-Rastern, Helipads, Funkmasten mit roten Blinklichtern & Neon-Werbetafeln | ✅ Erledigt |
+| **M6.5 Palmen-Boulevards & Laternen** | Kalifornische Palmen und moderne Straßenlaternen säumen die Gehwege; leuchtende Cyan-Zebrastreifen an Kreuzungen | ✅ Erledigt |
+| **M6.6 Atmosphärische Sky Dome & Warp-FX** | Tiefer Himmelsverlauf (Kobaltblau bis Sonnenuntergangs-Gold) und Hyperspace-Warpstreifen bei Top-Speed | ✅ Erledigt |
+
+---
+
+## 🚁 Phase 7: Helikopter & Custom Radio (Zukunftsausblick)
 
 | Meilenstein | Beschreibung | Priorität |
 |---|---|---|
-| **M6.1 Fliegender Helikopter** | Hubschrauber auf dem Dach des höchsten Wolkenkratzers mit Rotorblatt-Animation & Höhensteuerung (`Shift`/`Strg`) | Hoch |
-| **M6.2 Radio-Sender (GTA-Style)** | Umschaltbare Web-Radio-Stationen (Synthwave 80s, Hip-Hop Beats, Rock Radio) per Taste `R` | Hoch |
-| **M6.3 Polizei-Helikopter bei 5 Sternen** | Verfolgungs-Helikopter der Polizei mit Suchscheinwerfer, der den Spieler von oben jagt | Mittel |
+| **M7.1 Fliegender Helikopter** | Hubschrauber auf dem Dach des höchsten Wolkenkratzers mit Rotorblatt-Animation & Höhensteuerung | Hoch |
+| **M7.2 Radio-Sender (GTA-Style)** | Umschaltbare Web-Radio-Stationen (Synthwave 80s, Hip-Hop Beats, Rock Radio) per Taste `R` | Hoch |
+| **M7.3 Polizei-Helikopter bei 5 Sternen** | Verfolgungs-Helikopter der Polizei mit Suchscheinwerfer, der den Spieler von oben jagt | Mittel |
 
 ---
 

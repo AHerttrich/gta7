@@ -15,6 +15,9 @@ export class Input {
     fire: false,
     actionInteract: false,
     horn: false,
+    hoverToggle: false,
+    ascend: false,
+    descend: false,
   };
 
   constructor() {
@@ -105,14 +108,25 @@ export class Input {
   }
 
   public get fire(): boolean {
-    const fired =
-      this.wasMouseJustPressed ||
-      this.wasJustPressed('f') ||
-      this.wasJustPressed('x') ||
-      this.touchState.fire;
+    const fired = this.wasMouseJustPressed || this.wasJustPressed('f') || this.touchState.fire;
     this.wasMouseJustPressed = false;
     this.touchState.fire = false;
     return fired;
+  }
+
+  public get hoverToggle(): boolean {
+    const toggled =
+      this.wasJustPressed('v') || this.wasJustPressed('x') || this.touchState.hoverToggle;
+    this.touchState.hoverToggle = false;
+    return toggled;
+  }
+
+  public get ascend(): boolean {
+    return this.isDown(' ') || this.touchState.ascend;
+  }
+
+  public get descend(): boolean {
+    return this.isDown('c') || this.isDown('control') || this.touchState.descend;
   }
 
   public get horn(): boolean {
