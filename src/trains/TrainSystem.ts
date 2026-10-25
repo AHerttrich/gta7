@@ -21,12 +21,12 @@ export class TrainSystem {
   private scene: THREE.Scene;
   private sound: SoundManager;
 
-  // Track Waypoints (Perimeter Circuit)
+  // Track Waypoints (Elevated Circuit along Avenue Corridors: x, z = ±132)
   private subwayWaypoints = [
-    { x: -110, z: -110 },
-    { x: 110, z: -110 },
-    { x: 110, z: 110 },
-    { x: -110, z: 110 },
+    { x: -132, z: -132 },
+    { x: 132, z: -132 },
+    { x: 132, z: 132 },
+    { x: -132, z: 132 },
   ];
 
   constructor(scene: THREE.Scene, sound: SoundManager) {
@@ -39,7 +39,41 @@ export class TrainSystem {
     this.freightTrainGroup = this.buildFreightTrain();
     this.group.add(this.subwayGroup, this.freightTrainGroup);
 
+    this.buildElevatedPylons();
     this.buildTunnelPortals();
+  }
+
+  private buildElevatedPylons(): void {
+    // Support columns for elevated Sky-Train along the avenue route
+    const pylonMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      metalness: 0.8,
+      roughness: 0.3,
+    });
+    const pylonGeo = new THREE.CylinderGeometry(0.8, 1.0, 9.0, 8);
+
+    const railMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+
+    for (let i = 0; i < this.subwayWaypoints.length; i++) {
+      const p1 = this.subwayWaypoints[i];
+      const p2 = this.subwayWaypoints[(i + 1) % this.subwayWaypoints.length];
+      const steps = 4;
+      for (let s = 0; s <= steps; s++) {
+        const px = THREE.MathUtils.lerp(p1.x, p2.x, s / steps);
+        const pz = THREE.MathUtils.lerp(p1.z, p2.z, s / steps);
+        const pylon = new THREE.Mesh(pylonGeo, pylonMat);
+        pylon.position.set(px, 4.5, pz);
+        this.group.add(pylon);
+      }
+
+      // Continuous luminous elevated monorail track along avenue circuit
+      const segLen = Math.hypot(p2.x - p1.x, p2.z - p1.z);
+      const segGeo = new THREE.BoxGeometry(1.4, 0.5, segLen);
+      const rail = new THREE.Mesh(segGeo, railMat);
+      rail.position.set((p1.x + p2.x) / 2, 8.2, (p1.z + p2.z) / 2);
+      rail.rotation.y = Math.atan2(p2.x - p1.x, p2.z - p1.z);
+      this.group.add(rail);
+    }
   }
 
   private buildSubwayTrain(): THREE.Group {
@@ -103,26 +137,26 @@ export class TrainSystem {
   }
 
   private buildTunnelPortals(): void {
-    // Concrete Portal Entrance into Underground Highway
+    // Concrete Portal Entrance at the Northern Rail Mountain Corridor (z = 218)
     const portalMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.8 });
-    const archGeo = new THREE.BoxGeometry(18, 9, 4);
+    const archGeo = new THREE.BoxGeometry(24, 10, 4);
     const portal = new THREE.Mesh(archGeo, portalMat);
-    portal.position.set(0, 4.5, 96);
+    portal.position.set(0, 5.0, 218);
     this.group.add(portal);
 
     // Glowing Cyan Tunnel Direction Sign
-    const signGeo = new THREE.BoxGeometry(14, 1.2, 0.2);
+    const signGeo = new THREE.BoxGeometry(16, 1.4, 0.2);
     const signMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
     const sign = new THREE.Mesh(signGeo, signMat);
-    sign.position.set(0, 9.5, 94);
+    sign.position.set(0, 10.5, 216);
     this.group.add(sign);
   }
 
   public update(dt: number): void {
     const safeDt = Math.max(0, dt);
 
-    // 1. Move Subway along circuit
-    this.subwayProgress = (this.subwayProgress + (this.subwaySpeed / 440) * safeDt) % 1.0;
+    // 1. Move Elevated Sky-Train along avenue circuit (elevated at y = 8.5m)
+    this.subwayProgress = (this.subwayProgress + (this.subwaySpeed / 528) * safeDt) % 1.0;
     if (this.subwayProgress < 0) this.subwayProgress += 1.0;
 
     const subIdx = Math.floor(this.subwayProgress * 4) % 4;
@@ -137,15 +171,15 @@ export class TrainSystem {
     const subZ = THREE.MathUtils.lerp(p1.z, p2.z, subT);
     const subAngle = Math.atan2(p2.x - p1.x, p2.z - p1.z);
 
-    this.subwayGroup.position.set(subX, 0, subZ);
+    this.subwayGroup.position.set(subX, 8.5, subZ);
     this.subwayGroup.rotation.y = subAngle;
 
-    // 2. Move Unstoppable Freight Train (East-West Industrial Line)
-    this.freightProgress = (this.freightProgress + (this.freightSpeed / 300) * safeDt) % 1.0;
+    // 2. Move Unstoppable Freight Train (East-West Industrial Line along z = -220)
+    this.freightProgress = (this.freightProgress + (this.freightSpeed / 400) * safeDt) % 1.0;
     if (this.freightProgress < 0) this.freightProgress += 1.0;
 
-    const fx = THREE.MathUtils.lerp(-180, 180, this.freightProgress);
-    const fz = -75;
+    const fx = THREE.MathUtils.lerp(-200, 200, this.freightProgress);
+    const fz = -220;
     this.freightTrainGroup.position.set(fx, 0, fz);
     this.freightTrainGroup.rotation.y = Math.PI / 2;
   }

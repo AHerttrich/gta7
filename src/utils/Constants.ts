@@ -28,8 +28,9 @@ export const VEHICLE_CONFIG = {
 
 // Player on foot config
 export const PLAYER_CONFIG = {
-  WALK_SPEED: 5.5,
-  RUN_SPEED: 10.5,
+  WALK_SPEED: 8.5,
+  RUN_SPEED: 16.0,
+  JUMP_VELOCITY: 8.5,
   TURN_SPEED: 6.0,
   INTERACTION_RADIUS: 4.0,
   MAX_HEALTH: 100,

@@ -23,9 +23,19 @@ export class Building {
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
-    // Dark high-tech skyscraper glass background
-    ctx.fillStyle = '#0b1324';
+    // Dark high-tech skyscraper glass background with metallic mullions
+    ctx.fillStyle = '#1e293b';
     ctx.fillRect(0, 0, 512, 512);
+
+    // Architectural spandrels & panel lines
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 2;
+    for (let y = 0; y <= 512; y += 32) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(512, y);
+      ctx.stroke();
+    }
 
     // Office window grid
     const cols = 16;
@@ -41,14 +51,16 @@ export class Building {
         const wy = padY + r * (winH + padY);
 
         const rand = (Math.sin(r * 31 + c * 17) + 1) / 2;
-        if (rand < 0.22) {
+        if (rand < 0.25) {
           ctx.fillStyle = '#fde047'; // Warm golden office glow
-        } else if (rand < 0.4) {
+        } else if (rand < 0.44) {
           ctx.fillStyle = '#38bdf8'; // Cyber cyan glow
-        } else if (rand < 0.54) {
+        } else if (rand < 0.58) {
+          ctx.fillStyle = '#c084fc'; // Synthwave purple glow
+        } else if (rand < 0.72) {
           ctx.fillStyle = '#f8fafc'; // Crisp bright white
         } else {
-          ctx.fillStyle = '#1e293b'; // Dark unlit reflective window
+          ctx.fillStyle = '#0f172a'; // Dark reflective tinted glass
         }
         ctx.fillRect(wx, wy, winW, winH);
       }
@@ -75,20 +87,24 @@ export class Building {
 
     // 1. Main Skyscraper Tower
     const geo = new THREE.BoxGeometry(width, height, depth);
-    const mat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.35,
-      metalness: 0.65,
-      ...(winTex ? { map: winTex } : {}),
-    });
-
+    let towerTex: THREE.Texture | null = null;
     if (winTex) {
-      // Scale texture coordinates nicely with building dimensions
-      mat.map!.repeat.set(
-        Math.max(1, Math.round(width / 14)),
-        Math.max(1, Math.round(height / 12)),
+      towerTex = winTex.clone();
+      towerTex.wrapS = THREE.RepeatWrapping;
+      towerTex.wrapT = THREE.RepeatWrapping;
+      towerTex.repeat.set(
+        Math.max(2, Math.round(width / 12)),
+        Math.max(2, Math.round(height / 10)),
       );
+      towerTex.needsUpdate = true;
     }
+
+    const mat = new THREE.MeshStandardMaterial({
+      color: towerTex ? 0xffffff : 0x334155,
+      roughness: 0.35,
+      metalness: 0.5,
+      ...(towerTex ? { map: towerTex } : {}),
+    });
 
     const mainMesh = new THREE.Mesh(geo, mat);
     mainMesh.position.set(x, height / 2, z);
@@ -103,12 +119,24 @@ export class Building {
       const tierDepth = depth * 0.72;
       const tierHeight = height * 0.28;
 
+      let tierTex: THREE.Texture | null = null;
+      if (winTex) {
+        tierTex = winTex.clone();
+        tierTex.wrapS = THREE.RepeatWrapping;
+        tierTex.wrapT = THREE.RepeatWrapping;
+        tierTex.repeat.set(
+          Math.max(1, Math.round(tierWidth / 12)),
+          Math.max(1, Math.round(tierHeight / 10)),
+        );
+        tierTex.needsUpdate = true;
+      }
+
       const tierGeo = new THREE.BoxGeometry(tierWidth, tierHeight, tierDepth);
       const tierMat = new THREE.MeshStandardMaterial({
-        color: 0x0f172a,
+        color: tierTex ? 0xffffff : 0x1e293b,
         roughness: 0.3,
-        metalness: 0.75,
-        ...(winTex ? { map: winTex } : {}),
+        metalness: 0.55,
+        ...(tierTex ? { map: tierTex } : {}),
       });
       const tierMesh = new THREE.Mesh(tierGeo, tierMat);
       tierMesh.position.set(x, height + tierHeight / 2, z);

@@ -658,6 +658,15 @@ export class Game {
             this.input.triggerHaptics(50);
             this.crashCooldown = 0.3;
 
+            // Physical ram impulse: fling car and fishtail
+            const ramAngle = Math.atan2(this.car.physics.x - cop.x, this.car.physics.z - cop.z);
+            const ramKick = Math.min(4.0, Math.max(1.5, Math.abs(cop.speed) * 0.35));
+            this.car.physics.x += Math.sin(ramAngle) * ramKick;
+            this.car.physics.z += Math.cos(ramAngle) * ramKick;
+            this.car.physics.prevX = this.car.physics.x;
+            this.car.physics.prevZ = this.car.physics.z;
+            this.car.physics.heading += (Math.random() - 0.5) * 0.45;
+
             // High speed ram: damp speed once cleanly
             this.car.physics.speed *= 0.82;
             cop.speed *= 0.5;
@@ -968,6 +977,13 @@ export class Game {
           this.input.triggerRumble(0.7, 200);
           this.input.triggerHaptics(60);
           this.crashCooldown = 0.5;
+
+          // Violent knockback / fling player high into the air!
+          const pushAngle = Math.atan2(this.player.x - cop.x, this.player.z - cop.z);
+          const flingForce = Math.max(9.0, Math.abs(cop.speed) * 0.9);
+          this.player.x += Math.sin(pushAngle) * flingForce * 0.45;
+          this.player.z += Math.cos(pushAngle) * flingForce * 0.45;
+          this.player.vy = 8.5; // High vertical launch!
         }
       }
 

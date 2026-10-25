@@ -245,7 +245,7 @@ export class Player {
       }
     }
 
-    // 3. Cyber Jetpack Physics (Thrust, Gravity & Fuel)
+    // 3. Jump & Cyber Jetpack Physics
     if (this.hasJetpack) {
       if (input.jump && this.jetpackFuel > 0) {
         this.isJetpacking = true;
@@ -266,18 +266,37 @@ export class Player {
         this.vy = 0;
         this.jetpackFuel = Math.min(100, this.jetpackFuel + 30.0 * dt);
       }
-    } else if (this.y > 0) {
-      // Safe descent / cyber parachute glide when bailing out of high vehicles
-      const maxGlideFall = -5.0;
-      this.vy = Math.max(maxGlideFall, this.vy - 16.0 * dt);
-      this.y += this.vy * dt;
-      if (this.y <= 0) {
+    } else {
+      // Ground jump trigger (Space key or Gamepad A)
+      if (input.jump && this.y <= 0.02 && this.vy <= 0.05) {
+        this.vy = PLAYER_CONFIG.JUMP_VELOCITY;
+      }
+
+      if (this.y > 0 || this.vy > 0) {
+        // Airborne jump or descent
+        const maxGlideFall = -5.0;
+        // High fall has cyber parachute glide
+        if (this.y > 15.0 && this.vy < 0) {
+          this.vy = Math.max(maxGlideFall, this.vy - 16.0 * dt);
+        } else {
+          this.vy -= 22.0 * dt;
+        }
+
+        this.y += this.vy * dt;
+        if (this.y <= 0) {
+          this.y = 0;
+          this.vy = 0;
+        }
+
+        // Midair jumping pose: tuck legs and raise arms
+        this.leftLeg.rotation.x = -0.35;
+        this.rightLeg.rotation.x = 0.25;
+        this.leftArm.rotation.x = 0.5;
+        this.rightArm.rotation.x = 0.5;
+      } else {
         this.y = 0;
         this.vy = 0;
       }
-    } else {
-      this.y = 0;
-      this.vy = 0;
     }
 
     this.group.position.set(this.x, this.y, this.z);

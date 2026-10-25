@@ -14,6 +14,7 @@ import { Car } from '../vehicles/Car';
 import { CarInput } from '../vehicles/CarPhysics';
 import { Building } from '../city/Building';
 import { Road } from '../city/Road';
+import { TrainSystem } from '../trains/TrainSystem';
 
 // Mock WebGLRenderer for Node/headless vitest environment
 vi.mock('three', async () => {
@@ -602,6 +603,41 @@ describe('Quality of Life, Polish & Smoothness Master Suite', () => {
       const lamp = Road.createStreetLamp(0, 0);
       // Group contains pole, arm, lantern, halo, and lightCone
       expect(lamp.children.length).toBeGreaterThanOrEqual(5);
+    });
+
+    it('should allow player to jump on foot without jetpack and apply gravity', () => {
+      const player = new Player(0, 0);
+      const city = new City();
+      const input = new Input();
+
+      expect(player.hasJetpack).toBe(false);
+      expect(player.y).toBe(0);
+
+      // Trigger jump via Spacebar
+      input.keys[' '] = true;
+      player.update(0.016, input, city);
+
+      // Player should have positive vertical velocity and be above ground
+      expect(player.vy).toBeGreaterThan(0);
+      expect(player.y).toBeGreaterThan(0);
+
+      // Continue frames until landing
+      input.keys[' '] = false;
+      for (let f = 0; f < 60; f++) {
+        player.update(0.016, input, city);
+      }
+      expect(player.y).toBe(0);
+      expect(player.vy).toBe(0);
+    });
+
+    it('should elevate S-Bahn to sky-train level avoiding building collisions', () => {
+      const scene = new THREE.Scene();
+      const sound = new SoundManager();
+      const trains = new TrainSystem(scene, sound);
+
+      trains.update(0.1);
+      // Subway should be elevated above street level at y = 8.5
+      expect(trains.subwayGroup.position.y).toBeGreaterThan(5.0);
     });
   });
 });
