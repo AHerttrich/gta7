@@ -4,164 +4,176 @@ Dieses Dokument ist der Masterplan für **Matti**, seinen **Kumpel** und **Alexa
 
 ---
 
-## 📌 Übersicht der Entwicklungsphasen
+## 📌 Übersicht aller Entwicklungsphasen
 
 ```mermaid
-flowchart LR
-    P1[Phase 1: Grundlagen<br/>✅ Fertig] --> P2[Phase 2: Lebendige Stadt<br/>🚀 Live & Vertiefung]
-    P2 --> P3[Phase 3: Waffen & Action<br/>📋 Nächster Fokus]
-    P3 --> P4[Phase 4: Missionen & Tuning<br/>📋 Geplant]
-    P4 --> P5[Phase 5: P2P Multiplayer<br/>🌟 Vision]
+flowchart TD
+    subgraph Live["✅ Phasen 1-12 (Bereits Live & Spielbar!)"]
+        L1["Phasen 1-4: Arcade-Fahrphysik, Ragdoll-Passanten, Waffen & Missionen"]
+        L2["Phase 5: P2P WebRTC Multiplayer (Raumcode-System)"]
+        L3["Phasen 6-7: DeLorean Flugmodus, Heli & GTA Cyber-Radio"]
+        L4["Phasen 8-10: KI-Rennrivalen, Performance-Tuning & Nagelsperren"]
+        L5["Phasen 11-12: Dynamischer Tag-Nacht-Zyklus, Wetter & Gang-Turf"]
+        L1 --> L2 --> L3 --> L4 --> L5
+    end
+
+    subgraph Next["🚀 Zukunfts-Roadmap (Phasen 13-20)"]
+        P13["Phase 13: Militärbasis, Rhino-Panzer & Jet-Pack 🪖🚀"]
+        P14["Phase 14: Diamond Cyber Casino, Automaten & Glücksrad 🎰🎲"]
+        P15["Phase 15: Großer Banküberfall (Heist) & Tresor-Hacking 🏦💰"]
+        P16["Phase 16: Hafenbecken, Wasser-Physik & Jet-Skis 🚤🌊"]
+        P17["Phase 17: U-Bahn-Netz, Güterzug & Untergrund-Highways 🚇🚆"]
+        P18["Phase 18: Story-Kampagne mit Comic-Cutscenes 🎬📖"]
+        P19["Phase 19: Sandbox Stunt-Editor (Rampen, Loopings & Feuerringe) 🏗️🎪"]
+        P20["Phase 20: First-Person Cockpit & WebXR/VR-Support 🥽🕹️"]
+        P13 --> P14 --> P15 --> P16 --> P17 --> P18 --> P19 --> P20
+    end
+
+    Live ==> Next
 ```
 
 ---
 
-## ✅ Phase 1: Fundament & Open-World-Setup (Abgeschlossen)
-* [x] Three.js 3D-Rendering mit Schatten & physikalischem Antialiasing
-* [x] Arcade-Fahrphysik mit Driften (Leertaste), Bremsen und Rückwärtsgang
-* [x] Spielfigur zu Fuß steuerbar (WASD + Sprinten)
-* [x] Verfolger- und Weitwinkel-Kamera mit dynamischem Zoom
-* [x] 5-Sterne Fahndungssystem (⭐) mit Jagd-Polizeiwagen & Blinklichtern
-* [x] City-Grid mit Straßenmarkierungen, Wolkenkratzern und Sprungschanzen
-* [x] Cyber-HUD mit digitalem Tachometer, Schadensbalken und Minimap-Radar
-* [x] Web Audio API Synthesizer (Motorensound, Hupe, Sirene, Crash)
-* [x] Automatisierte GitHub Actions CI/CD Pipeline auf GitHub Pages
+## ✅ Phase 1 bis 12: Der bisherige Erfolg (Bereits Live & Spielbar!)
 
----
-
-## 🚀 Phase 2: Lebendige Stadt, Ragdoll-Physik & Mobile Support (✅ Erledigt & Live)
-
-| Meilenstein | Beschreibung | Status |
+| Phase | Thema & Inhalt | Status |
 |---|---|---|
-| **M2.1 Kalifornische Beleuchtung** | Frisches, klares Tageslicht mit blauem Himmel, warmen Sonnenstrahlen und scharfen Schatten für optimale Sicht | ✅ Erledigt |
-| **M2.2 Ziviler Stadtverkehr (Traffic)** | Bunte NPC-Autos (Taxis, Limousinen, SUVs, Pickups), die auf den Straßen fahren, anhalten und gecrasht werden können | ✅ Erledigt |
-| **M2.3 Passanten & Ballistische Ragdoll-Physik** | Passanten laufen auf Gehwegen; fährt man sie an, werden sie mit 3D-Ballistik katapultiert, rotieren in der Luft, federn am Boden ab und stehen wieder auf | ✅ Erledigt |
-| **M2.4 Echtes Car-Jacking** | Der Spieler kann an JEDES vorbeifahrende Auto/Taxi herantreten, den Fahrer rauswerfen und den Wagen klauen (`E` / Mobile Icon) | ✅ Erledigt |
-| **M2.5 Mobile Touch Steuerung** | Virtuelle Touch-Buttons für Smartphone & Tablet (Lenkungs-D-Pad, Gas, Bremse, Nitro, Schießen, Einsteigen, Hupe & Schnellzugriffsleiste) | ✅ Erledigt |
+| **Phase 1** | **Fundament & Fahrphysik**: Three.js 3D-Engine, Drift-Handling, 5-Sterne-Fahndung, Minimap & GitHub Actions CI/CD | ✅ Live |
+| **Phase 2** | **Lebendige Stadt & Ragdoll**: Ziviler Verkehr, Passanten mit ballistischer 3D-Physik, echtes Car-Jacking & Mobile Touch-Steuerung | ✅ Live |
+| **Phase 3** | **Waffen & Pay 'n' Spray**: Faustschlag, Baseballschläger, Pistole, RPG-Raketenwerfer, Explosionen & Werkstatt-Reparatur | ✅ Live |
+| **Phase 4** | **Missionen & Stunt-Highscores**: 9-Checkpoint-Rennen, Nitro-Boost (245 km/h), Stunt-Airtime-Prämien & interaktive Taxi-Fahrgäste | ✅ Live |
+| **Phase 5** | **P2P WebRTC Multiplayer**: Peer-to-Peer Direktverbindung ohne Serverkosten, synchronisierte Autos, PvP-Rammen & Schusswechsel | ✅ Live |
+| **Phase 6** | **DeLorean DMC-12 & Next-Gen Grafik**: Edelstahl-Keil, klappbare Hover-Räder (BTTF Part II), Sky Dome, Palmen-Boulevards & Lichtkegel | ✅ Live |
+| **Phase 7** | **Helikopter & GTA-Radio**: Fliegbarer Skyscraper-Heli, 4 Synthesizer-Radiosender, Polizei-Lufteinheit & SWAT-Straßensperren | ✅ Live |
+| **Phase 8** | **KI-Straßenrenn-Rivalen**: 2 KI-Gegner (*Cyber Viper* & *Neon Phantom*), Überhol- & Rubberbanding-KI, Live-Podium-HUD & Preisgelder | ✅ Live |
+| **Phase 9** | **Werkstatt-Tuning & Custom Shop**: Stage 1–3 Turbo (bis 280 km/h), Kevlar-Panzerung (-50% Schaden) & frei wählbare Neon-Unterbodenfarben | ✅ Live |
+| **Phase 10** | **Polizei-Nagelsperren & PIT-Manöver**: 3D-Spike Strips, Reifenplatzer mit Funkenflug & Geschwindigkeitsdrosselung, aggressive PIT-Spins | ✅ Live |
+| **Phase 11** | **Dynamischer Tag-Nacht-Zyklus & Cyber-Wetter**: Sonnen-Orbit, Dämmerung, Cyber-Nacht, volumetrischer Regen & Gewitterblitze (`L`/`K`) | ✅ Live |
+| **Phase 12** | **Gang-Territorien & Kopfgeld-Konvoi**: Cyber Vipers vs Neon Syndicate, Gang-Patrouillen mit Drive-by & 300 HP SWAT-Boss ($5.000 Beute) | ✅ Live |
 
 ---
 
-## 🔫 Phase 3: Waffen, Ballern & Pay 'n' Spray (✅ Erledigt & Live)
+## 🪖 Phase 13: Militärbasis, Kampfpanzer & Jet-Pack (Area 77)
 
-Ziel: Den Waffenladen mit echter Action füllen & Pay 'n' Spray Werkstatt einweihen!
+Ziel: Den 6. Fahndungsstern einführen, die schwer bewachte Militärbasis am Stadtrand erobern und mit dem Rhino-Panzer und Jet-Pack für ultimatives Chaos sorgen!
 
-| Meilenstein | Beschreibung | Status |
-|---|---|---|
-| **M3.1 Nahkampf & Faustschlag / Schläger** | Passanten und Autos per Mausklick / `F` mit Faust oder Baseballschläger demolieren | ✅ Erledigt |
-| **M3.2 Pistole & Fadenkreuz** | Schnelle gelbe Leuchtspur-Projektile mit Mündungsfeuer, Waffensounds & Trefferschaden | ✅ Erledigt |
-| **M3.3 Drive-by-Shooting** | Aus dem fahrenden Auto schießen und gegnerische Autos oder Streifenwagen beschießen | ✅ Erledigt |
-| **M3.4 RPG Raketenwerfer & Explosionen** | Dicke Feuerball-Explosionen mit Stoßwelle, die Autos in die Luft schleudern | ✅ Erledigt |
-| **M3.5 Pay 'n' Spray Werkstatt** | Grünes Werkstattgebäude in der Stadt: Reinfahren, umlackieren, 100% reparieren & alle Fahndungssterne loswerden | ✅ Erledigt |
-| **M3.6 Schnellauswahl (1, 2, 3, 4)** | Sofortiger Waffenwechsel über die Zifferntasten `1` (Faust), `2` (Schläger), `3` (Pistole), `4` (RPG) | ✅ Erledigt |
+| Meilenstein | Feature | Beschreibung | Technische Details |
+|---|---|---|---|
+| **M13.1** | **Sperrgebiet "Area 77"** | Streng bewachte Militärbasis am Stadtrand mit Wachtürmen, Stacheldrahtzäunen, Hangars und Scheinwerfern | Eigenes Distrikt-Areal am Stadt-Außenrand, automatischer 4-Sterne-Alarm beim Betreten |
+| **M13.2** | **6. Fahndungsstern (⭐⭐⭐⭐⭐⭐)** | Wenn die normale Polizei überfordert ist, rückt die schwer bewaffnete Nationalgarde mit APCs und Panzern an | Neue Wanted-Stufe in `PoliceSystem.ts`, Militär-Trucks und schwere Durchbruchssperren |
+| **M13.3** | **Steuerbarer Kampfpanzer (Rhino Tank)** | Massiver schwerer Kettenpanzer: 360° drehbarer Geschützturm (zielt mit Maus), Kanone feuert panzerbrechende Granaten, zermalmt normale Autos beim Überfahren | Panzer-Physik mit Kettenantriebs-Sound, extrem hoher Rammmasse und Explosionsgeschossen |
+| **M13.4** | **Tragbares Cyber-Jet-Pack** | Taste `J`: Zu Fuß abheben, mit zwei blau-weißen Plasma-Flammen durch die Straßenschluchten zischen und auf Hausdächern landen | Höhen- & Richtungssteuerung, Treibstoffanzeige im HUD und automatischer Notschirm bei leerem Tank |
 
 ---
 
-## 🏆 Phase 4: Missionen, Tuning & Mini-Games (✅ Erledigt & Live)
+## 🎰 Phase 14: Diamond Cyber Casino, Minispiele & Nightlife
 
-Ziel: Mehr Missionen, Fahrgäste, Checkpoint-Rennen und Nitro-Speed!
+Ziel: Ein riesiges, glitzerndes Luxus-Casino mitten in Downtown, in dem Matti und sein Kumpel ihr erspieltes Geld vermehren oder verjubeln können!
 
-| Meilenstein | Beschreibung | Status |
-|---|---|---|
-| **M4.1 Checkpoint-Straßenrennen** | Am leuchtenden Torbogen startet das Straßenrennen: 9 leuchtende Neon-Ringe quer durch die Stadt abfahren gegen die Zeit | ✅ Erledigt |
-| **M4.2 Nitro-Boost (`N`-Taste / Shift)** | Zwillings-Flammenschweif aus den Auspuffrohren, Beschleunigung auf 245 km/h, leuchtende Unterbodenbeleuchtung | ✅ Erledigt |
-| **M4.3 Stunt-Schanzen-Highscore** | Weitsprung- & Airtime-Erkennung an den Rampen: Jeder Meter Flugweite wird live auf dem Bildschirm prämiert und in Cash ausgezahlt | ✅ Erledigt |
-| **M4.4 Interaktive Taxi-Fahrgäste** | Taste `J`: Passagier auf dem Bürgersteig abholen, zum grünen 3D-Leuchtstrahl fahren & Fahrpreis + Trinkgeld kassieren | ✅ Erledigt |
-
----
-
-## 🌐 Phase 5: P2P WebRTC Multiplayer (✅ Erledigt & Live!)
-
-Ziel: Wie in *Mattis Abenteuer* können Matti und sein Kumpel gemeinsam über das Internet in derselben Stadt rumfahren, Rennen fahren und sich gegenseitig rammen!
-
-| Meilenstein | Beschreibung | Status |
-|---|---|---|
-| **M5.1 PeerJS WebRTC P2P** | Direkte Peer-to-Peer Verbindung ohne Serverkosten (Taste `P` öffnet Host / Join Menü mit 6-stelligem Code) | ✅ Erledigt |
-| **M5.2 Synchronisierte Autos & Positionen** | Gegenseitiges Sehen der Autos in Echtzeit (Position, Heading, Lenkung, Räder & Nitro-Flammen) | ✅ Erledigt |
-| **M5.3 3D Nametag & Minimap-Radar** | Schwebendes Namensschild `🎮 KUMPEL` über dem Wagen und pulsierender blauer Punkt auf dem Minimap-Radar | ✅ Erledigt |
-| **M5.4 PvP Crash-Physik & Rammen** | Rammt man das Auto seines Kumpels mit hoher Geschwindigkeit, gibt es Crash-Sound, Schadensübertragung und Stoßwirkung | ✅ Erledigt |
-| **M5.5 Synchronisiertes Ballern** | Schüsse und Raketen des Kumpels fliegen auch auf dem eigenen Bildschirm durch die Stadt | ✅ Erledigt |
+| Meilenstein | Feature | Beschreibung | Technische Details |
+|---|---|---|---|
+| **M14.1** | **Casino-Wolkenkratzer & Luxus-Vorplatz** | Majestätisches Casino-Gebäude mit goldenen Säulen, gläserner Drehtür, Brunnen und rotem Teppich für Nobelkarossen | Detailreiches 3D-Gebäude mit animierter Leuchtreklame `DIAMOND CASINO` |
+| **M14.2** | **Cyber-Spielautomaten (Slots)** | Einarmiger Bandit mit 3 Walzen: Kirschen, Bar, 777 und Diamanten. Einsätze von $10 bis $1.000, Mega-Jackpot bis $100.000! | Audio-Jingle mit Walzen-Dreh-Sound und Münzen-Klimpern bei Gewinnausschüttung |
+| **M14.3** | **Tägliches Glücksrad (Lucky Wheel)** | Einmal pro Spielsession kostenlos am großen bunten Rad drehen: Gewinne Bargeld, Waffen, Spezial-Neon oder seltene Supercars | Physikalisches Dreh-Rad mit Bremswiderstand und Zeiger-Klick-Sound |
+| **M14.4** | **Tiefgaragen-Showroom** | Unterirdische Tiefgarage des Casinos, in der alle gekauften Autos nebeneinander auf beleuchteten Drehtellern geparkt stehen | Begehbare Ausstellungsfläche mit Fahrzeugauswahl per Knopfdruck |
 
 ---
 
-## 🚀 Phase 6: DeLorean Flugmodus & Next-Gen Grafik-Engine (✅ Erledigt & Live)
+## 🏦 Phase 15: Großer Banküberfall (The Big Score Heist)
 
-| Meilenstein | Beschreibung | Status |
-|---|---|---|
-| **M6.1 DeLorean DMC-12 Time Machine** | Ikonisches Edelstahl-Finish, Keil-Silhouette, Heckscheiben-Lamellen, Doppel-Reaktor-Auspuff und Zeitkreis-Lichtleiter | ✅ Erledigt |
-| **M6.2 Klappbare Hover-Thruster (BTTF Part II)** | Beim Fliegen klappen alle 4 Räder 90° horizontal unter die Kotflügel; darunter zünden leuchtende Cyan-Plasma-Triebwerke | ✅ Erledigt |
-| **M6.3 Echte 3D-Hover-Flugsteuerung** | Taste `V` / `X` oder Touch-Button `🚀 HOVER`: Abheben, freies Fliegen über die Stadt, Steigen (`Leertaste`), Sinken (`C`), Schräglagen-Banking | ✅ Erledigt |
-| **M6.4 Next-Gen Wolkenkratzer & Neons** | Hochhausfassaden mit beleuchteten Bürofenster-Rastern, Helipads, Funkmasten mit roten Blinklichtern & Neon-Werbetafeln | ✅ Erledigt |
-| **M6.5 Palmen-Boulevards & Laternen** | Kalifornische Palmen und moderne Straßenlaternen säumen die Gehwege; leuchtende Cyan-Zebrastreifen an Kreuzungen | ✅ Erledigt |
-| **M6.6 Atmosphärische Sky Dome & Warp-FX** | Tiefer Himmelsverlauf (Kobaltblau bis Sonnenuntergangs-Gold) und Hyperspace-Warpstreifen bei Top-Speed | ✅ Erledigt |
+Ziel: Ein mehrstufiger, actiongeladener Bankraub à la GTA V, der taktische Planung, Hacking und eine spektakuläre Flucht erfordert!
 
----
-
-## 🚁 Phase 7: Helikopter, GTA-Radio & Polizei-Lufteinheit (✅ Erledigt & Live)
-
-| Meilenstein | Beschreibung | Status |
-|---|---|---|
-| **M7.1 Fliegbarer Spieler-Helikopter** | Helikopter auf dem Wolkenkratzer-Helipad: Einsteigen (`E`), Rotor-Hochlauf, 3D-Steuerung (`Leertaste`/`Shift`/`WASD`), Scheinwerfer & Kamera-Follow | ✅ Erledigt |
-| **M7.2 Prozedurales GTA-Cyber-Radio** | 4 Web Audio Synthesizer-Sender (*80s Synthwave FM*, *Cyber Electro Drive*, *Vice Beach Chill*, *Radio Aus*) mit HUD-Banner (`B` / `[📻 RADIO]`) | ✅ Erledigt |
-| **M7.3 Polizei-Helikopter bei 4-5 Sternen** | Luftunterstützung der Polizei mit rotierenden Rotorblättern, Verfolgung und dynamischem Boden-Suchscheinwerfer-Kegel | ✅ Erledigt |
-| **M7.4 SWAT-Straßensperren bei 3+ Sternen** | Querstehende Polizeiwagen mit zerstörbaren Absperrgittern an Kreuzungen, die bei Rammstößen zerspringen | ✅ Erledigt |
+| Meilenstein | Feature | Beschreibung | Technische Details |
+|---|---|---|---|
+| **M15.1** | **Vorbereitungsphase (Setup)** | Fluchtwagen in einer Seitengasse verstecken und C4-Sprengstoff im Waffenladen besorgen | Quest-System mit Waypoints und Checkliste im HUD |
+| **M15.2** | **Infiltration & Hacking-Minispiel** | Bankfiliale betreten, Wachpersonal mit Taser ausschalten und Sicherheitskameras per Timing-Minispiel hacken | Interaktives 4x4-Gitter-Minispiel im HUD zur Überbrückung der Alarmanlage |
+| **M15.3** | **Tresor-Sprengung & Beute-Raffung** | C4 an der schweren Stahltür platzieren, Zünder drücken, Tresorraum stürmen und $25.000 in Goldbarren einsacken | Partikelexplosion, fallende Geldbündel und steigender Bargeldzähler im HUD |
+| **M15.4** | **5-Sterne-Flucht durch die City** | Sofortiger 5-Sterne-Polizeialarm! Flucht über U-Bahn-Schächte, Sprungschanzen oder per Fluchtwagen zur Pay 'n' Spray Werkstatt | Spezielle Flucht-Musik im Radio und Helikopter-Verfolgungsjagd |
 
 ---
 
-## 🏎️ Phase 8: KI-Straßenrenn-Rivalen & Live-Leaderboard (✅ Erledigt & Live)
+## 🚤 Phase 16: Schiffsverkehr, Wasser-Physik & Jet-Skis (Ocean Drive)
 
-| Meilenstein | Beschreibung | Status |
-|---|---|---|
-| **M8.1 2 KI-Rennrivalen (`Cyber Viper` & `Neon Phantom`)** | Spawnen am Rennstart mit individuellen Lackierungen, Spoilern und KI-Fahrverhalten | ✅ Erledigt |
-| **M8.2 Überhol- & Rubberbanding-KI** | Intelligente Wegpunkt-Navigation entlang des Kurses mit Kurven-Bremsen und Aufhol-Boost | ✅ Erledigt |
-| **M8.3 Live-Podium Leaderboard** | Dynamisches HUD-Widget mit Live-Platzierung (`🥇 1. / 3`), Checkpoint-Zähler und Rundenzeit | ✅ Erledigt |
-| **M8.4 Kollisions-Physik & Podiumsprämien** | Rammstöße mit Lackaustausch; Preisgelder für Platz 1 ($2.000), Platz 2 ($1.000) & Platz 3 ($500) | ✅ Erledigt |
+Ziel: Die Stadt an ein lebendiges Gewässer anbinden mit spritziger Wasserphysik, Booten, Yachten und Jet-Skis!
 
----
-
-## 🛠️ Phase 9: Werkstatt-Tuning & Custom Shop (✅ Erledigt & Live)
-
-| Meilenstein | Beschreibung | Status |
-|---|---|---|
-| **M9.1 Stufe 1–3 Motoren- & Turbo-Upgrades** | Bis zu +85% Beschleunigung & 280 km/h Topspeed im Shop und in der Pay 'n' Spray Werkstatt | ✅ Erledigt |
-| **M9.2 Kevlar-Panzerung (Armor Plating)** | Reduziert erlittenen Ramm-, Kugel- und Explosionsschaden dauerhaft um 50% | ✅ Erledigt |
-| **M9.3 Custom Neon-Unterbodenfarben** | Freie Farbwahl (Hot Pink, Toxic Lime, Solar Gold, Cyber Purple) mit Echtzeit-Asphalt-Leuchten | ✅ Erledigt |
+| Meilenstein | Feature | Beschreibung | Technische Details |
+|---|---|---|---|
+| **M16.1** | **Wasser-Shader & Küstenlinie** | Blau schimmernde Bucht am Stadtrand mit Wellenbewegung, Sonnenreflexionen und Sandstränden | Three.js Wasser-Plane mit Sinus-Wellen-Displacement und Specular-Highlights |
+| **M16.2** | **Steuerbares Speed-Boot & Luxus-Yacht** | Am Bootssteg anlegen, einsteigen und mit mächtiger Gischt über die Wellen jagen (`E` zum Einsteigen) | Auftriebs- & Wasserwiderstandsphysik, Bootsmotor-Sounds und weiße Heckwelle |
+| **M16.3** | **Cyber Jet-Ski mit Stunt-Sprung** | Wendiges Jet-Ski für rasante 360°-Drifts auf dem Wasser und Sprünge über schwimmende Holzrampen | Agiles Lenkverhalten, Sprungerkennung und Splash-Partikeleffekte |
+| **M16.4** | **See-Schmuggel-Missionen** | Im Boot auf das offene Meer hinausfahren, versunkene Schatztruhen bergen und vor Patrouillenbooten fliehen | Radar-Peilsender im HUD mit Tiefensensor und Beute-Belohnung |
 
 ---
 
-## 🚨 Phase 10: Polizei-Nagelsperren & PIT-Manöver (✅ Erledigt & Live)
+## 🚇 Phase 17: U-Bahn, Güterzug & Untergrund-Highways
 
-| Meilenstein | Beschreibung | Status |
-|---|---|---|
-| **M10.1 3D-Nagelsperren (Spike Strips)** | Gefährliche Stahl-Nagelsperren auf Kreuzungen bei 3+ Fahndungssternen | ✅ Erledigt |
-| **M10.2 Reifenplatzer- & Felgenphysik** | Überfährt man eine Nagelsperre, platzen die Reifen: Funkenflug, Geschwindigkeitsdrossel auf 58 km/h & Rutschdrall | ✅ Erledigt |
-| **M10.3 Taktische Polizei PIT-Manöver** | Streifenwagen rammen gezielt die hintere Fahrzeugecke, um den Fluchtwagen bei Topspeed ins Schleudern zu bringen | ✅ Erledigt |
+Ziel: Ein funktionierendes Schienennetz über und unter der Erde, das für atemberaubende Verfolgungsjagden und epische Crashs sorgt!
 
----
-
-## ☀️🌙 Phase 11: Dynamischer Tag-Nacht-Zyklus & Cyber-Wetter (✅ Erledigt & Live)
-
-| Meilenstein | Beschreibung | Status |
-|---|---|---|
-| **M11.1 Realistische Sonnen-Orbit-Bahn** | Fließender Übergang: High Noon ☀️ -> Golden Sunset 🌅 -> Cyber-Nacht 🌙 (mit leuchtenden Fenstern & Laternen) | ✅ Erledigt |
-| **M11.2 Volumetrischer Cyber-Regen** | 1.200 fallende Regentropfen mit nassem Asphaltglanz | ✅ Erledigt |
-| **M11.3 Gewitter-Blitze** | Plötzliche dynamische Blitz-Stroboskope erleuchten die gesamte Skyline der Stadt | ✅ Erledigt |
-| **M11.4 Schnellwahltasten & HUD-Buttons** | Taste `L` / `[☀️ ZEIT]` schaltet Tageszeiten durch, Taste `K` / `[🌧️ WETTER]` steuert das Wetter | ✅ Erledigt |
+| Meilenstein | Feature | Beschreibung | Technische Details |
+|---|---|---|---|
+| **M17.1** | **Autonome Ring-U-Bahn (Subway)** | Hochmoderne Cyber-U-Bahn fährt auf Hochtrassen und in Tunnels durch alle Stadtteile; hält an Stationen | Automatischer Schienen-Pfad mit Ein-/Aussteigefunktion und Stationsansagen |
+| **M17.2** | **Schwerer Güterzug (Unstoppable Train)** | Massiver, unaufhaltsamer Güterzug auf den Gleisen: Rammt man ihn, fliegen Autos physikalisch meterweit durch die Luft! | Unendliche Rammmasse, Kollisionsschockwelle und Zugsirene |
+| **M17.3** | **Unterirdisches Tunnelsystem** | Verzweigte Tunnel unter den Wolkenkratzern für illegale Midnight-Rennen ohne störende Polizeihubschrauber | Neon-beleuchtete Tunnelröhren mit akustischem Hall-Effekt auf Auspuff- und Motorensounds |
+| **M17.4** | **U-Bahn-Surfen & Dachkraxelei** | Zu Fuß auf das Dach fahrender U-Bahnen springen und während der Fahrt durch die Stadt surfen | Physik-Parenting des Spielers an den bewegten Zugwaggon |
 
 ---
 
-## 🐍 Phase 12: Gang-Territorien & Kopfgeld-Konvoi (✅ Erledigt & Live)
+## 🎬 Phase 18: Story-Kampagne ("Matti & Kumpel in Los Cyberos")
 
-| Meilenstein | Beschreibung | Status |
-|---|---|---|
-| **M12.1 2 Gang-Distrikte (`Cyber Vipers` & `Neon Syndicate`)** | Reviergrenzen mit Neon-Torbögen und Gebiets-Benachrichtigungen beim Betreten | ✅ Erledigt |
-| **M12.2 Bewaffnete Gang-Patrouillen** | Patrouillenfahrzeuge cruisen durch ihr Revier und eröffnen Drive-by-Feuer bei Aggro | ✅ Erledigt |
-| **M12.3 Schwer gepanzerter Kopfgeld-Konvoi (Mini-Boss)** | 300 HP SWAT-Panzer-SUV mit Zwillings-Maschinengewehren auf dem Außenring; bringt fette $5.000 Beute | ✅ Erledigt |
+Ziel: Eine echte Storyline mit packenden Charakteren, Comic-Dialogen und spannenden Missionskapiteln!
+
+| Meilenstein | Feature | Beschreibung | Technische Details |
+|---|---|---|---|
+| **M18.1** | **Kapitel-Struktur & Quest-Log** | Strukturierte Storyline von Kapitel 1 ("Der erste Schlitten") bis Kapitel 5 ("Die Herrscher der Stadt") | Quest-Tracker im HUD mit Hauptmissions- und Nebenauftrags-Markern |
+| **M18.2** | **Comic-Zwischensequenzen** | Handgezeichnete / stilisierte Comic-Panels mit Sprechblasen und Soundeffekten vor Schlüsselmissionen | Leichtgewichtige 2D-Overlay-Cutscenes mit Typewriter-Texteffekt |
+| **M18.3** | **Bosskämpfe mit Phasen** | Spezielle Missionsbosse mit Angriffsmustern (z. B. "Don Corleone im Kampfhubschrauber" oder "Syndicate-Hacker") | Dynamische Boss-Lebensleiste, Verstärkungswellen und Phasentransitionen |
+| **M18.4** | **Freischaltbare Belohnungen** | Nach jedem Kapitel werden exklusive Spezialfahrzeuge, Waffen-Skins und Spieler-Kostüme freigeschaltet | Permanentes Speicher-System (LocalStorage) für Missionsfortschritt |
 
 ---
 
-## 💡 Wie Matti & sein Kumpel ein neues Feature einbauen:
-1. Feature aus der Roadmap aussuchen.
-2. Branch erstellen: `git checkout -b feat/mein-feature`
-3. Coden & lokal testen: `npm run dev`
-4. Testen & Bauen: `make ci`
-5. Pushen & PR erstellen: GitHub Actions aktualisiert die Live-Website automatisch!
+## 🏗️ Phase 19: Sandbox Stunt-Editor (Rampen, Loopings & Feuerringe)
+
+Ziel: Matti und sein Kumpel können die Stadt in ihren eigenen ultimativen Stunt-Park verwandeln!
+
+| Meilenstein | Feature | Beschreibung | Technische Details |
+|---|---|---|---|
+| **M19.1** | **In-Game Bau-Modus (Taste `Tab`)** | Wechselt in den schwebenden Architekten-Modus mit Raster-Vorschau und Bauteile-Katalog | Raycasting-Platzierungslogik mit Snapping an Straßen und Plätzen |
+| **M19.2** | **Stunt-Bauteile-Katalog** | Mega-Sprungschanzen, Korkenzieher-Loopings, Nitro-Boost-Streifen, brennende Feuerringe und Domino-Kisten | Vorgefertigte 3D-Meshes mit präzisen Kollisionsboxen und Trigger-Funktionen |
+| **M19.3** | **Strecken-Speicherung & Export** | Selbstgebaute Stunt-Tracks können mit einem Klick als JSON-Code kopiert oder lokal gespeichert werden | LocalStorage Persistenz und JSON-Export/Import im Pause-Menü |
+| **M19.4** | **Multiplayer Stunt-Showdown** | Im Multiplayer sieht der Kumpel platzierte Rampen sofort live und kann direkt mit drüber heizen! | NetProtocol Erweiterung für Objekt-Spawn-Nachrichten |
+
+---
+
+## 🥽 Phase 20: First-Person Cockpit & WebXR/VR-Support
+
+Ziel: Maximale Immersion! Matti setzt sich direkt ans Steuer oder taucht mit einer VR-Brille direkt in GTA 7 ein!
+
+| Meilenstein | Feature | Beschreibung | Technische Details |
+|---|---|---|---|
+| **M19.1** | **Echte Cockpit-Innenansicht (Taste `C`)** | Detailliertes Armaturenbrett im Auto: Hände am Sportlenkrad, funktionierender Tacho, Drehzahlmesser & Rückspiegel | Interne Kamera-Positionierung im Fahrzeuginnenraum mit Kopfneigung bei Kurven |
+| **M19.2** | **Cockpit-Details bei Regen & Nacht** | Regentropfen perlen an der Windschutzscheibe ab, Scheibenwischer wedeln, Cockpit-Armaturen glühen im Dunkeln | Transparente Glasscheiben mit Scheibenwischer-Animation und Interieur-Beleuchtung |
+| **M19.3** | **WebXR VR-Modus** | Mit Meta Quest, Apple Vision oder Smartphone-VR-Brille die Stadt in echtem 3D-VR erleben | WebXR API Unterstützung in Three.js mit 6DOF-Head-Tracking und Controller-Steuerung |
+
+---
+
+## 📊 Zusammenfassung der Entwicklungs-Timeline
+
+| Phase | Fokus | Highlights | Zielgruppe |
+|---|---|---|---|
+| **13** | 🪖 **Militär & Chaos** | Kampfpanzer Rhino, 6 Sterne, Jet-Pack, Area 77 | Action & Zerstörung |
+| **14** | 🎰 **Casino & Reichtum** | Spielautomaten, Glücksrad, Tiefgaragen-Showroom | Wirtschaft & Sammeltrieb |
+| **15** | 🏦 **Heists & Taktik** | Banküberfall, Hacking, Tresor-Sprengung | Kooperatives Teamplay |
+| **16** | 🚤 **Wasser & Meer** | Speed-Boote, Jet-Ski, Wellenphysik, Schmuggel | Cruisen & Erkunden |
+| **17** | 🚇 **U-Bahn & Gleise** | U-Bahn-Netz, Güterzug-Crashs, Untergrund-Highways | Highspeed-Rennen |
+| **18** | 🎬 **Story-Kampagne** | Comic-Zwischensequenzen, Kapitel, Bosskämpfe | Story & Langzeitmotivation |
+| **19** | 🏗️ **Stunt-Baukasten** | Eigener Rampen-Editor, Loopings, Track-Sharing | Kreativität & Bastelspaß |
+| **20** | 🥽 **VR & Cockpit** | First-Person Dashboard, Lenkrad, WebXR-Brille | Ultimative Immersion |
+
+---
+
+## 💡 Wie Matti & sein Kumpel die nächsten Features umsetzen:
+1. Gemeinsam eine Phase aus der Roadmap aussuchen (z. B. **Phase 13: Panzer & Jet-Pack** oder **Phase 14: Casino & Glücksrad**).
+2. Entwicklungs-Branch anlegen: `git checkout -b feat/phase-13-panzer`
+3. Coden & lokal testen: `npm run dev` (Vite Hot Reloading)
+4. Qualität sichern: `npm test` & `npm run typecheck`
+5. Pushen & Deployen: `git push origin main` — GitHub Actions aktualisiert das Live-Spiel in unter 40 Sekunden!
