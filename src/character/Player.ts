@@ -201,19 +201,19 @@ export class Player {
       const vx = Math.sin(this.rotationY) * speed;
       const vz = Math.cos(this.rotationY) * speed;
 
-      // Check collision with city walls
+      // Check collision with city walls in 3D
       const nextX = this.x + vx;
       const nextZ = this.z + vz;
-      const col = city.checkCollision(nextX, nextZ, 0.4);
+      const col = city.checkCollision(nextX, nextZ, 0.4, this.y);
 
       if (!col.collided) {
         this.x = nextX;
         this.z = nextZ;
       } else {
         // Slide along walls
-        if (col.normalX !== 0 && !city.checkCollision(this.x, nextZ, 0.4).collided) {
+        if (col.normalX !== 0 && !city.checkCollision(this.x, nextZ, 0.4, this.y).collided) {
           this.z = nextZ;
-        } else if (col.normalZ !== 0 && !city.checkCollision(nextX, this.z, 0.4).collided) {
+        } else if (col.normalZ !== 0 && !city.checkCollision(nextX, this.z, 0.4, this.y).collided) {
           this.x = nextX;
         }
       }
@@ -245,7 +245,10 @@ export class Player {
       }
     }
 
-    // 3. Jump & Cyber Jetpack Physics
+    // 3. Jump & Cyber Jetpack Physics (with Rooftop Landing Support)
+    const roofH = city.getRoofHeightAt(this.x, this.z, 0.4);
+    const groundLevel = roofH > 0 && this.y >= roofH - 0.3 ? roofH : 0;
+
     if (this.hasJetpack) {
       if (input.jump && this.jetpackFuel > 0) {
         this.isJetpacking = true;
@@ -261,18 +264,18 @@ export class Player {
       }
 
       this.y += this.vy * dt;
-      if (this.y <= 0) {
-        this.y = 0;
+      if (this.y <= groundLevel) {
+        this.y = groundLevel;
         this.vy = 0;
         this.jetpackFuel = Math.min(100, this.jetpackFuel + 30.0 * dt);
       }
     } else {
       // Ground jump trigger (Space key or Gamepad A)
-      if (input.jump && this.y <= 0.02 && this.vy <= 0.05) {
+      if (input.jump && this.y <= groundLevel + 0.02 && this.vy <= 0.05) {
         this.vy = PLAYER_CONFIG.JUMP_VELOCITY;
       }
 
-      if (this.y > 0 || this.vy > 0) {
+      if (this.y > groundLevel || this.vy > 0) {
         // Airborne jump or descent
         const maxGlideFall = -5.0;
         // High fall has cyber parachute glide
@@ -283,8 +286,8 @@ export class Player {
         }
 
         this.y += this.vy * dt;
-        if (this.y <= 0) {
-          this.y = 0;
+        if (this.y <= groundLevel) {
+          this.y = groundLevel;
           this.vy = 0;
         }
 
@@ -294,7 +297,7 @@ export class Player {
         this.leftArm.rotation.x = 0.5;
         this.rightArm.rotation.x = 0.5;
       } else {
-        this.y = 0;
+        this.y = groundLevel;
         this.vy = 0;
       }
     }

@@ -70,8 +70,8 @@ export class GameCamera {
       targetCamZ = carPos.z + 0.1;
       targetCamY = carPos.y + height;
     } else if (city) {
-      // Anti-clipping: check raycast against buildings
-      const col = city.checkCollision(targetCamX, targetCamZ, 0.8);
+      // Anti-clipping: check raycast against buildings in 3D
+      const col = city.checkCollision(targetCamX, targetCamZ, 0.8, targetCamY);
       if (col.collided) {
         targetCamX = carPos.x - forwardX * (dist * 0.35);
         targetCamZ = carPos.z - forwardZ * (dist * 0.35);
@@ -119,7 +119,7 @@ export class GameCamera {
     let targetCamY = playerPos.y + height;
 
     if (city) {
-      const col = city.checkCollision(targetCamX, targetCamZ, 0.6);
+      const col = city.checkCollision(targetCamX, targetCamZ, 0.6, targetCamY);
       if (col.collided) {
         targetCamX = playerPos.x - forwardX * (dist * 0.35);
         targetCamZ = playerPos.z - forwardZ * (dist * 0.35);

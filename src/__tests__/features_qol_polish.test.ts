@@ -11,6 +11,7 @@ import { Player } from '../character/Player';
 import { SkidmarkSystem } from '../vehicles/SkidmarkSystem';
 import { PostProcessingManager } from '../engine/PostProcessing';
 import { Car } from '../vehicles/Car';
+import { Helicopter } from '../vehicles/Helicopter';
 import { CarInput } from '../vehicles/CarPhysics';
 import { Building } from '../city/Building';
 import { Road } from '../city/Road';
@@ -638,6 +639,90 @@ describe('Quality of Life, Polish & Smoothness Master Suite', () => {
       trains.update(0.1);
       // Subway should be elevated above street level at y = 8.5
       expect(trains.subwayGroup.position.y).toBeGreaterThan(5.0);
+    });
+
+    it('should detect 3D building collision in flight mode when below roof height', () => {
+      const city = new City();
+      const b = city.buildingBounds[0];
+      const startX = b.minX - 10;
+      const endX = b.minX + 5;
+      const midZ = (b.minZ + b.maxZ) / 2;
+
+      // Flight altitude below roof (y = 15m, while building is at least 20m)
+      const flightY = Math.min(15, b.height / 2);
+      const col = city.checkSweptCollision(startX, midZ, endX, midZ, 2.0, flightY);
+      expect(col.collided).toBe(true);
+      expect(col.normalX).toBe(-1);
+      expect(col.safeX).toBeLessThanOrEqual(b.minX);
+    });
+
+    it('should allow free flight over buildings when altitude exceeds roof height', () => {
+      const city = new City();
+      const b = city.buildingBounds[0];
+      const startX = b.minX - 10;
+      const endX = b.maxX + 10;
+      const midZ = (b.minZ + b.maxZ) / 2;
+
+      // Flight altitude well above the roof (roof + 20m)
+      const flightY = b.height + 20.0;
+      const col = city.checkSweptCollision(startX, midZ, endX, midZ, 2.0, flightY);
+      expect(col.collided).toBe(false);
+    });
+
+    it('should accurately calculate rooftop height and support car rooftop landing', () => {
+      const city = new City();
+      const b = city.buildingBounds[0];
+      const midX = (b.minX + b.maxX) / 2;
+      const midZ = (b.minZ + b.maxZ) / 2;
+
+      // Over the building roof
+      const roofH = city.getRoofHeightAt(midX, midZ, 1.0);
+      expect(roofH).toBe(b.height);
+
+      // Over the open road intersection at (44, 44)
+      const streetRoofH = city.getRoofHeightAt(44, 44, 1.0);
+      expect(streetRoofH).toBe(0);
+
+      // Car physics descending onto rooftop
+      const car = new Car(midX, roofH + 5.0, midZ);
+      car.physics.isHoverMode = true;
+      car.physics.groundY = roofH + 0.5;
+      car.physics.vy = -3.0;
+
+      // Update descent
+      car.physics.update(0.1, {
+        throttle: false,
+        reverse: false,
+        steerLeft: false,
+        steerRight: false,
+        handbrake: false,
+        descend: true,
+      });
+
+      // Car should be supported on rooftop ground plane without penetrating
+      expect(car.physics.y).toBeGreaterThanOrEqual(roofH + 0.5);
+    });
+
+    it('should stop helicopter from flying through skyscrapers in 3D', () => {
+      const city = new City();
+      const b = city.buildingBounds[0];
+      const midX = (b.minX + b.maxX) / 2;
+      const midZ = (b.minZ + b.maxZ) / 2;
+
+      // Place helicopter inside building at altitude below roof
+      const heli = new Helicopter(midX, b.height / 2, midZ);
+      heli.isOccupied = true;
+      const input = new Input();
+
+      heli.update(0.016, input, city);
+      expect(heli.hasCollided).toBe(true);
+      expect(heli.health).toBeLessThan(100);
+
+      // Now place helicopter above roof
+      const heliAbove = new Helicopter(midX, b.height + 15, midZ);
+      heliAbove.isOccupied = true;
+      heliAbove.update(0.016, input, city);
+      expect(heliAbove.hasCollided).toBe(false);
     });
   });
 });

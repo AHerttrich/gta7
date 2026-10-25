@@ -129,12 +129,33 @@ export class City {
     this.group.add(ramp2.mesh);
   }
 
+  public getRoofHeightAt(x: number, z: number, radius: number = 0): number {
+    let maxH = 0;
+    for (const b of this.buildingBounds) {
+      if (
+        x + radius > b.minX &&
+        x - radius < b.maxX &&
+        z + radius > b.minZ &&
+        z - radius < b.maxZ
+      ) {
+        if (b.height > maxH) {
+          maxH = b.height;
+        }
+      }
+    }
+    return maxH;
+  }
+
   public checkCollision(
     x: number,
     z: number,
     radius: number = 1.2,
+    y: number = 0,
   ): { collided: boolean; normalX: number; normalZ: number; depth: number } {
     for (const b of this.buildingBounds) {
+      // If entity is above building roof, skip collision
+      if (y >= b.height) continue;
+
       if (
         x + radius > b.minX &&
         x - radius < b.maxX &&
@@ -188,6 +209,7 @@ export class City {
     x2: number,
     z2: number,
     radius: number = 1.2,
+    y: number = 0,
   ): {
     collided: boolean;
     normalX: number;
@@ -198,7 +220,7 @@ export class City {
   } {
     const dist = Math.hypot(x2 - x1, z2 - z1);
     if (dist < 0.001) {
-      const col = this.checkCollision(x2, z2, radius);
+      const col = this.checkCollision(x2, z2, radius, y);
       return {
         ...col,
         safeX: x2 + col.normalX * (col.depth + 0.08),
@@ -206,7 +228,7 @@ export class City {
       };
     }
 
-    // Spatial broadphase: filter only buildings overlapping the swept AABB
+    // Spatial broadphase: filter only buildings overlapping the swept AABB AND taller than entity elevation
     const sweepMinX = Math.min(x1, x2) - radius;
     const sweepMaxX = Math.max(x1, x2) + radius;
     const sweepMinZ = Math.min(z1, z2) - radius;
@@ -214,7 +236,11 @@ export class City {
 
     const candidates = this.buildingBounds.filter(
       (b) =>
-        b.maxX >= sweepMinX && b.minX <= sweepMaxX && b.maxZ >= sweepMinZ && b.minZ <= sweepMaxZ,
+        b.height > y &&
+        b.maxX >= sweepMinX &&
+        b.minX <= sweepMaxX &&
+        b.maxZ >= sweepMinZ &&
+        b.minZ <= sweepMaxZ,
     );
 
     const steps = Math.max(1, Math.min(10, Math.ceil(dist / 1.0)));

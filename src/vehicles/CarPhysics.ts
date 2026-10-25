@@ -33,6 +33,7 @@ export class CarPhysics {
   public x: number = 0;
   public y: number = 0.5;
   public z: number = 0;
+  public groundY: number = 0.5;
   public vy: number = 0; // Vertical velocity for stunt jumps
   public heading: number = 0; // Radians: 0 faces +Z
   public speed: number = 0; // In m/s
@@ -76,6 +77,7 @@ export class CarPhysics {
   public reset(startX: number = 0, startZ: number = 0, initialHeading: number = 0): void {
     this.x = startX;
     this.y = 0.5;
+    this.groundY = 0.5;
     this.z = startZ;
     this.prevX = startX;
     this.prevZ = startZ;
@@ -285,7 +287,7 @@ export class CarPhysics {
     // 6. Vertical Jump & DeLorean Hover Flight Physics
     if (input.hoverToggle) {
       this.isHoverMode = !this.isHoverMode;
-      if (this.isHoverMode && this.y <= 0.8) {
+      if (this.isHoverMode && this.y <= this.groundY + 0.3) {
         this.isAirborne = true;
         this.vy = 8.0;
       }
@@ -309,31 +311,33 @@ export class CarPhysics {
       this.y += this.vy * dt;
 
       // Maximum flight ceiling
-      if (this.y > 80.0) {
-        this.y = 80.0;
+      if (this.y > 160.0) {
+        this.y = 160.0;
         this.vy = Math.min(0, this.vy);
       }
 
       // Smooth landing or touch down
-      if (this.y <= 0.55) {
+      const landingThreshold = this.groundY + 0.08;
+      if (this.y <= landingThreshold) {
         if (!input.ascend && input.descend) {
-          this.y = 0.5;
+          this.y = this.groundY;
           this.vy = 0;
           this.isHoverMode = false;
           this.isAirborne = false;
         } else {
-          this.y = 0.65;
+          this.y = this.groundY + 0.15;
           this.vy = Math.max(0, this.vy);
         }
       }
-    } else if (this.isAirborne) {
+    } else if (this.isAirborne || this.y > this.groundY + 0.05) {
+      this.isAirborne = true;
       this.airtime += dt;
       this.vy -= 22.0 * dt; // Gravity
       this.y += this.vy * dt;
 
-      // Land on ground
-      if (this.y <= 0.5) {
-        this.y = 0.5;
+      // Land on ground or rooftop surface
+      if (this.y <= this.groundY) {
+        this.y = this.groundY;
         this.vy = 0;
         this.isAirborne = false;
 
@@ -345,7 +349,11 @@ export class CarPhysics {
             airtime: Number(this.airtime.toFixed(1)),
           };
         }
+        this.airtime = 0;
       }
+    } else {
+      this.y = this.groundY;
+      this.vy = 0;
     }
 
     // 7. Dynamic Body Roll, Pitch & Flip Detection

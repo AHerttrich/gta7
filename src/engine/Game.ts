@@ -475,6 +475,14 @@ export class Game {
       const wasHover = this.car.physics.isHoverMode;
       const hoverToggled = this.input.hoverToggle;
 
+      // Update dynamic surface elevation below vehicle (rooftop or street ground)
+      const roofH = this.city.getRoofHeightAt(this.car.physics.x, this.car.physics.z, 1.2);
+      if (roofH > 0 && this.car.physics.y >= roofH - 0.2) {
+        this.car.physics.groundY = roofH + 0.5;
+      } else {
+        this.car.physics.groundY = 0.5;
+      }
+
       // Car controls
       const stuntResult = this.car.update(dt, {
         throttle: this.input.forward,
@@ -512,69 +520,73 @@ export class Game {
         this.missions.handleStuntJump(stuntResult.distance, stuntResult.airtime);
       }
 
-      // Car Collision with Buildings (Continuous Anti-Tunneling Swept Collision)
-      if (!this.car.physics.isAirborne) {
-        const col = this.city.checkSweptCollision(
-          this.car.physics.prevX,
-          this.car.physics.prevZ,
-          this.car.physics.x,
-          this.car.physics.z,
-          2.0,
-        );
-        if (col.collided) {
-          const currentSpeed = this.car.physics.speed;
-          const isForward = currentSpeed >= 0;
-          const absSpeed = Math.abs(currentSpeed);
+      // Car Collision with Buildings (Continuous Anti-Tunneling Swept Collision in 3D)
+      const col = this.city.checkSweptCollision(
+        this.car.physics.prevX,
+        this.car.physics.prevZ,
+        this.car.physics.x,
+        this.car.physics.z,
+        2.0,
+        this.car.physics.y,
+      );
+      if (col.collided) {
+        const currentSpeed = this.car.physics.speed;
+        const isForward = currentSpeed >= 0;
+        const absSpeed = Math.abs(currentSpeed);
 
-          if (absSpeed > 4.0 && this.crashCooldown <= 0) {
-            // More forgiving crash damage so cars can take many hits
-            const dmg = Math.max(2, Math.round(absSpeed * 0.45));
-            this.car.takeDamage(dmg);
-            this.sound.playCrash(Math.min(30, Math.round(absSpeed)));
-            this.police.addCrimeSeverity(dmg);
-            this.input.triggerRumble(0.6, 180);
-            this.input.triggerHaptics(50);
-            this.crashCooldown = 0.25;
-          }
+        if (absSpeed > 4.0 && this.crashCooldown <= 0) {
+          // More forgiving crash damage so cars can take many hits
+          const dmg = Math.max(2, Math.round(absSpeed * 0.45));
+          this.car.takeDamage(dmg);
+          this.sound.playCrash(Math.min(30, Math.round(absSpeed)));
+          this.police.addCrimeSeverity(dmg);
+          this.input.triggerRumble(0.6, 180);
+          this.input.triggerHaptics(50);
+          this.crashCooldown = 0.25;
+        }
 
-          // Anti-stuck position resolution: safeX/safeZ guarantees clean exterior placement
-          this.car.physics.x = col.safeX;
-          this.car.physics.z = col.safeZ;
-          this.car.physics.prevX = col.safeX;
-          this.car.physics.prevZ = col.safeZ;
+        // Anti-stuck position resolution: safeX/safeZ guarantees clean exterior placement
+        this.car.physics.x = col.safeX;
+        this.car.physics.z = col.safeZ;
+        this.car.physics.prevX = col.safeX;
+        this.car.physics.prevZ = col.safeZ;
 
-          // Tangential wall sliding & smooth deceleration (no negative reverse stutter)
-          const forwardX = Math.sin(this.car.physics.heading);
-          const forwardZ = Math.cos(this.car.physics.heading);
-          const moveX = isForward ? forwardX : -forwardX;
-          const moveZ = isForward ? forwardZ : -forwardZ;
-          const dot = moveX * col.normalX + moveZ * col.normalZ;
+        // In flight mode, dampen vertical velocity on wall impact
+        if (this.car.physics.isHoverMode) {
+          this.car.physics.vy *= 0.3;
+        }
 
-          if (dot < 0) {
-            // Impact heading towards the wall
-            if (dot < -0.75) {
-              // Direct head-on collision: clean stop with zero velocity (no backwards recoil loop)
-              this.car.physics.speed = 0;
-            } else {
-              // Glancing blow: slide along the wall with friction
-              const slideFraction = Math.sqrt(Math.max(0, 1 - dot * dot));
-              const tangentialSpeed = absSpeed * slideFraction * 0.82;
-              this.car.physics.speed = isForward ? tangentialSpeed : -tangentialSpeed;
+        // Tangential wall sliding & smooth deceleration (no negative reverse stutter)
+        const forwardX = Math.sin(this.car.physics.heading);
+        const forwardZ = Math.cos(this.car.physics.heading);
+        const moveX = isForward ? forwardX : -forwardX;
+        const moveZ = isForward ? forwardZ : -forwardZ;
+        const dot = moveX * col.normalX + moveZ * col.normalZ;
 
-              // Gently align heading along the wall tangent
-              const tangentX = moveX - dot * col.normalX;
-              const tangentZ = moveZ - dot * col.normalZ;
-              const tanLen = Math.hypot(tangentX, tangentZ);
-              if (tanLen > 0.001) {
-                const targetHeading = Math.atan2(
-                  isForward ? tangentX : -tangentX,
-                  isForward ? tangentZ : -tangentZ,
-                );
-                let diff = targetHeading - this.car.physics.heading;
-                while (diff > Math.PI) diff -= Math.PI * 2;
-                while (diff < -Math.PI) diff += Math.PI * 2;
-                this.car.physics.heading += diff * 0.25;
-              }
+        if (dot < 0) {
+          // Impact heading towards the wall
+          if (dot < -0.75) {
+            // Direct head-on collision: clean stop with zero velocity (no backwards recoil loop)
+            this.car.physics.speed = 0;
+          } else {
+            // Glancing blow: slide along the wall with friction
+            const slideFraction = Math.sqrt(Math.max(0, 1 - dot * dot));
+            const tangentialSpeed = absSpeed * slideFraction * 0.82;
+            this.car.physics.speed = isForward ? tangentialSpeed : -tangentialSpeed;
+
+            // Gently align heading along the wall tangent
+            const tangentX = moveX - dot * col.normalX;
+            const tangentZ = moveZ - dot * col.normalZ;
+            const tanLen = Math.hypot(tangentX, tangentZ);
+            if (tanLen > 0.001) {
+              const targetHeading = Math.atan2(
+                isForward ? tangentX : -tangentX,
+                isForward ? tangentZ : -tangentZ,
+              );
+              let diff = targetHeading - this.car.physics.heading;
+              while (diff > Math.PI) diff -= Math.PI * 2;
+              while (diff < -Math.PI) diff += Math.PI * 2;
+              this.car.physics.heading += diff * 0.25;
             }
           }
         }
@@ -853,6 +865,12 @@ export class Game {
     } else if (this.mode === 'IN_HELI') {
       // Helicopter Flight Mode
       this.helicopter.update(dt, this.input, this.city);
+      if (this.helicopter.hasCollided && this.crashCooldown <= 0) {
+        this.sound.playCrash(18);
+        this.input.triggerRumble(0.5, 120);
+        this.input.triggerHaptics(40);
+        this.crashCooldown = 0.3;
+      }
       this.camera.updateVehicle(
         this.helicopter.group.position,
         this.helicopter.heading,
@@ -873,7 +891,7 @@ export class Game {
       this.hud.setPrompt('Drücke [E] zum Landen / Aussteigen 🚁');
       if (
         this.input.actionInteract &&
-        (this.helicopter.y <= 0.6 || Math.abs(this.helicopter.vy) < 0.6)
+        (this.helicopter.y <= 0.6 || Math.abs(this.helicopter.vy) < 0.6 || this.helicopter.isLanded)
       ) {
         this.exitHelicopter();
       }

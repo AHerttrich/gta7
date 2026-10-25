@@ -17,6 +17,8 @@ export class Helicopter {
   public health: number = 100;
   public isDestroyed: boolean = false;
   public isOccupied: boolean = false;
+  public hasCollided: boolean = false;
+  public isLanded: boolean = false;
 
   private mainRotor!: THREE.Group;
   private tailRotor!: THREE.Group;
@@ -225,15 +227,19 @@ export class Helicopter {
     this.z += this.vz * dt;
 
     // Ground & Helipad Landing Bounds Check
-    const minHeight = 0.2;
+    const roofH = city.getRoofHeightAt(this.x, this.z, 1.8);
+    const minHeight = roofH > 0 && this.y >= roofH - 0.5 ? roofH + 0.2 : 0.2;
     if (this.y < minHeight) {
       this.y = minHeight;
       this.vy = 0;
+      this.isLanded = true;
+    } else {
+      this.isLanded = Math.abs(this.y - minHeight) < 0.15 && Math.abs(this.vy) < 0.2;
     }
 
     // Ceiling limit
-    if (this.y > 110.0) {
-      this.y = 110.0;
+    if (this.y > 160.0) {
+      this.y = 160.0;
       this.vy = Math.min(0, this.vy);
     }
 
@@ -247,13 +253,18 @@ export class Helicopter {
     this.group.rotateX(this.pitch);
     this.group.rotateZ(this.roll);
 
-    // Building Collision
-    const col = city.checkCollision(this.x, this.z, 2.2);
-    if (col.collided && this.y < 35.0) {
+    // Building Collision in 3D
+    const col = city.checkCollision(this.x, this.z, 2.2, this.y);
+    if (col.collided) {
       this.vx = -this.vx * 0.5;
       this.vz = -this.vz * 0.5;
-      this.x += col.normalX * 1.2;
-      this.z += col.normalZ * 1.2;
+      this.x += col.normalX * (col.depth + 0.1);
+      this.z += col.normalZ * (col.depth + 0.1);
+      this.health = Math.max(0, this.health - 5);
+      this.hasCollided = true;
+      this.group.position.set(this.x, this.y, this.z);
+    } else {
+      this.hasCollided = false;
     }
   }
 
