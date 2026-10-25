@@ -107,23 +107,55 @@ Ziel: Wie in *Mattis Abenteuer* können Matti und sein Kumpel gemeinsam über da
 
 ---
 
-## 🏎️ Phase 8: Renn-Turniere, KI-Gegner & Tuning-Werkstatt (Zukunftsausblick)
+## 🏎️ Phase 8: KI-Straßenrenn-Rivalen & Live-Leaderboard (✅ Erledigt & Live)
 
-| Meilenstein | Beschreibung | Priorität |
+| Meilenstein | Beschreibung | Status |
 |---|---|---|
-| **M8.1 KI-Straßenrenn-Gegner** | Rivalisierende Sportwagen mit aggressiver Überhol-KI bei Straßenrennen | Hoch |
-| **M8.2 Motor-Tuning & Custom Felgen** | Leistungsupgrades (Stufe 1-3 Turbo, Höchstgeschwindigkeit, Bremsen) im Shop | Hoch |
-| **M8.3 Polizei-Nagelsperren (Spike Strips)** | Reifenschaden und Funkenflug beim Überfahren von Nagelsperren | Mittel |
+| **M8.1 2 KI-Rennrivalen (`Cyber Viper` & `Neon Phantom`)** | Spawnen am Rennstart mit individuellen Lackierungen, Spoilern und KI-Fahrverhalten | ✅ Erledigt |
+| **M8.2 Überhol- & Rubberbanding-KI** | Intelligente Wegpunkt-Navigation entlang des Kurses mit Kurven-Bremsen und Aufhol-Boost | ✅ Erledigt |
+| **M8.3 Live-Podium Leaderboard** | Dynamisches HUD-Widget mit Live-Platzierung (`🥇 1. / 3`), Checkpoint-Zähler und Rundenzeit | ✅ Erledigt |
+| **M8.4 Kollisions-Physik & Podiumsprämien** | Rammstöße mit Lackaustausch; Preisgelder für Platz 1 ($2.000), Platz 2 ($1.000) & Platz 3 ($500) | ✅ Erledigt |
 
 ---
 
-## 🌐 Phase 5: P2P WebRTC Multiplayer (Zusammen spielen!)
+## 🛠️ Phase 9: Werkstatt-Tuning & Custom Shop (✅ Erledigt & Live)
 
-Ziel: Wie in *Mattis Abenteuer* können Matti und sein Kumpel gemeinsam über das Internet auf einem Server cruisen!
+| Meilenstein | Beschreibung | Status |
+|---|---|---|
+| **M9.1 Stufe 1–3 Motoren- & Turbo-Upgrades** | Bis zu +85% Beschleunigung & 280 km/h Topspeed im Shop und in der Pay 'n' Spray Werkstatt | ✅ Erledigt |
+| **M9.2 Kevlar-Panzerung (Armor Plating)** | Reduziert erlittenen Ramm-, Kugel- und Explosionsschaden dauerhaft um 50% | ✅ Erledigt |
+| **M9.3 Custom Neon-Unterbodenfarben** | Freie Farbwahl (Hot Pink, Toxic Lime, Solar Gold, Cyber Purple) mit Echtzeit-Asphalt-Leuchten | ✅ Erledigt |
 
-* **PeerJS WebRTC:** Direkte Peer-to-Peer Verbindung ohne teure Serverkosten.
-* **Host / Join Menü:** Einer drückt auf "Spiel erstellen", gibt dem Kumpel den 5-stelligen Raumcode.
-* **Gemeinsam zocken:** Synchronisierte Autos, gegenseitiges Rammen, Verfolgungsjagden und Polizei-Flucht zu zweit!
+---
+
+## 🚨 Phase 10: Polizei-Nagelsperren & PIT-Manöver (✅ Erledigt & Live)
+
+| Meilenstein | Beschreibung | Status |
+|---|---|---|
+| **M10.1 3D-Nagelsperren (Spike Strips)** | Gefährliche Stahl-Nagelsperren auf Kreuzungen bei 3+ Fahndungssternen | ✅ Erledigt |
+| **M10.2 Reifenplatzer- & Felgenphysik** | Überfährt man eine Nagelsperre, platzen die Reifen: Funkenflug, Geschwindigkeitsdrossel auf 58 km/h & Rutschdrall | ✅ Erledigt |
+| **M10.3 Taktische Polizei PIT-Manöver** | Streifenwagen rammen gezielt die hintere Fahrzeugecke, um den Fluchtwagen bei Topspeed ins Schleudern zu bringen | ✅ Erledigt |
+
+---
+
+## ☀️🌙 Phase 11: Dynamischer Tag-Nacht-Zyklus & Cyber-Wetter (✅ Erledigt & Live)
+
+| Meilenstein | Beschreibung | Status |
+|---|---|---|
+| **M11.1 Realistische Sonnen-Orbit-Bahn** | Fließender Übergang: High Noon ☀️ -> Golden Sunset 🌅 -> Cyber-Nacht 🌙 (mit leuchtenden Fenstern & Laternen) | ✅ Erledigt |
+| **M11.2 Volumetrischer Cyber-Regen** | 1.200 fallende Regentropfen mit nassem Asphaltglanz | ✅ Erledigt |
+| **M11.3 Gewitter-Blitze** | Plötzliche dynamische Blitz-Stroboskope erleuchten die gesamte Skyline der Stadt | ✅ Erledigt |
+| **M11.4 Schnellwahltasten & HUD-Buttons** | Taste `L` / `[☀️ ZEIT]` schaltet Tageszeiten durch, Taste `K` / `[🌧️ WETTER]` steuert das Wetter | ✅ Erledigt |
+
+---
+
+## 🐍 Phase 12: Gang-Territorien & Kopfgeld-Konvoi (✅ Erledigt & Live)
+
+| Meilenstein | Beschreibung | Status |
+|---|---|---|
+| **M12.1 2 Gang-Distrikte (`Cyber Vipers` & `Neon Syndicate`)** | Reviergrenzen mit Neon-Torbögen und Gebiets-Benachrichtigungen beim Betreten | ✅ Erledigt |
+| **M12.2 Bewaffnete Gang-Patrouillen** | Patrouillenfahrzeuge cruisen durch ihr Revier und eröffnen Drive-by-Feuer bei Aggro | ✅ Erledigt |
+| **M12.3 Schwer gepanzerter Kopfgeld-Konvoi (Mini-Boss)** | 300 HP SWAT-Panzer-SUV mit Zwillings-Maschinengewehren auf dem Außenring; bringt fette $5.000 Beute | ✅ Erledigt |
 
 ---
 

@@ -20,6 +20,10 @@ export class HUD {
   private shopModalElement!: HTMLElement;
   private multiModalElement!: HTMLElement;
   private multiStatusBadge!: HTMLElement;
+  private raceLeaderboardElement!: HTMLElement;
+  private racePosBadge!: HTMLElement;
+  private raceCheckpointInfo!: HTMLElement;
+  private raceTimeInfo!: HTMLElement;
   private minimapCanvas!: HTMLCanvasElement;
   private minimapCtx!: CanvasRenderingContext2D;
 
@@ -499,6 +503,8 @@ export class HUD {
       <div class="hud-mobile-quickbar">
         <button class="hud-quick-btn" id="m-btn-radio" style="border-color:#a855f7;color:#a855f7;">📻 RADIO</button>
         <button class="hud-quick-btn" id="m-btn-hover" style="border-color:#06b6d4;color:#06b6d4;">🚀 HOVER</button>
+        <button class="hud-quick-btn" id="m-btn-time" style="border-color:#f59e0b;color:#f59e0b;">☀️ ZEIT</button>
+        <button class="hud-quick-btn" id="m-btn-weather" style="border-color:#38bdf8;color:#38bdf8;">🌧️ WETTER</button>
         <button class="hud-quick-btn" id="m-btn-multi">🌐 MULTI</button>
         <button class="hud-quick-btn" id="m-btn-shop">🛒 SHOP</button>
         <button class="hud-quick-btn" id="m-btn-job">🚖 TAXI</button>
@@ -509,6 +515,7 @@ export class HUD {
       <div class="hud-controls-helper">
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>: Fahren / Laufen / Fliegen</div>
         <div><kbd>V</kbd> / <kbd>X</kbd>: DeLorean Flugmodus 🚀</div>
+        <div><kbd>L</kbd>: Tag/Nacht ☀️🌙 | <kbd>K</kbd>: Wetter 🌧️⚡</div>
         <div><kbd>Leertaste</kbd>: Steigen | <kbd>C</kbd>: Sinken</div>
         <div><kbd>B</kbd>: Radio wechseln 📻 | <kbd>N</kbd>: Nitro 🔥</div>
         <div><kbd>Klick</kbd> / <kbd>F</kbd>: Schießen / Schlagen 💥</div>
@@ -533,6 +540,13 @@ export class HUD {
         <div class="hud-prompt" id="hud-prompt">Drücke [E] um ins Auto einzusteigen</div>
         <div class="hud-notification" id="hud-notification">Willkommen in GTA 7!</div>
         <div class="hud-radio-banner" id="hud-radio-banner" style="display:none;background:rgba(15,23,42,0.92);border:2px solid #a855f7;padding:8px 16px;border-radius:8px;box-shadow:0 0 15px rgba(168,85,247,0.5);margin-top:8px;text-align:center;"></div>
+        <div id="hud-race-leaderboard" style="display:none;background:rgba(15,23,42,0.92);border:2px solid #00e5ff;border-radius:10px;padding:6px 16px;margin-top:6px;box-shadow:0 0 20px rgba(0,229,255,0.4);text-align:center;">
+          <div id="race-pos-badge" style="font-size:16px;font-weight:900;color:#ffea00;text-shadow:0 0 10px rgba(255,234,0,0.6);">🥇 1. PLATZ</div>
+          <div style="display:flex;gap:12px;font-size:12px;font-weight:700;color:#94a3b8;margin-top:2px;justify-content:center;">
+            <span id="race-checkpoint-info">CP: 1/9</span>
+            <span id="race-time-info">⏱️ 0.0s</span>
+          </div>
+        </div>
       </div>
 
       <div class="hud-bottom-left">
@@ -589,6 +603,10 @@ export class HUD {
           <h4 style="color:#f59e0b;margin-bottom:6px;">🔫 Waffen & Munition:</h4>
           <div id="hud-weapon-list"></div>
         </div>
+        <div class="hud-shop-section">
+          <h4 style="color:#00d4ff;margin-bottom:6px;">🛠️ Performance-Tuning & Styling:</h4>
+          <div id="hud-tuning-list"></div>
+        </div>
       </div>
 
       <!-- Multiplayer P2P Modal -->
@@ -635,6 +653,10 @@ export class HUD {
     this.promptElement = document.getElementById('hud-prompt')!;
     this.shopModalElement = document.getElementById('hud-shop-modal')!;
     this.multiModalElement = document.getElementById('hud-multi-modal')!;
+    this.raceLeaderboardElement = document.getElementById('hud-race-leaderboard')!;
+    this.racePosBadge = document.getElementById('race-pos-badge')!;
+    this.raceCheckpointInfo = document.getElementById('race-checkpoint-info')!;
+    this.raceTimeInfo = document.getElementById('race-time-info')!;
 
     this.minimapCanvas = document.getElementById('minimap-canvas') as HTMLCanvasElement;
     this.minimapCtx = this.minimapCanvas.getContext('2d')!;
@@ -858,6 +880,34 @@ export class HUD {
       const w = data as WeaponData;
       this.updateWeaponDisplay(w);
     });
+
+    eventBus.on(EVENTS.RACE_UPDATE, (data) => {
+      const d = data as {
+        position: number;
+        totalRacers: number;
+        currentCheckpoint: number;
+        totalCheckpoints: number;
+        elapsedTime: number;
+      };
+      if (this.raceLeaderboardElement) {
+        this.raceLeaderboardElement.style.display = 'block';
+        const medals = ['🥇 1.', '🥈 2.', '🥉 3.'];
+        const badge = medals[d.position - 1] || `${d.position}.`;
+        this.racePosBadge.textContent = `${badge} PLATZ (${d.position}/${d.totalRacers})`;
+        this.racePosBadge.style.color =
+          d.position === 1 ? '#ffea00' : d.position === 2 ? '#e2e8f0' : '#f97316';
+        this.raceCheckpointInfo.textContent = `CP: ${d.currentCheckpoint}/${d.totalCheckpoints}`;
+        this.raceTimeInfo.textContent = `⏱️ ${d.elapsedTime.toFixed(1)}s`;
+      }
+    });
+
+    eventBus.on(EVENTS.RACE_COMPLETE, () => {
+      setTimeout(() => {
+        if (this.raceLeaderboardElement) {
+          this.raceLeaderboardElement.style.display = 'none';
+        }
+      }, 5000);
+    });
   }
 
   public updateWeaponDisplay(weapon: WeaponData): void {
@@ -958,6 +1008,29 @@ export class HUD {
       )
       .join('');
 
+    const tuningList = document.getElementById('hud-tuning-list');
+    if (tuningList && this.economy.tuningUpgrades) {
+      tuningList.innerHTML = this.economy.tuningUpgrades
+        .map(
+          (u) => `
+        <div class="hud-shop-item">
+          <div>
+            <strong>${u.name}</strong>
+            <div style="font-size:12px;color:#94a3b8;">${u.description}</div>
+          </div>
+          <div>
+            ${
+              u.purchased
+                ? `<span style="color:#22c55e;font-weight:700;">Installiert ✓</span>`
+                : `<button class="hud-shop-btn" onclick="window.gtaBuyTuning('${u.id}')">$${u.price}</button>`
+            }
+          </div>
+        </div>
+      `,
+        )
+        .join('');
+    }
+
     (window as unknown as { gtaBuyCar: (id: string) => void }).gtaBuyCar = (id: string): void => {
       if (this.economy.buyCar(id)) {
         this.renderShopContent();
@@ -979,6 +1052,14 @@ export class HUD {
     ): void => {
       this.economy.equipWeapon(id);
       this.renderShopContent();
+    };
+    (window as unknown as { gtaBuyTuning: (id: string) => void }).gtaBuyTuning = (
+      id: string,
+    ): void => {
+      if (this.economy.buyTuning(id)) {
+        this.renderShopContent();
+        eventBus.emit('tuning:applied', { id });
+      }
     };
   }
 

@@ -3,6 +3,7 @@ import { RACE_CIRCUIT, CITY_CONFIG, EVENTS } from '../utils/Constants';
 import { eventBus } from '../utils/EventBus';
 import { SoundManager } from '../audio/SoundManager';
 import { EconomySystem } from '../economy/EconomySystem';
+import { RivalRacer } from './RivalRacer';
 
 export interface RaceState {
   isActive: boolean;
@@ -36,8 +37,11 @@ export class MissionSystem {
     currentCheckpointIndex: 0,
     totalCheckpoints: RACE_CIRCUIT.length,
     elapsedTime: 0,
-    timeLimit: 90,
+    timeLimit: 120,
   };
+
+  public rivals: RivalRacer[] = [];
+  public playerPosition: number = 1;
 
   private activeRingMesh: THREE.Mesh | null = null;
   private activeRingLight: THREE.PointLight | null = null;
@@ -96,16 +100,64 @@ export class MissionSystem {
   }
 
   public startRace(): void {
+    this.cleanupRivals();
+
     this.race.isActive = true;
     this.race.currentCheckpointIndex = 0;
     this.race.elapsedTime = 0;
-    this.race.timeLimit = 75;
+    this.race.timeLimit = 120;
+
+    const startX = CITY_CONFIG.RACE_START_X;
+    const startZ = CITY_CONFIG.RACE_START_Z;
+
+    // Spawn 2 rival sports cars at the starting grid
+    const viper = new RivalRacer(
+      this.scene,
+      {
+        id: 'viper',
+        name: '🔥 Cyber Viper',
+        bodyColor: 0xef4444,
+        stripeColor: 0xf97316,
+        neonColor: 0xff3b30,
+        baseSpeed: 38.0,
+        turnSpeed: 3.4,
+      },
+      startX - 4.5,
+      startZ - 3.5,
+      0,
+    );
+
+    const phantom = new RivalRacer(
+      this.scene,
+      {
+        id: 'phantom',
+        name: '⚡ Neon Phantom',
+        bodyColor: 0x8b5cf6,
+        stripeColor: 0x00f0ff,
+        neonColor: 0xa855f7,
+        baseSpeed: 36.5,
+        turnSpeed: 3.8,
+      },
+      startX + 4.5,
+      startZ - 3.5,
+      0,
+    );
+
+    this.rivals.push(viper, phantom);
+    this.playerPosition = 1;
 
     this.showCheckpointRing(0);
     this.sound.playCheckpointChime();
     eventBus.emit(EVENTS.NOTIFICATION, {
-      text: '🏁 STRASSENRENNEN GESTARTET! Fahre durch die Neon-Ringe!',
+      text: '🏁 STRASSENRENNEN GESTARTET! Besiege Cyber Viper & Neon Phantom!',
     });
+  }
+
+  public cleanupRivals(): void {
+    for (const rival of this.rivals) {
+      rival.dispose(this.scene);
+    }
+    this.rivals = [];
   }
 
   private showCheckpointRing(index: number): void {
@@ -205,21 +257,82 @@ export class MissionSystem {
     if (this.race.isActive) {
       this.race.elapsedTime += dt;
 
+      // Calculate player progress along the circuit
+      const targetPt = RACE_CIRCUIT[this.race.currentCheckpointIndex];
+      const prevPt =
+        this.race.currentCheckpointIndex === 0
+          ? { x: CITY_CONFIG.RACE_START_X, z: CITY_CONFIG.RACE_START_Z - 10 }
+          : RACE_CIRCUIT[this.race.currentCheckpointIndex - 1];
+
+      const segLen = Math.hypot(targetPt.x - prevPt.x, targetPt.z - prevPt.z) || 1;
+      const distToTarget = Math.hypot(targetPt.x - carX, targetPt.z - carZ);
+      const playerSubProgress = Math.max(0, Math.min(1, 1 - distToTarget / segLen));
+      const playerProgress = this.race.currentCheckpointIndex + playerSubProgress;
+
+      // Update AI Rivals
+      for (const rival of this.rivals) {
+        rival.update(dt, playerProgress, this.race.elapsedTime);
+
+        // Collision check between player and rival
+        if (inCar) {
+          const d = Math.hypot(carX - rival.x, carZ - rival.z);
+          if (d < 3.2 && d > 0.05) {
+            const overlap = 3.2 - d;
+            const nx = (carX - rival.x) / d;
+            const nz = (carZ - rival.z) / d;
+            rival.x -= nx * overlap * 0.5;
+            rival.z -= nz * overlap * 0.5;
+            this.sound.playCrash(16);
+          }
+        }
+      }
+
+      // Leaderboard calculation
+      const racers = [
+        { id: 'player', name: 'Du', progress: playerProgress, isPlayer: true },
+        ...this.rivals.map((r) => ({
+          id: r.config.id,
+          name: r.config.name,
+          progress: r.getProgress(),
+          isPlayer: false,
+        })),
+      ];
+      racers.sort((a, b) => b.progress - a.progress);
+      this.playerPosition = racers.findIndex((r) => r.isPlayer) + 1;
+
+      // Emit live race telemetry
+      eventBus.emit(EVENTS.RACE_UPDATE, {
+        position: this.playerPosition,
+        totalRacers: racers.length,
+        currentCheckpoint: this.race.currentCheckpointIndex,
+        totalCheckpoints: RACE_CIRCUIT.length - 1,
+        elapsedTime: this.race.elapsedTime,
+      });
+
       // Animate active ring
       if (this.activeRingMesh) {
         this.activeRingMesh.rotation.y += 1.8 * dt;
-        const pt = RACE_CIRCUIT[this.race.currentCheckpointIndex];
-        const dist = Math.hypot(carX - pt.x, carZ - pt.z);
+        const dist = Math.hypot(carX - targetPt.x, carZ - targetPt.z);
 
-        if (dist < 6.5) {
+        if (dist < 7.0) {
           // Checkpoint cleared!
           this.sound.playCheckpointChime();
           this.race.currentCheckpointIndex += 1;
 
           if (this.race.currentCheckpointIndex >= RACE_CIRCUIT.length) {
-            // Race Won!
+            // Race Won/Finished!
             this.sound.playFanfare();
-            const reward = 1500;
+
+            let reward = 500;
+            let badge = '🥉 PLATZ 3!';
+            if (this.playerPosition === 1) {
+              reward = 2000;
+              badge = '🥇 PLATZ 1! RENN-CHAMPION!';
+            } else if (this.playerPosition === 2) {
+              reward = 1000;
+              badge = '🥈 PLATZ 2!';
+            }
+
             this.economy.addCash(reward);
             this.race.isActive = false;
 
@@ -227,12 +340,20 @@ export class MissionSystem {
             if (this.activeRingLight) this.group.remove(this.activeRingLight);
 
             eventBus.emit(EVENTS.NOTIFICATION, {
-              text: `🏆 RENNEN GEWONNEN! Zeit: ${this.race.elapsedTime.toFixed(1)}s | Prämie: +$${reward}!`,
+              text: `🏆 ${badge} Zeit: ${this.race.elapsedTime.toFixed(1)}s | Prämie: +$${reward}!`,
             });
+
+            eventBus.emit(EVENTS.RACE_COMPLETE, {
+              position: this.playerPosition,
+              reward,
+              time: this.race.elapsedTime,
+            });
+
+            setTimeout(() => this.cleanupRivals(), 6000);
           } else {
             this.showCheckpointRing(this.race.currentCheckpointIndex);
             eventBus.emit(EVENTS.NOTIFICATION, {
-              text: `🏁 Checkpoint ${this.race.currentCheckpointIndex}/${RACE_CIRCUIT.length - 1} erreicht!`,
+              text: `🏁 Checkpoint ${this.race.currentCheckpointIndex}/${RACE_CIRCUIT.length - 1} | Platz: ${this.playerPosition}.!`,
             });
           }
         }

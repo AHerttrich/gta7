@@ -315,17 +315,18 @@ export class SoundManager {
     });
   }
 
-  public playCrash(): void {
+  public playCrash(_intensity: number = 10): void {
     if (!this.ctx || this.isMuted) return;
 
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
 
+    const vol = Math.min(0.35, 0.12 + (_intensity / 100) * 0.2);
     osc.type = 'square';
     osc.frequency.setValueAtTime(100, this.ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.25);
 
-    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.25);
 
     osc.connect(gain);

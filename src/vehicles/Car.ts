@@ -408,6 +408,10 @@ export class Car {
   public takeDamage(amount: number): void {
     if (this.isDestroyed) return;
 
+    if (this.physics.armorPlating) {
+      amount *= 0.5;
+    }
+
     this.health = Math.max(0, this.health - amount);
 
     if (this.health <= 0) {
@@ -422,7 +426,12 @@ export class Car {
   public repair(): void {
     this.health = VEHICLE_CONFIG.MAX_HEALTH;
     this.isDestroyed = false;
+    this.physics.repairTires();
     (this.bodyMesh.material as THREE.MeshStandardMaterial).color.setHex(0xd1d5db);
+  }
+
+  public setUnderglowColor(colorHex: number): void {
+    this.underglowLight.color.setHex(colorHex);
   }
 
   public setColor(colorHex: number): void {

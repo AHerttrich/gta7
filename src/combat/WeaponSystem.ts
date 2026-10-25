@@ -4,6 +4,7 @@ import { TrafficSystem } from '../traffic/TrafficSystem';
 import { PoliceSystem } from '../police/PoliceSystem';
 import { PedestrianSystem } from '../pedestrians/PedestrianSystem';
 import { SoundManager } from '../audio/SoundManager';
+import { GangSystem } from '../gangs/GangSystem';
 import { eventBus } from '../utils/EventBus';
 import { EVENTS } from '../utils/Constants';
 
@@ -41,6 +42,7 @@ export class WeaponSystem {
   private traffic: TrafficSystem;
   private police: PoliceSystem;
   private pedestrians: PedestrianSystem;
+  private gangs: GangSystem | null = null;
 
   private bulletGeo: THREE.SphereGeometry;
   private bulletMat: THREE.MeshBasicMaterial;
@@ -70,6 +72,10 @@ export class WeaponSystem {
     this.rocketGeo = new THREE.CylinderGeometry(0.16, 0.16, 0.9, 8);
     this.rocketGeo.rotateX(Math.PI / 2);
     this.rocketMat = new THREE.MeshStandardMaterial({ color: 0x475569 });
+  }
+
+  public setGangSystem(gangs: GangSystem): void {
+    this.gangs = gangs;
   }
 
   public fire(
@@ -109,6 +115,11 @@ export class WeaponSystem {
           ped.panicTimer = 5;
           this.police.addCrimeSeverity(20);
         }
+      }
+
+      // Hit gang cars or bounty boss
+      if (this.gangs) {
+        this.gangs.takeWeaponDamage(targetX, targetZ, weapon.damage, 2.5);
       }
       return true;
     }
@@ -202,6 +213,10 @@ export class WeaponSystem {
         ped.panicTimer = 6;
       }
     }
+
+    if (this.gangs) {
+      this.gangs.takeWeaponDamage(x, z, 220, maxRadius);
+    }
   }
 
   public update(dt: number): void {
@@ -247,6 +262,13 @@ export class WeaponSystem {
             this.police.addCrimeSeverity(25);
             break;
           }
+        }
+      }
+
+      // Hit gang cars or bounty boss
+      if (!hasHit && this.gangs) {
+        if (this.gangs.takeWeaponDamage(p.x, p.z, p.damage, 1.8)) {
+          hasHit = true;
         }
       }
 

@@ -20,6 +20,8 @@ import { NetMsgKind, PlayerSyncMsg } from '../network/NetProtocol';
 import { PLAYER_CONFIG, RACE_CIRCUIT } from '../utils/Constants';
 import { RadioSystem } from '../audio/RadioSystem';
 import { Helicopter } from '../vehicles/Helicopter';
+import { eventBus } from '../utils/EventBus';
+import { GangSystem } from '../gangs/GangSystem';
 
 export type PlayerMode = 'IN_CAR' | 'ON_FOOT' | 'IN_HELI';
 
@@ -37,6 +39,7 @@ export class Game {
   public pedestrians: PedestrianSystem;
   public weapons: WeaponSystem;
   public missions: MissionSystem;
+  public gangs: GangSystem;
   public economy: EconomySystem;
   public sound: SoundManager;
   public radio: RadioSystem;
@@ -96,6 +99,8 @@ export class Game {
     );
 
     this.missions = new MissionSystem(this.renderer.scene, this.sound, this.economy);
+    this.gangs = new GangSystem(this.renderer.scene, this.economy, this.sound);
+    this.weapons.setGangSystem(this.gangs);
 
     // Multiplayer initialization
     this.network = new NetworkManager();
@@ -120,6 +125,54 @@ export class Game {
         } else if (weapon && !weapon.unlocked) {
           this.hud.showNotification(`🔒 ${weapon.name} noch nicht im Shop gekauft!`);
         }
+      }
+    });
+
+    eventBus.on('tuning:applied', (data: unknown) => {
+      const d = data as { id: string };
+      if (d.id === 'engine_stage_1') {
+        this.car.physics.setEngineStage(1);
+      } else if (d.id === 'engine_stage_2') {
+        this.car.physics.setEngineStage(2);
+      } else if (d.id === 'engine_stage_3') {
+        this.car.physics.setEngineStage(3);
+      } else if (d.id === 'armor_plating') {
+        this.car.physics.setArmorPlating(true);
+      } else if (d.id === 'neon_pink') {
+        this.car.setUnderglowColor(0xff007f);
+      } else if (d.id === 'neon_lime') {
+        this.car.setUnderglowColor(0x39ff14);
+      } else if (d.id === 'neon_gold') {
+        this.car.setUnderglowColor(0xffaa00);
+      } else if (d.id === 'neon_purple') {
+        this.car.setUnderglowColor(0x9d00ff);
+      }
+    });
+
+    // Time & Weather quickbar controls
+    const btnTime = document.getElementById('m-btn-time');
+    if (btnTime) {
+      btnTime.addEventListener('click', () => {
+        const name = this.renderer.cycleTimePreset();
+        this.hud.showNotification(`🕒 Beleuchtung: ${name}`);
+      });
+    }
+    const btnWeather = document.getElementById('m-btn-weather');
+    if (btnWeather) {
+      btnWeather.addEventListener('click', () => {
+        const name = this.renderer.cycleWeather();
+        this.hud.showNotification(`🌦️ Wetter: ${name}`);
+      });
+    }
+
+    // Keyboard shortcuts L (Day/Night) and K (Weather)
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'l' || e.key === 'L') {
+        const name = this.renderer.cycleTimePreset();
+        this.hud.showNotification(`🕒 Beleuchtung: ${name}`);
+      } else if (e.key === 'k' || e.key === 'K') {
+        const name = this.renderer.cycleWeather();
+        this.hud.showNotification(`🌦️ Wetter: ${name}`);
       }
     });
   }
@@ -400,6 +453,24 @@ export class Game {
         this.hud.showNotification('💥 Straßensperre der Polizei durchbrochen!');
       }
 
+      // Police Spike Strip collisions
+      if (this.police.checkSpikeStripCollision(this.car.physics.x, this.car.physics.z)) {
+        this.sound.playCrash(22);
+        this.car.physics.blowTires();
+      }
+
+      // Police Tactical PIT Maneuver
+      const pit = this.police.checkPitManeuver(
+        this.car.physics.x,
+        this.car.physics.z,
+        this.car.physics.heading,
+        this.car.physics.speed,
+      );
+      if (pit.triggered) {
+        this.car.physics.heading += pit.spinDir * 1.6 * dt;
+        this.sound.playCrash(12);
+      }
+
       // Pay 'n' Spray Garage check
       this.garage.update(dt, this.car, this.police, this.economy, this.sound, this.hud);
 
@@ -512,6 +583,14 @@ export class Game {
     // 4. Update Subsystems
     this.weapons.update(dt);
     this.missions.update(dt, playerPos.x, playerPos.z, this.mode === 'IN_CAR');
+    this.gangs.update(dt, playerPos.x, playerPos.z, this.mode === 'IN_CAR');
+    if (this.mode === 'IN_CAR') {
+      this.gangs.checkPlayerCarRamming(
+        this.car.physics.x,
+        this.car.physics.z,
+        this.car.physics.speed,
+      );
+    }
     this.traffic.update(dt, playerPos.x, playerPos.z);
     this.pedestrians.update(
       dt,

@@ -25,6 +25,11 @@ Unser detaillierter Zukunftsplan für die nächsten Phasen (Waffen, Schusswechse
 
 | Feature | Description | Status |
 |---|---|---|
+| **🏁 AI Street Racing Rivals & Leaderboard** | 2 rival sports cars (*Cyber Viper* & *Neon Phantom*) compete in street races with overtaking AI, rubberbanding, and live podium HUD (`🥇 1. / 3`) | ✅ Included |
+| **🛠️ Performance Tuning & Custom Shop** | Stage 1-3 Turbo upgrades (up to 280 km/h), Kevlar armor plating, and custom neon underglow colors (Hot Pink, Toxic Lime, Solar Gold, Cyber Purple) | ✅ Included |
+| **🚨 Police Spike Strips & PIT Maneuvers** | 3D spike strips puncturing tires with rim sparks and handling drag; aggressive police PIT spin-outs at high speed | ✅ Included |
+| **☀️🌙 Dynamic Day/Night & Weather FX** | Orbiting sun cycle (High Noon, Golden Sunset, Cyber Night), volumetric rain particles, lightning flash bursts (`L` / `K` / `[☀️ ZEIT]`) | ✅ Included |
+| **🐍 Gang Turf Wars & Bounty Boss Convoy** | Cyber Vipers vs Neon Syndicate districts with armed patrols; heavy armored 300 HP Bounty Convoy Boss dropping $5,000 cash | ✅ Included |
 | **🚁 Flyable Executive Helicopter** | Fully flyable helicopter on the Downtown skyscraper helipad with spinning rotors, lift physics & searchlight (`E` to enter) | ✅ Included |
 | **📻 Procedural GTA Cyber Radio** | 4-Station synthesizer radio (*80s Synthwave FM*, *Cyber Electro Drive*, *Vice Beach Chill*, *Radio Aus*) with HUD station banner (`B` / `[📻 RADIO]`) | ✅ Included |
 | **🚨 Police Helicopter & SWAT Roadblocks** | Air interceptor helicopter tracking player with searchlight at 4-5 stars; destructible hazard barricades at 3+ stars | ✅ Included |

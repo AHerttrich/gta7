@@ -36,11 +36,20 @@ export interface Roadblock {
   barrierMesh: THREE.Mesh;
 }
 
+export interface SpikeStrip {
+  x: number;
+  z: number;
+  group: THREE.Group;
+  isTriggered: boolean;
+  hazardLight: THREE.PointLight;
+}
+
 export class PoliceSystem {
   public wantedLevel: number = 0; // 0 to 5 stars
   public copCars: CopCar[] = [];
   public policeHeli: PoliceHeli | null = null;
   public roadblocks: Roadblock[] = [];
+  public spikeStrips: SpikeStrip[] = [];
   public group: THREE.Group;
 
   private scene: THREE.Scene;
@@ -101,6 +110,13 @@ export class PoliceSystem {
       this.spawnRoadblocks();
     } else if (this.wantedLevel < 3 && this.roadblocks.length > 0) {
       this.clearRoadblocks();
+    }
+
+    // Spike Strips at 3 to 5 stars
+    if (this.wantedLevel >= 3 && this.spikeStrips.length === 0) {
+      this.spawnSpikeStrips();
+    } else if (this.wantedLevel < 3 && this.spikeStrips.length > 0) {
+      this.clearSpikeStrips();
     }
   }
 
@@ -307,6 +323,120 @@ export class PoliceSystem {
   private clearRoadblocks(): void {
     this.roadblocks.forEach((rb) => this.group.remove(rb.group));
     this.roadblocks = [];
+  }
+
+  private spawnSpikeStrips(): void {
+    const locations = [
+      { x: 0, z: 44, rot: 0 },
+      { x: 44, z: 0, rot: Math.PI / 2 },
+      { x: -44, z: 88, rot: 0 },
+      { x: 88, z: -44, rot: Math.PI / 2 },
+    ];
+
+    locations.forEach((loc) => {
+      const g = new THREE.Group();
+
+      // Main heavy steel base strip with rubber padding
+      const barGeo = new THREE.BoxGeometry(8.5, 0.1, 0.55);
+      const barMat = new THREE.MeshStandardMaterial({
+        color: 0x1f2937,
+        roughness: 0.6,
+        metalness: 0.7,
+      });
+      const bar = new THREE.Mesh(barGeo, barMat);
+      bar.position.y = 0.05;
+      g.add(bar);
+
+      // Warning hazard stripes (Black & Yellow)
+      const stripeGeo = new THREE.BoxGeometry(8.3, 0.11, 0.2);
+      const stripeMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+      const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+      stripe.position.y = 0.06;
+      g.add(stripe);
+
+      // Rows of sharp puncture spikes
+      const spikeGeo = new THREE.ConeGeometry(0.07, 0.32, 6);
+      const spikeMat = new THREE.MeshStandardMaterial({
+        color: 0xe2e8f0,
+        metalness: 0.95,
+        roughness: 0.15,
+      });
+
+      for (let i = -3.8; i <= 3.8; i += 0.4) {
+        const spike = new THREE.Mesh(spikeGeo, spikeMat);
+        spike.position.set(i, 0.2, (Math.random() - 0.5) * 0.15);
+        g.add(spike);
+      }
+
+      // Blinking orange hazard light
+      const hazardLight = new THREE.PointLight(0xf97316, 2.5, 8);
+      hazardLight.position.set(0, 0.4, 0);
+      g.add(hazardLight);
+
+      g.position.set(loc.x, 0.03, loc.z);
+      g.rotation.y = loc.rot;
+      this.group.add(g);
+
+      this.spikeStrips.push({
+        x: loc.x,
+        z: loc.z,
+        group: g,
+        isTriggered: false,
+        hazardLight,
+      });
+    });
+  }
+
+  private clearSpikeStrips(): void {
+    this.spikeStrips.forEach((s) => this.group.remove(s.group));
+    this.spikeStrips = [];
+  }
+
+  public checkSpikeStripCollision(carX: number, carZ: number): boolean {
+    for (const strip of this.spikeStrips) {
+      if (strip.isTriggered) continue;
+      const dist = Math.hypot(carX - strip.x, carZ - strip.z);
+      if (dist < 4.2) {
+        strip.isTriggered = true;
+        strip.hazardLight.color.setHex(0xef4444);
+        strip.hazardLight.intensity = 5;
+        eventBus.emit(EVENTS.NOTIFICATION, {
+          text: '⚠️ REIFEN ZERSTOCHEN! Nagelsperre überfahren! Zur Werkstatt für Reparatur!',
+        });
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public checkPitManeuver(
+    playerX: number,
+    playerZ: number,
+    playerHeading: number,
+    speed: number,
+  ): { triggered: boolean; spinDir: number } {
+    if (Math.abs(speed) < 10.0) return { triggered: false, spinDir: 0 };
+
+    for (const cop of this.copCars) {
+      const dx = playerX - cop.x;
+      const dz = playerZ - cop.z;
+      const dist = Math.hypot(dx, dz);
+
+      // Cop is close behind player at speed
+      if (dist < 3.8 && dist > 1.0) {
+        const forwardX = Math.sin(playerHeading);
+        const forwardZ = Math.cos(playerHeading);
+        const dot = (cop.x - playerX) * forwardX + (cop.z - playerZ) * forwardZ;
+
+        // Cop is hitting rear corners
+        if (dot < -0.6) {
+          const cross = (cop.x - playerX) * forwardZ - (cop.z - playerZ) * forwardX;
+          const spinDir = cross > 0 ? 1 : -1;
+          return { triggered: true, spinDir };
+        }
+      }
+    }
+    return { triggered: false, spinDir: 0 };
   }
 
   public checkRoadblockCollision(carX: number, carZ: number, speed: number): boolean {

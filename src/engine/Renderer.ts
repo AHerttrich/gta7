@@ -9,6 +9,21 @@ export class Renderer {
 
   private skyMesh: THREE.Mesh | null = null;
 
+  // Dynamic Lighting, Day/Night & Cyber Weather (Phase 11)
+  public sunLight!: THREE.DirectionalLight;
+  public hemiLight!: THREE.HemisphereLight;
+  public ambientLight!: THREE.AmbientLight;
+  public timeOfDay: number = 0.35; // 0.0=midnight, 0.25=sunrise, 0.5=noon, 0.75=sunset
+  public timeSpeed: number = 0.006;
+  public isTimePaused: boolean = false;
+
+  public weather: 'clear' | 'rain' | 'thunder' = 'clear';
+  private rainParticles!: THREE.Points;
+  private rainPositions!: Float32Array;
+  private lightningLight!: THREE.PointLight;
+  private lightningTimer: number = 4.0;
+  private lightningFlashTime: number = 0;
+
   // Atmospheric cyber dust motes
   private dustParticles!: THREE.Points;
   private dustPositions!: Float32Array;
@@ -53,6 +68,7 @@ export class Renderer {
     this.setupLighting();
     this.setupAtmosphericSky();
     this.initAtmosphericParticles();
+    this.initWeather();
     this.initSpeedStreaks();
 
     if (typeof window !== 'undefined') {
@@ -62,27 +78,31 @@ export class Renderer {
 
   private setupLighting(): void {
     // Crisp daylight hemisphere (Sky rich azure, Ground warm asphalt tone)
-    const hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x334155, 1.45);
-    this.scene.add(hemiLight);
+    this.hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x334155, 1.45);
+    this.scene.add(this.hemiLight);
 
     // Warm Golden Sun Directional Light with deep soft shadows
-    const sunLight = new THREE.DirectionalLight(0xfffaed, 2.5);
-    sunLight.position.set(120, 180, 90);
-    sunLight.castShadow = true;
-    sunLight.shadow.mapSize.width = 2048;
-    sunLight.shadow.mapSize.height = 2048;
-    sunLight.shadow.camera.near = 10;
-    sunLight.shadow.camera.far = 450;
-    sunLight.shadow.camera.left = -180;
-    sunLight.shadow.camera.right = 180;
-    sunLight.shadow.camera.top = 180;
-    sunLight.shadow.camera.bottom = -180;
-    sunLight.shadow.bias = -0.0002;
-    this.scene.add(sunLight);
+    this.sunLight = new THREE.DirectionalLight(0xfffaed, 2.5);
+    this.sunLight.position.set(120, 180, 90);
+    this.sunLight.castShadow = true;
+    this.sunLight.shadow.mapSize.width = 2048;
+    this.sunLight.shadow.mapSize.height = 2048;
+    this.sunLight.shadow.camera.near = 10;
+    this.sunLight.shadow.camera.far = 450;
+    this.sunLight.shadow.camera.left = -180;
+    this.sunLight.shadow.camera.right = 180;
+    this.sunLight.shadow.camera.top = 180;
+    this.sunLight.shadow.camera.bottom = -180;
+    this.sunLight.shadow.bias = -0.0002;
+    this.scene.add(this.sunLight);
 
     // Ambient light fill for clear visibility across all districts
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
-    this.scene.add(ambientLight);
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+    this.scene.add(this.ambientLight);
+
+    // Dynamic lightning point light for thunderstorms
+    this.lightningLight = new THREE.PointLight(0xffffff, 0, 450);
+    this.scene.add(this.lightningLight);
   }
 
   private setupAtmosphericSky(): void {
@@ -141,6 +161,28 @@ export class Renderer {
     this.scene.add(this.dustParticles);
   }
 
+  private initWeather(): void {
+    const count = 1200;
+    this.rainPositions = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      this.rainPositions[i * 3] = (Math.random() - 0.5) * 160;
+      this.rainPositions[i * 3 + 1] = Math.random() * 45;
+      this.rainPositions[i * 3 + 2] = (Math.random() - 0.5) * 160;
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(this.rainPositions, 3));
+    const mat = new THREE.PointsMaterial({
+      color: 0xa5f3fc,
+      size: 0.28,
+      transparent: true,
+      opacity: 0.0,
+      blending: THREE.AdditiveBlending,
+    });
+    this.rainParticles = new THREE.Points(geo, mat);
+    this.scene.add(this.rainParticles);
+  }
+
   private initSpeedStreaks(): void {
     const count = 40;
     this.speedStreakPositions = new Float32Array(count * 6);
@@ -180,6 +222,83 @@ export class Renderer {
     isBoosting: boolean,
     isHovering: boolean,
   ): void {
+    // 1. Dynamic Day / Night Cycle
+    if (!this.isTimePaused) {
+      this.timeOfDay = (this.timeOfDay + this.timeSpeed * dt) % 1.0;
+    }
+
+    const sunAngle = this.timeOfDay * Math.PI * 2;
+    const sunX = Math.cos(sunAngle) * 220;
+    const sunY = Math.sin(sunAngle) * 220;
+    const sunZ = Math.sin(sunAngle * 0.5) * 110;
+    this.sunLight.position.set(sunX, Math.max(0, sunY), sunZ);
+
+    if (sunY > 0) {
+      // Daytime to Sunset
+      const sunRatio = sunY / 220;
+      this.sunLight.intensity = THREE.MathUtils.clamp(sunRatio * 2.8, 0.25, 2.5);
+      this.ambientLight.intensity = THREE.MathUtils.lerp(0.55, 0.85, sunRatio);
+      this.ambientLight.color.setHex(0xffffff);
+      if (this.scene.fog instanceof THREE.FogExp2) {
+        this.scene.fog.color.lerpColors(
+          new THREE.Color(0xfb923c),
+          new THREE.Color(0xb0d5f8),
+          sunRatio,
+        );
+      }
+    } else {
+      // Cyber Night Mode
+      this.sunLight.intensity = 0.05;
+      this.ambientLight.intensity = 0.42;
+      this.ambientLight.color.setHex(0x1e293b);
+      if (this.scene.fog instanceof THREE.FogExp2) {
+        this.scene.fog.color.setHex(0x090d16);
+      }
+    }
+
+    // 2. Cyber Weather System (Volumetric Rain)
+    const isRaining = this.weather === 'rain' || this.weather === 'thunder';
+    if (this.rainParticles) {
+      const rainMat = this.rainParticles.material as THREE.PointsMaterial;
+      rainMat.opacity = THREE.MathUtils.lerp(rainMat.opacity, isRaining ? 0.75 : 0.0, 0.15);
+
+      if (isRaining && this.rainPositions) {
+        this.rainParticles.position.x = camPos.x;
+        this.rainParticles.position.z = camPos.z;
+
+        for (let i = 0; i < this.rainPositions.length / 3; i++) {
+          this.rainPositions[i * 3 + 1] -= dt * 50.0;
+          if (this.rainPositions[i * 3 + 1] < 0) {
+            this.rainPositions[i * 3 + 1] = 45.0;
+          }
+        }
+        this.rainParticles.geometry.attributes.position.needsUpdate = true;
+      }
+    }
+
+    // 3. Lightning Flash in Thunderstorms
+    if (this.weather === 'thunder' && this.lightningLight) {
+      this.lightningTimer -= dt;
+      if (this.lightningTimer <= 0) {
+        this.lightningTimer = 4.5 + Math.random() * 5.0;
+        this.lightningFlashTime = 0.22;
+        this.lightningLight.position.set(
+          camPos.x + (Math.random() - 0.5) * 80,
+          65,
+          camPos.z + (Math.random() - 0.5) * 80,
+        );
+      }
+
+      if (this.lightningFlashTime > 0) {
+        this.lightningFlashTime -= dt;
+        this.lightningLight.intensity = Math.random() > 0.35 ? 14 : 2;
+      } else {
+        this.lightningLight.intensity = 0;
+      }
+    } else if (this.lightningLight) {
+      this.lightningLight.intensity = 0;
+    }
+
     // Keep Sky Dome centered on camera
     if (this.skyMesh) {
       this.skyMesh.position.copy(camPos);
@@ -223,6 +342,45 @@ export class Renderer {
       this.speedStreaks.geometry.attributes.position.needsUpdate = true;
     } else {
       this.streakMat.opacity = THREE.MathUtils.lerp(this.streakMat.opacity, 0.0, 0.2);
+    }
+  }
+
+  public setTimeOfDay(time: number): void {
+    this.timeOfDay = ((time % 1.0) + 1.0) % 1.0;
+  }
+
+  public cycleTimePreset(): string {
+    const presets = [
+      { name: '☀️ Tag (High Noon)', time: 0.5 },
+      { name: '🌅 Sonnenuntergang (Golden Hour)', time: 0.78 },
+      { name: '🌙 Cyber-Nacht (Neon Glow)', time: 0.0 },
+      { name: '🌄 Sonnenaufgang (Dawn)', time: 0.25 },
+    ];
+    let nextIdx = 0;
+    for (let i = 0; i < presets.length; i++) {
+      if (Math.abs(this.timeOfDay - presets[i].time) < 0.12) {
+        nextIdx = (i + 1) % presets.length;
+        break;
+      }
+    }
+    this.timeOfDay = presets[nextIdx].time;
+    return presets[nextIdx].name;
+  }
+
+  public setWeather(mode: 'clear' | 'rain' | 'thunder'): void {
+    this.weather = mode;
+  }
+
+  public cycleWeather(): string {
+    if (this.weather === 'clear') {
+      this.weather = 'rain';
+      return '🌧️ Cyber-Regen';
+    } else if (this.weather === 'rain') {
+      this.weather = 'thunder';
+      return '⚡ Gewitter & Blitze';
+    } else {
+      this.weather = 'clear';
+      return '☀️ Klarer Himmel';
     }
   }
 

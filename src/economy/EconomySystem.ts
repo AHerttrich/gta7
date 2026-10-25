@@ -11,11 +11,97 @@ export interface ActiveJob {
   reward: number;
 }
 
+export interface TuningUpgrade {
+  id: string;
+  name: string;
+  description: string;
+  category: 'engine' | 'armor' | 'neon';
+  price: number;
+  stage?: number;
+  color?: number;
+  purchased: boolean;
+}
+
+export const TUNING_CATALOG: TuningUpgrade[] = [
+  {
+    id: 'engine_stage_1',
+    name: '🏎️ Stage 1 Street Chip',
+    description: '+25% Beschleunigung & 210 km/h Topspeed',
+    category: 'engine',
+    price: 1000,
+    stage: 1,
+    purchased: false,
+  },
+  {
+    id: 'engine_stage_2',
+    name: '🔥 Stage 2 Twin Turbo',
+    description: '+50% Beschleunigung & 240 km/h Topspeed',
+    category: 'engine',
+    price: 2500,
+    stage: 2,
+    purchased: false,
+  },
+  {
+    id: 'engine_stage_3',
+    name: '⚡ Stage 3 Cyber Vortex',
+    description: '+85% Beschleunigung & 280 km/h Topspeed',
+    category: 'engine',
+    price: 5000,
+    stage: 3,
+    purchased: false,
+  },
+  {
+    id: 'armor_plating',
+    name: '🛡️ Kevlar-Panzerung',
+    description: 'Verringert Fahrzeugschaden um 50%',
+    category: 'armor',
+    price: 1500,
+    purchased: false,
+  },
+  {
+    id: 'neon_pink',
+    name: '💖 Neon: Hot Pink',
+    description: 'Leuchtendes Pink unter dem Chassis',
+    category: 'neon',
+    price: 400,
+    color: 0xff007f,
+    purchased: false,
+  },
+  {
+    id: 'neon_lime',
+    name: '💚 Neon: Toxic Lime',
+    description: 'Giftgrüner Neon-Glow auf dem Asphalt',
+    category: 'neon',
+    price: 400,
+    color: 0x39ff14,
+    purchased: false,
+  },
+  {
+    id: 'neon_gold',
+    name: '💛 Neon: Solar Gold',
+    description: 'Goldgelbes Glühen unter dem Wagen',
+    category: 'neon',
+    price: 400,
+    color: 0xffaa00,
+    purchased: false,
+  },
+  {
+    id: 'neon_purple',
+    name: '💜 Neon: Cyber Purple',
+    description: 'Ultravioletter Leuchtscheinwerfer',
+    category: 'neon',
+    price: 400,
+    color: 0x9d00ff,
+    purchased: false,
+  },
+];
+
 export class EconomySystem {
   public cash: number = 500; // Starter cash
   public activeJob: ActiveJob | null = null;
   public cars: CarModelData[] = [...CAR_CATALOG];
   public weapons: WeaponData[] = [...WEAPON_CATALOG];
+  public tuningUpgrades: TuningUpgrade[] = TUNING_CATALOG.map((u) => ({ ...u }));
   public selectedCarId: string = 'starter_muscle';
   public selectedWeaponId: string = 'fists';
 
@@ -153,5 +239,24 @@ export class EconomySystem {
       return true;
     }
     return false;
+  }
+
+  public buyTuning(tuningId: string): boolean {
+    const item = this.tuningUpgrades.find((u) => u.id === tuningId);
+    if (!item) return false;
+    if (item.purchased) return true;
+
+    if (this.spendCash(item.price)) {
+      item.purchased = true;
+      eventBus.emit(EVENTS.NOTIFICATION, {
+        text: `🛠️ TUNING INSTALLIERT: ${item.name}!`,
+      });
+      return true;
+    } else {
+      eventBus.emit(EVENTS.NOTIFICATION, {
+        text: `❌ Nicht genug Geld für ${item.name}! ($${item.price} benötigt)`,
+      });
+      return false;
+    }
   }
 }

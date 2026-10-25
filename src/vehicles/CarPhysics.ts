@@ -50,6 +50,11 @@ export class CarPhysics {
   public jumpStartX: number = 0;
   public jumpStartZ: number = 0;
 
+  // Performance Tuning & Spike Physics (Phase 9 & 10)
+  public engineStage: number = 0; // 0: stock, 1: +25%, 2: +50%, 3: +85%
+  public armorPlating: boolean = false;
+  public hasSpikePuncture: boolean = false;
+
   constructor(startX: number = 0, startZ: number = 0, initialHeading: number = 0) {
     this.x = startX;
     this.z = startZ;
@@ -121,12 +126,24 @@ export class CarPhysics {
       );
     }
 
-    // 3. Acceleration / Braking
+    // 3. Acceleration / Braking with Tuning & Spike Punctures
     this.isDrifting = false;
-    const accel = this.isBoosting ? VEHICLE_CONFIG.NITRO_ACCELERATION : VEHICLE_CONFIG.ACCELERATION;
-    const maxForward = this.isBoosting
-      ? VEHICLE_CONFIG.MAX_NITRO_SPEED
-      : VEHICLE_CONFIG.MAX_FORWARD_SPEED;
+    const stageMulti = [1.0, 1.25, 1.5, 1.85][this.engineStage] || 1.0;
+    const stageSpeedBonus = [0, 10.0, 18.0, 29.0][this.engineStage] || 0; // m/s bonus
+
+    let accel =
+      (this.isBoosting ? VEHICLE_CONFIG.NITRO_ACCELERATION : VEHICLE_CONFIG.ACCELERATION) *
+      stageMulti;
+    let maxForward =
+      (this.isBoosting ? VEHICLE_CONFIG.MAX_NITRO_SPEED : VEHICLE_CONFIG.MAX_FORWARD_SPEED) +
+      stageSpeedBonus;
+
+    // Blown tire drag and speed cap
+    if (this.hasSpikePuncture) {
+      accel *= 0.55;
+      maxForward = Math.min(maxForward, 16.0); // max ~58 km/h on rims
+      this.steerAngle += Math.sin(this.wheelRotation * 3.5) * 0.03;
+    }
 
     if (input.throttle) {
       if (this.speed < -0.5) {
@@ -304,6 +321,22 @@ export class CarPhysics {
 
   public getSpeedKmh(): number {
     return Math.round(this.speed * 3.6);
+  }
+
+  public setEngineStage(stage: number): void {
+    this.engineStage = Math.max(0, Math.min(3, Math.floor(stage)));
+  }
+
+  public setArmorPlating(enabled: boolean): void {
+    this.armorPlating = enabled;
+  }
+
+  public blowTires(): void {
+    this.hasSpikePuncture = true;
+  }
+
+  public repairTires(): void {
+    this.hasSpikePuncture = false;
   }
 
   public getState(): CarState {
