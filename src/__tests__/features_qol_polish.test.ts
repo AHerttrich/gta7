@@ -245,6 +245,8 @@ describe('Quality of Life, Polish & Smoothness Master Suite', () => {
   describe('Audio Mixer & Radio System Enhancements', () => {
     it('should adjust master volume and SFX volume levels', () => {
       const sound = new SoundManager();
+      expect(sound.sfxVolume).toBe(0.0); // Default: only radio is heard
+
       sound.setMasterVolume(0.65);
       expect(sound.masterVolume).toBe(0.65);
 

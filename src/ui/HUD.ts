@@ -711,7 +711,7 @@ export class HUD {
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0;font-size:12px;">
             <span>Effekte (SFX & Motoren):</span>
-            <input type="range" id="setting-vol-sfx" min="0" max="100" value="90" style="width:130px;accent-color:#22c55e;">
+            <input type="range" id="setting-vol-sfx" min="0" max="100" value="0" style="width:130px;accent-color:#22c55e;">
           </div>
         </div>
 
