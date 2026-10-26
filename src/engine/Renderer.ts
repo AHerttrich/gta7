@@ -502,6 +502,28 @@ export class Renderer {
     return presets[nextIdx].name;
   }
 
+  public setDimension(dim: 'NORMAL_WORLD' | 'OTHER_WORLD'): void {
+    if (dim === 'OTHER_WORLD') {
+      this.scene.background = new THREE.Color(0x19082e); // Cosmic deep violet
+      this.scene.fog = new THREE.FogExp2(0x2d1052, 0.0016);
+      this.hemiLight.color.setHex(0xd8b4fe);
+      this.hemiLight.groundColor.setHex(0x581c87);
+      this.sunLight.color.setHex(0xfbbf24);
+      this.sunLight.intensity = 3.2;
+      this.ambientLight.color.setHex(0xc084fc);
+      this.ambientLight.intensity = 0.95;
+    } else {
+      this.scene.background = new THREE.Color(0x76b6f0);
+      this.scene.fog = new THREE.FogExp2(0xb0d5f8, 0.0022);
+      this.hemiLight.color.setHex(0xe0f2fe);
+      this.hemiLight.groundColor.setHex(0x334155);
+      this.sunLight.color.setHex(0xfffaed);
+      this.sunLight.intensity = 2.5;
+      this.ambientLight.color.setHex(0xffffff);
+      this.ambientLight.intensity = 0.85;
+    }
+  }
+
   public setWeather(mode: 'clear' | 'rain' | 'thunder'): void {
     this.weather = mode;
   }

@@ -32,6 +32,7 @@ import { StuntEditor } from '../editor/StuntEditor';
 import { eventBus } from '../utils/EventBus';
 import { GangSystem } from '../gangs/GangSystem';
 import { SkidmarkSystem } from '../vehicles/SkidmarkSystem';
+import { PortalSystem } from '../world/PortalSystem';
 
 export type PlayerMode = 'IN_CAR' | 'ON_FOOT' | 'IN_HELI' | 'IN_TANK' | 'IN_BOAT';
 
@@ -55,6 +56,7 @@ export class Game {
   public sound: SoundManager;
   public radio: RadioSystem;
   public hud: HUD;
+  public portal: PortalSystem;
 
   // Master Expansion Subsystems (Phases 13-20)
   public military: MilitarySystem;
@@ -135,6 +137,7 @@ export class Game {
     this.train = new TrainSystem(this.renderer.scene, this.sound);
     this.story = new StorySystem(this.economy, this.sound);
     this.stuntEditor = new StuntEditor(this.renderer.scene, this.sound);
+    this.portal = new PortalSystem(this.renderer.scene, this.economy, this.sound);
 
     // Multiplayer initialization
     this.network = new NetworkManager();
@@ -514,17 +517,34 @@ export class Game {
       const wasHover = this.car.physics.isHoverMode;
       const hoverToggled = this.input.hoverToggle;
 
-      // Update dynamic surface elevation below vehicle (rooftop or street ground)
-      const roofH = this.city.getRoofHeightAt(this.car.physics.x, this.car.physics.z, 0);
-      if (roofH > 0 && (this.car.physics.y >= roofH - 0.8 || this.car.physics.groundY >= roofH)) {
-        this.car.physics.groundY = roofH + 0.5;
-        // Anti-tunneling: if vehicle dropped slightly below roof surface, clamp up to roof surface
-        if (this.car.physics.y < roofH + 0.5) {
-          this.car.physics.y = roofH + 0.5;
-          this.car.physics.vy = Math.max(0, this.car.physics.vy);
+      // Update dynamic surface elevation below vehicle (rooftop, street ground, or Otherworld floating platforms)
+      if (this.portal.currentDimension === 'OTHER_WORLD') {
+        const elev = this.portal.getOtherWorldElevation(this.car.physics.x, this.car.physics.z);
+        if (elev.onPlatform) {
+          this.car.physics.groundY = elev.height + 0.5;
+          if (this.car.physics.y < elev.height + 0.5) {
+            this.car.physics.y = elev.height + 0.5;
+            this.car.physics.vy = Math.max(0, this.car.physics.vy);
+          }
+          if (elev.isBoostPad && Math.abs(this.car.physics.speed) > 2.0) {
+            this.car.physics.speed = Math.min(68.0, this.car.physics.speed + 35.0 * dt);
+            this.car.physics.nitro = 100;
+          }
+        } else {
+          this.car.physics.groundY = -999;
         }
       } else {
-        this.car.physics.groundY = 0.5;
+        const roofH = this.city.getRoofHeightAt(this.car.physics.x, this.car.physics.z, 0);
+        if (roofH > 0 && (this.car.physics.y >= roofH - 0.8 || this.car.physics.groundY >= roofH)) {
+          this.car.physics.groundY = roofH + 0.5;
+          // Anti-tunneling: if vehicle dropped slightly below roof surface, clamp up to roof surface
+          if (this.car.physics.y < roofH + 0.5) {
+            this.car.physics.y = roofH + 0.5;
+            this.car.physics.vy = Math.max(0, this.car.physics.vy);
+          }
+        } else {
+          this.car.physics.groundY = 0.5;
+        }
       }
 
       // Car controls
@@ -972,7 +992,19 @@ export class Game {
       );
 
       // Exit Car Prompt, Water Rescue & Upside-Down Recovery
-      if (
+      if (this.portal.currentDimension === 'OTHER_WORLD') {
+        if (
+          this.car.physics.y < 350 ||
+          Math.abs(this.car.physics.x - 2500) > 450 ||
+          Math.abs(this.car.physics.z - 2500) > 450
+        ) {
+          this.car.physics.reset(2500, 2500, 0);
+          this.car.physics.y = 402;
+          this.car.physics.groundY = 400.5;
+          this.car.physics.speed = 0;
+          this.hud.showNotification('🌌 Vom kosmischen Portal gerettet!');
+        }
+      } else if (
         this.car.physics.y < -8.0 ||
         this.car.physics.x > 310 ||
         this.car.physics.x < -340 ||
@@ -1186,7 +1218,25 @@ export class Game {
       }
 
       // Void & Out-of-bounds auto-rescue for player on foot
-      if (
+      if (this.portal.currentDimension === 'OTHER_WORLD') {
+        const elev = this.portal.getOtherWorldElevation(this.player.x, this.player.z);
+        if (elev.onPlatform) {
+          if (this.player.y < elev.height) {
+            this.player.y = elev.height;
+            this.player.vy = 0;
+            this.player.setPosition(this.player.x, this.player.y, this.player.z);
+          }
+        }
+        if (
+          this.player.y < 350 ||
+          Math.abs(this.player.x - 2500) > 450 ||
+          Math.abs(this.player.z - 2500) > 450
+        ) {
+          this.player.setPosition(2500, 401.5, 2500);
+          this.player.vy = 0;
+          this.hud.showNotification('🌌 Vom kosmischen Portal gerettet!');
+        }
+      } else if (
         this.player.y < -1.5 ||
         this.player.x > 310 ||
         this.player.x < -340 ||
@@ -1309,6 +1359,70 @@ export class Game {
     this.water.update(dt, playerPos.x, playerPos.z);
     this.train.update(dt);
     this.heist.update(dt, playerPos.x, playerPos.z, this.mode === 'IN_CAR');
+
+    // Update Portal System & Check Interdimensional Warp
+    this.portal.update(dt);
+    const warpCheck = this.portal.checkPortalTransition(playerPos.x, playerPos.y, playerPos.z);
+    if (warpCheck.shouldWarp) {
+      this.portal.warpCooldown = 3.5;
+      this.portal.currentDimension = warpCheck.targetDimension;
+      this.sound.playCheckpointChime();
+
+      if (this.mode === 'IN_CAR') {
+        this.car.physics.x = warpCheck.targetPos.x;
+        this.car.physics.z = warpCheck.targetPos.z;
+        this.car.physics.y = warpCheck.targetPos.y;
+        this.car.physics.prevX = warpCheck.targetPos.x;
+        this.car.physics.prevZ = warpCheck.targetPos.z;
+        this.car.physics.groundY = warpCheck.targetDimension === 'OTHER_WORLD' ? 400.5 : 0.5;
+        this.car.physics.speed *= 0.5;
+      } else if (this.mode === 'IN_TANK' && this.activeTank) {
+        this.activeTank.x = warpCheck.targetPos.x;
+        this.activeTank.z = warpCheck.targetPos.z;
+        this.activeTank.y = warpCheck.targetPos.y;
+        this.activeTank.group.position.set(
+          warpCheck.targetPos.x,
+          warpCheck.targetPos.y,
+          warpCheck.targetPos.z,
+        );
+      } else {
+        this.player.setPosition(
+          warpCheck.targetPos.x,
+          warpCheck.targetPos.y,
+          warpCheck.targetPos.z,
+        );
+        this.player.vy = 0;
+      }
+
+      this.renderer.setDimension(warpCheck.targetDimension);
+
+      if (warpCheck.targetDimension === 'OTHER_WORLD') {
+        this.hud.showNotification('🌌 DIMENSIONSSPRUNG: Willkommen in der Anderen Welt!');
+        this.hud.setPrompt('🌀 Sammle die 7 Dragon Balls & rase über den Schlangenpfad!');
+      } else {
+        this.hud.showNotification('🏙️ Rückkehr in die GTA 7 Cyber City!');
+      }
+    }
+
+    // Check Dragon Ball collection in Other World
+    if (this.portal.currentDimension === 'OTHER_WORLD') {
+      const ballRes = this.portal.checkBallCollection(playerPos.x, playerPos.y, playerPos.z);
+      if (ballRes.collected) {
+        this.sound.playFanfare();
+        this.economy.addCash(15000);
+        this.car.physics.nitro = 100;
+        this.hud.showNotification(
+          `🐉 Dragon Ball #${ballRes.ballId} gesammelt! (${this.portal.collectedBallsCount}/7) +15.000$`,
+        );
+
+        if (ballRes.allCollected) {
+          this.sound.playFanfare();
+          this.economy.addCash(100000);
+          this.car.repair();
+          this.hud.showNotification('🐉 SHENLONG BESCHWOREN! +100.000$ & SUPER SAIYAJIN POWER!');
+        }
+      }
+    }
 
     // 5. Update Remote Peer & Sync Broadcast (every 50ms)
     this.remotePlayer.update(dt);

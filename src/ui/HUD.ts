@@ -1528,6 +1528,21 @@ export class HUD {
     ctx.closePath();
     ctx.fill();
 
+    // Dimensional Portal Icon (Pulsing Violet Ring with Cyan Core 🌀)
+    const px = (-185 - playerX) * scale;
+    const pz = (132 - playerZ) * scale;
+    ctx.fillStyle = '#a855f7';
+    ctx.beginPath();
+    ctx.arc(px, pz, 6.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#00f0ff';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(px, pz, 2, 0, Math.PI * 2);
+    ctx.fill();
+
     // Active Mission Target
     if (activeTarget) {
       const ax = (activeTarget.x - playerX) * scale;

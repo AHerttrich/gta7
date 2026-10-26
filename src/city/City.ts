@@ -220,6 +220,11 @@ export class City {
     }
 
     // 3. Enforce map boundaries (positive X <= 305, negative X >= -335, |Z| <= 305)
+    // If coordinates are in the Other World realm (around 2500, 2500), bypass city bounds
+    if (Math.hypot(curX - 2500, curZ - 2500) < 600) {
+      return { x: curX, z: curZ, corrected: wasCorrected, roofY: resolvedRoofY };
+    }
+
     const maxBoundXPositive = 305.0;
     const maxBoundXNegative = -335.0;
     const maxBoundZ = 305.0;
@@ -297,6 +302,11 @@ export class City {
           return { collided: true, normalX: 0, normalZ: 1, depth: minOverlap };
         }
       }
+    }
+
+    // If coordinates are in the Other World realm (around 2500, 2500), bypass city bounds
+    if (Math.hypot(x - 2500, z - 2500) < 600) {
+      return { collided: false, normalX: 0, normalZ: 0, depth: 0 };
     }
 
     // Check map boundaries (terrain extends to 320m, west ocean to -340m)
@@ -451,7 +461,11 @@ export class City {
         }
       }
 
-      // Check map boundaries (terrain extends to 320m, west ocean to -340m)
+      // If coordinates are in the Other World realm (around 2500, 2500), bypass city bounds
+      if (Math.hypot(curX - 2500, curZ - 2500) < 600) {
+        continue;
+      }
+
       const maxBoundXPositive = 305.0;
       const maxBoundXNegative = -335.0; // Ocean bay
       const maxBoundZ = 305.0;
