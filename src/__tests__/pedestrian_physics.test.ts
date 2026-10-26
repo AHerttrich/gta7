@@ -110,4 +110,71 @@ describe('Pedestrian Ragdoll Physics & Mobile Controls', () => {
     expect(input.actionInteract).toBe(true);
     expect(input.touchState.actionInteract).toBe(false); // Resets after consumption
   });
+
+  it('should contain pedestrians within map boundaries and prevent walking out of map', () => {
+    const scene = new THREE.Scene();
+    const system = new PedestrianSystem(scene);
+    const ped = system.pedestrians[0];
+
+    // Place pedestrian near boundary walking outwards towards +X (East)
+    ped.x = 213.9;
+    ped.z = 0;
+    ped.rotationY = Math.PI / 2; // East
+    ped.speed = 5.0;
+
+    // Advance 0.5s: without containment it would reach > 216m
+    system.update(0.5, 0, 0, 0);
+
+    expect(ped.x).toBeLessThanOrEqual(214.0);
+    // Heading should have been redirected away from +X
+    expect(ped.rotationY).not.toBe(Math.PI / 2);
+
+    // Place near south boundary walking outwards towards +Z (South)
+    ped.x = 0;
+    ped.z = 213.9;
+    ped.rotationY = 0; // South (+Z)
+    system.update(0.5, 0, 0, 0);
+
+    expect(ped.z).toBeLessThanOrEqual(214.0);
+    expect(ped.rotationY).not.toBe(0);
+  });
+
+  it('should safely respawn pedestrians thrown into void or far out of map', () => {
+    const scene = new THREE.Scene();
+    const system = new PedestrianSystem(scene);
+    const ped = system.pedestrians[0];
+
+    // Scenario A: Blasted far beyond emergency boundary (> 225m)
+    ped.x = 350.0;
+    ped.z = 400.0;
+    system.update(0.1, 0, 0, 0);
+
+    expect(Math.abs(ped.x)).toBeLessThanOrEqual(214.0);
+    expect(Math.abs(ped.z)).toBeLessThanOrEqual(214.0);
+    expect(ped.y).toBe(0.25);
+    expect(ped.state).toBe('WALKING');
+
+    // Scenario B: Dropped into ocean / below ground level (y < -1.5m)
+    ped.y = -8.0;
+    system.update(0.1, 0, 0, 0);
+
+    expect(ped.y).toBe(0.25);
+    expect(Math.abs(ped.x)).toBeLessThanOrEqual(214.0);
+    expect(Math.abs(ped.z)).toBeLessThanOrEqual(214.0);
+    expect(ped.state).toBe('WALKING');
+  });
+
+  it('should trigger corner turns when patrol timer elapses', () => {
+    const scene = new THREE.Scene();
+    const system = new PedestrianSystem(scene);
+    const ped = system.pedestrians[0];
+
+    ped.turnTimer = 0.05;
+    const initialRot = ped.rotationY;
+
+    system.update(0.1, 0, 0, 0);
+
+    expect(ped.turnTimer).toBeGreaterThan(3.0); // Reset to new duration
+    expect(ped.rotationY).not.toBe(initialRot); // Successfully turned corner
+  });
 });

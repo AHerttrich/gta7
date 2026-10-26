@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CITY_CONFIG } from '../utils/Constants';
+import { City } from '../city/City';
 
 export type PedestrianState = 'WALKING' | 'AIRBORNE' | 'GROUNDED';
 
@@ -27,6 +28,7 @@ export interface Pedestrian {
   isPanicking: boolean;
   panicTimer: number;
   groundTimer: number;
+  turnTimer?: number;
 }
 
 export class PedestrianSystem {
@@ -185,7 +187,81 @@ export class PedestrianSystem {
       isPanicking: false,
       panicTimer: 0,
       groundTimer: 0,
+      turnTimer: 4.0 + Math.random() * 6.0,
     });
+  }
+
+  /**
+   * Respawns a pedestrian safely onto a downtown or central sidewalk
+   * if they were blasted out of the map or fell into water/void.
+   */
+  public respawnPedestrian(ped: Pedestrian): void {
+    const { GRID_SIZE, BLOCK_SIZE, ROAD_WIDTH } = CITY_CONFIG;
+    const step = BLOCK_SIZE + ROAD_WIDTH;
+    const halfSize = (GRID_SIZE * step) / 2;
+
+    // Respawn on central city blocks (indices 1 to GRID_SIZE - 2)
+    const minIdx = 1;
+    const maxIdx = Math.max(1, GRID_SIZE - 2);
+    const blockI = Math.floor(Math.random() * (maxIdx - minIdx + 1)) + minIdx;
+    const blockJ = Math.floor(Math.random() * (maxIdx - minIdx + 1)) + minIdx;
+
+    const blockCenterX = -halfSize + blockI * step + step / 2;
+    const blockCenterZ = -halfSize + blockJ * step + step / 2;
+
+    const rim = (BLOCK_SIZE / 2) * 0.95;
+    const side = Math.floor(Math.random() * 4);
+
+    let x = blockCenterX;
+    let z = blockCenterZ;
+    let dir: 'N' | 'S' | 'E' | 'W' = 'S';
+    let rotY = 0;
+
+    if (side === 0) {
+      x += rim;
+      z += (Math.random() - 0.5) * BLOCK_SIZE * 0.8;
+      dir = 'S';
+      rotY = 0;
+    } else if (side === 1) {
+      x -= rim;
+      z += (Math.random() - 0.5) * BLOCK_SIZE * 0.8;
+      dir = 'N';
+      rotY = Math.PI;
+    } else if (side === 2) {
+      z += rim;
+      x += (Math.random() - 0.5) * BLOCK_SIZE * 0.8;
+      dir = 'E';
+      rotY = Math.PI / 2;
+    } else {
+      z -= rim;
+      x += (Math.random() - 0.5) * BLOCK_SIZE * 0.8;
+      dir = 'W';
+      rotY = -Math.PI / 2;
+    }
+
+    ped.x = x;
+    ped.y = 0.25;
+    ped.z = z;
+    ped.vx = 0;
+    ped.vy = 0;
+    ped.vz = 0;
+    ped.rotVx = 0;
+    ped.rotVy = 0;
+    ped.rotVz = 0;
+    ped.state = 'WALKING';
+    ped.direction = dir;
+    ped.rotationY = rotY;
+    ped.isPanicking = false;
+    ped.panicTimer = 0;
+    ped.groundTimer = 0;
+    ped.turnTimer = 4.0 + Math.random() * 6.0;
+
+    ped.group.position.set(x, 0.25, z);
+    ped.group.rotation.set(0, rotY, 0);
+    ped.leftArm.rotation.set(0, 0, 0);
+    ped.rightArm.rotation.set(0, 0, 0);
+    ped.leftLeg.rotation.set(0, 0, 0);
+    ped.rightLeg.rotation.set(0, 0, 0);
   }
 
   /**
@@ -225,8 +301,24 @@ export class PedestrianSystem {
     }
   }
 
-  public update(dt: number, carX: number, carZ: number, carSpeed: number): void {
+  public update(dt: number, carX: number, carZ: number, carSpeed: number, city?: City): void {
+    const MAP_LIMIT = 214.0;
+    const EMERGENCY_LIMIT = 225.0;
+
     for (const ped of this.pedestrians) {
+      // 0. Emergency rescue watchdog (fell into void, water, or catapulted into space)
+      if (
+        Math.abs(ped.x) > EMERGENCY_LIMIT ||
+        Math.abs(ped.z) > EMERGENCY_LIMIT ||
+        ped.y < -1.5 ||
+        Number.isNaN(ped.x) ||
+        Number.isNaN(ped.z) ||
+        Number.isNaN(ped.y)
+      ) {
+        this.respawnPedestrian(ped);
+        continue;
+      }
+
       // 1. AIRBORNE Ragdoll Physics (Flying through the air!)
       if (ped.state === 'AIRBORNE') {
         ped.vy -= 26.0 * dt; // Gravity
@@ -283,6 +375,16 @@ export class PedestrianSystem {
           ped.leftArm.rotation.z = 0;
           ped.rightArm.rotation.z = 0;
           ped.isPanicking = false;
+          ped.turnTimer = 4.0 + Math.random() * 4.0;
+
+          // If landed inside building footprint, eject safely onto sidewalk
+          if (city) {
+            const fixed = city.resolveBuildingIntersection(ped.x, ped.z, 0.45, 0.25);
+            if (fixed.corrected) {
+              ped.x = fixed.x;
+              ped.z = fixed.z;
+            }
+          }
         }
         ped.group.position.set(ped.x, ped.y, ped.z);
         continue;
@@ -302,12 +404,78 @@ export class PedestrianSystem {
         if (ped.panicTimer <= 0) {
           ped.isPanicking = false;
         }
+      } else {
+        // Natural corner turning along sidewalks when patrolling
+        if (ped.turnTimer === undefined) {
+          ped.turnTimer = 4.0 + Math.random() * 6.0;
+        }
+        ped.turnTimer -= dt;
+        if (ped.turnTimer <= 0) {
+          const turn = (Math.random() < 0.5 ? 1 : -1) * (Math.PI / 2);
+          ped.rotationY = (ped.rotationY + turn) % (Math.PI * 2);
+          ped.group.rotation.y = ped.rotationY;
+          ped.turnTimer = 5.0 + Math.random() * 6.0;
+        }
       }
 
       const speed = ped.isPanicking ? ped.speed * 2.8 : ped.speed;
+      const nextX = ped.x + Math.sin(ped.rotationY) * speed * dt;
+      const nextZ = ped.z + Math.cos(ped.rotationY) * speed * dt;
 
-      ped.x += Math.sin(ped.rotationY) * speed * dt;
-      ped.z += Math.cos(ped.rotationY) * speed * dt;
+      // Building collision check
+      let canMove = true;
+      if (city) {
+        const col = city.checkCollision(nextX, nextZ, 0.45, 0.25);
+        if (col.collided) {
+          canMove = false;
+          // Turn to parallel sidewalk along building wall
+          if (col.normalX !== 0) {
+            ped.rotationY = Math.random() < 0.5 ? 0 : Math.PI;
+          } else if (col.normalZ !== 0) {
+            ped.rotationY = Math.random() < 0.5 ? Math.PI / 2 : -Math.PI / 2;
+          } else {
+            ped.rotationY = (ped.rotationY + Math.PI / 2) % (Math.PI * 2);
+          }
+          ped.group.rotation.y = ped.rotationY;
+          ped.turnTimer = 4.0 + Math.random() * 4.0;
+        }
+      }
+
+      if (canMove) {
+        ped.x = nextX;
+        ped.z = nextZ;
+      }
+
+      // Map boundary containment: do not allow pedestrians to walk off the map
+      let hitBoundary = false;
+      if (ped.x >= MAP_LIMIT) {
+        ped.x = MAP_LIMIT;
+        const choices = [-Math.PI / 2, Math.PI, 0];
+        ped.rotationY = choices[Math.floor(Math.random() * choices.length)];
+        hitBoundary = true;
+      } else if (ped.x <= -MAP_LIMIT) {
+        ped.x = -MAP_LIMIT;
+        const choices = [Math.PI / 2, Math.PI, 0];
+        ped.rotationY = choices[Math.floor(Math.random() * choices.length)];
+        hitBoundary = true;
+      }
+
+      if (ped.z >= MAP_LIMIT) {
+        ped.z = MAP_LIMIT;
+        const choices = [Math.PI, Math.PI / 2, -Math.PI / 2];
+        ped.rotationY = choices[Math.floor(Math.random() * choices.length)];
+        hitBoundary = true;
+      } else if (ped.z <= -MAP_LIMIT) {
+        ped.z = -MAP_LIMIT;
+        const choices = [0, Math.PI / 2, -Math.PI / 2];
+        ped.rotationY = choices[Math.floor(Math.random() * choices.length)];
+        hitBoundary = true;
+      }
+
+      if (hitBoundary) {
+        ped.group.rotation.y = ped.rotationY;
+        ped.turnTimer = 4.0 + Math.random() * 4.0;
+      }
 
       ped.group.position.set(ped.x, 0.25, ped.z);
 

@@ -1231,6 +1231,7 @@ export class Game {
       playerPos.x,
       playerPos.z,
       this.mode === 'IN_CAR' ? this.car.physics.speed : 0,
+      this.city,
     );
     this.police.update(dt, playerPos.x, playerPos.z);
     this.sound.updateSiren(this.police.wantedLevel, dt);
