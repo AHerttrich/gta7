@@ -505,6 +505,22 @@ export class PoliceSystem {
         cop.speed *= 0.5;
       }
 
+      // Map boundary containment for cop cruisers
+      if (cop.x > 300) {
+        cop.x = 300;
+        cop.heading = -Math.PI / 2;
+      } else if (cop.x < -330) {
+        cop.x = -330;
+        cop.heading = Math.PI / 2;
+      }
+      if (cop.z > 300) {
+        cop.z = 300;
+        cop.heading = Math.PI;
+      } else if (cop.z < -300) {
+        cop.z = -300;
+        cop.heading = 0;
+      }
+
       cop.group.position.set(cop.x, 0, cop.z);
       cop.group.rotation.y = cop.heading;
     });

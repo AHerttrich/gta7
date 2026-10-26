@@ -718,12 +718,36 @@ export class Game {
           const nx = d > 0.001 ? dx / d : 1;
           const nz = d > 0.001 ? dz / d : 0;
 
-          // Physical separation: resolve overlap instantly
+          // Physical separation: resolve overlap with swept collision to prevent pushing through walls or out of map
           const playerPush = overlap * 0.55 + 0.08;
           const copPush = overlap * 0.45 + 0.08;
 
-          this.car.physics.x += nx * playerPush;
-          this.car.physics.z += nz * playerPush;
+          const targetX = this.car.physics.x + nx * playerPush;
+          const targetZ = this.car.physics.z + nz * playerPush;
+          const swept = this.city.checkSweptCollision(
+            this.car.physics.x,
+            this.car.physics.z,
+            targetX,
+            targetZ,
+            2.0,
+            this.car.physics.y,
+          );
+
+          if (swept.collided) {
+            // Player car is pinned against a solid wall or map boundary: stay on the exterior
+            this.car.physics.x = swept.safeX;
+            this.car.physics.z = swept.safeZ;
+            // Cop car absorbs the rebound instead of driving the player through geometry
+            cop.x -= nx * (copPush + playerPush * 1.2);
+            cop.z -= nz * (copPush + playerPush * 1.2);
+            cop.speed *= 0.2;
+          } else {
+            this.car.physics.x = targetX;
+            this.car.physics.z = targetZ;
+            cop.x -= nx * copPush;
+            cop.z -= nz * copPush;
+          }
+
           const copSafe = this.city.resolveBuildingIntersection(
             this.car.physics.x,
             this.car.physics.z,
@@ -735,8 +759,9 @@ export class Game {
           this.car.physics.prevX = this.car.physics.x;
           this.car.physics.prevZ = this.car.physics.z;
 
-          cop.x -= nx * copPush;
-          cop.z -= nz * copPush;
+          // Keep cop car strictly within playable map boundaries
+          cop.x = Math.max(-330, Math.min(300, cop.x));
+          cop.z = Math.max(-300, Math.min(300, cop.z));
 
           const impactSpeed = Math.abs(this.car.physics.speed) + Math.abs(cop.speed);
           if (impactSpeed > 3.0 && this.crashCooldown <= 0) {
@@ -947,7 +972,17 @@ export class Game {
       );
 
       // Exit Car Prompt, Water Rescue & Upside-Down Recovery
-      if (this.car.physics.y < -0.8) {
+      if (
+        this.car.physics.y < -8.0 ||
+        this.car.physics.x > 310 ||
+        this.car.physics.x < -340 ||
+        Math.abs(this.car.physics.z) > 310
+      ) {
+        // Void & Out-of-bounds auto-rescue
+        this.car.physics.reset(44, 44, 0);
+        this.car.repair();
+        this.hud.showNotification('⚓ Notfall-Bergung: Auto auf die Straße zurückgesetzt!');
+      } else if (this.car.physics.y < -0.8) {
         this.hud.setPrompt('⚠️ Auto im Wasser versunken! Drücke [R] zur Bergung');
         if (this.input.resetVehicle || this.input.actionInteract) {
           this.car.physics.reset(44, 44, 0);
@@ -1114,12 +1149,29 @@ export class Game {
           this.input.triggerHaptics(60);
           this.crashCooldown = 0.5;
 
-          // Violent knockback / fling player high into the air!
+          // Controlled knockback: ensure player cannot be launched through walls or off map
           const pushAngle = Math.atan2(this.player.x - cop.x, this.player.z - cop.z);
           const flingForce = Math.max(9.0, Math.abs(cop.speed) * 0.9);
-          this.player.x += Math.sin(pushAngle) * flingForce * 0.45;
-          this.player.z += Math.cos(pushAngle) * flingForce * 0.45;
-          this.player.vy = 8.5; // High vertical launch!
+          const pushDist = Math.min(3.5, flingForce * 0.28);
+          const targetX = this.player.x + Math.sin(pushAngle) * pushDist;
+          const targetZ = this.player.z + Math.cos(pushAngle) * pushDist;
+
+          const swept = this.city.checkSweptCollision(
+            this.player.x,
+            this.player.z,
+            targetX,
+            targetZ,
+            0.4,
+            this.player.y,
+          );
+          if (swept.collided) {
+            this.player.x = swept.safeX;
+            this.player.z = swept.safeZ;
+          } else {
+            this.player.x = targetX;
+            this.player.z = targetZ;
+          }
+          this.player.vy = 3.5; // Controlled vertical hop instead of catapulting into stratosphere
 
           const flingSafe = this.city.resolveBuildingIntersection(
             this.player.x,
@@ -1131,6 +1183,18 @@ export class Game {
           this.player.z = flingSafe.z;
           this.player.setPosition(this.player.x, this.player.y, this.player.z);
         }
+      }
+
+      // Void & Out-of-bounds auto-rescue for player on foot
+      if (
+        this.player.y < -1.5 ||
+        this.player.x > 310 ||
+        this.player.x < -340 ||
+        Math.abs(this.player.z) > 310
+      ) {
+        this.player.setPosition(44, 0.25, 44);
+        this.player.vy = 0;
+        this.hud.showNotification('⚓ Notfall-Bergung: Spieler auf den Gehweg zurückgesetzt!');
       }
 
       const distToHeli = Math.hypot(

@@ -226,4 +226,49 @@ describe('Anti-Penetration & Building Clipping Prevention', () => {
     // Must be pushed outside west wall, NOT left inside the house!
     expect(resolved.x).toBeLessThan(b.minX);
   });
+
+  it('should clamp entities pushed outside map boundaries in resolveBuildingIntersection', () => {
+    const city = new City();
+
+    // Beyond east boundary
+    const east = city.resolveBuildingIntersection(350, 0, 2.0);
+    expect(east.corrected).toBe(true);
+    expect(east.x).toBeLessThanOrEqual(305);
+
+    // Beyond west ocean boundary
+    const west = city.resolveBuildingIntersection(-360, 0, 2.0);
+    expect(west.corrected).toBe(true);
+    expect(west.x).toBeGreaterThanOrEqual(-335);
+
+    // Beyond north boundary
+    const north = city.resolveBuildingIntersection(0, -350, 2.0);
+    expect(north.corrected).toBe(true);
+    expect(north.z).toBeGreaterThanOrEqual(-305);
+
+    // Beyond south boundary
+    const south = city.resolveBuildingIntersection(0, 350, 2.0);
+    expect(south.corrected).toBe(true);
+    expect(south.z).toBeLessThanOrEqual(305);
+  });
+
+  it('should prevent police ram push from penetrating building or crossing map edge via swept collision', () => {
+    const city = new City();
+    const b = city.buildingBounds[0];
+
+    // Cop shoving car from east into the building
+    const startX = b.maxX + 0.5;
+    const midZ = (b.minZ + b.maxZ) / 2;
+    const targetX = startX - 8.0; // Pushing 8 meters through the wall
+
+    const sweptWall = city.checkSweptCollision(startX, midZ, targetX, midZ, 2.0, 0.5);
+    expect(sweptWall.collided).toBe(true);
+    expect(sweptWall.safeX).toBeGreaterThanOrEqual(b.maxX);
+
+    // Cop shoving car towards outer map edge
+    const edgeStartX = 300.0;
+    const edgeTargetX = 330.0;
+    const sweptEdge = city.checkSweptCollision(edgeStartX, 0, edgeTargetX, 0, 2.0, 0.5);
+    expect(sweptEdge.collided).toBe(true);
+    expect(sweptEdge.safeX).toBeLessThanOrEqual(305.0);
+  });
 });

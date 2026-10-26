@@ -219,6 +219,27 @@ export class City {
       wasCorrected = true;
     }
 
+    // 3. Enforce map boundaries (positive X <= 305, negative X >= -335, |Z| <= 305)
+    const maxBoundXPositive = 305.0;
+    const maxBoundXNegative = -335.0;
+    const maxBoundZ = 305.0;
+
+    if (curX > maxBoundXPositive - radius) {
+      curX = maxBoundXPositive - radius - 0.2;
+      wasCorrected = true;
+    } else if (curX < maxBoundXNegative + radius) {
+      curX = maxBoundXNegative + radius + 0.2;
+      wasCorrected = true;
+    }
+
+    if (curZ > maxBoundZ - radius) {
+      curZ = maxBoundZ - radius - 0.2;
+      wasCorrected = true;
+    } else if (curZ < -maxBoundZ + radius) {
+      curZ = -maxBoundZ + radius + 0.2;
+      wasCorrected = true;
+    }
+
     return { x: curX, z: curZ, corrected: wasCorrected, roofY: resolvedRoofY };
   }
 
