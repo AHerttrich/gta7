@@ -450,7 +450,7 @@ export class Game {
       const station = this.radio.cycleStation();
       this.hud.showRadioStation(station.name, station.genre);
     }
-    this.radio.update(dt, this.mode === 'IN_CAR' || this.mode === 'IN_HELI');
+    this.radio.update(dt, true);
     if (this.input.horn) {
       this.sound.playHorn();
       const pX = this.mode === 'IN_CAR' ? this.car.physics.x : this.player.x;

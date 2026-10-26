@@ -12,21 +12,38 @@ describe('Phase 7 Features: Radio Stations, Helicopter & Police Interceptor', ()
     const sound = new SoundManager();
     const radio = new RadioSystem(sound);
 
-    expect(RADIO_STATIONS.length).toBeGreaterThanOrEqual(4);
-    expect(radio.getCurrentStation().id).toBe('synthwave');
+    expect(RADIO_STATIONS.length).toBeGreaterThanOrEqual(5);
+    expect(radio.getCurrentStation().id).toBe('dbz');
+    expect(radio.getCurrentStation().bpm).toBe(148);
 
     const s1 = radio.cycleStation();
-    expect(s1.id).toBe('cyberpunk');
-    expect(s1.bpm).toBe(136);
+    expect(s1.id).toBe('synthwave');
 
     const s2 = radio.cycleStation();
-    expect(s2.id).toBe('chill');
+    expect(s2.id).toBe('cyberpunk');
+    expect(s2.bpm).toBe(136);
 
     const s3 = radio.cycleStation();
-    expect(s3.id).toBe('off');
+    expect(s3.id).toBe('chill');
 
     const s4 = radio.cycleStation();
-    expect(s4.id).toBe('synthwave'); // Loops back to start
+    expect(s4.id).toBe('off');
+
+    const s5 = radio.cycleStation();
+    expect(s5.id).toBe('dbz'); // Loops back to start
+  });
+
+  it('should play Dragon Ball Z FM 64-step sequence without errors', () => {
+    const sound = new SoundManager();
+    const radio = new RadioSystem(sound);
+
+    expect(radio.getCurrentStation().name).toContain('Dragon Ball Z');
+    expect(radio.getCurrentStation().genre).toContain('Cha-La Head-Cha-La');
+
+    // Run updates across all steps
+    for (let i = 0; i < 70; i++) {
+      radio.update(0.3, true);
+    }
   });
 
   it('should initialize player helicopter on skyscraper helipad', () => {
