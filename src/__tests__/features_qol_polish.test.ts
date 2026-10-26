@@ -276,6 +276,40 @@ describe('Quality of Life, Polish & Smoothness Master Suite', () => {
       expect(() => sound.playBlowOffValve()).not.toThrow();
     });
 
+    it('should toggle mute state and correctly report getIsMuted', () => {
+      const sound = new SoundManager();
+      expect(sound.getIsMuted()).toBe(false);
+
+      const m1 = sound.toggleMute();
+      expect(m1).toBe(true);
+      expect(sound.getIsMuted()).toBe(true);
+
+      const m2 = sound.toggleMute();
+      expect(m2).toBe(false);
+      expect(sound.getIsMuted()).toBe(false);
+    });
+
+    it('should suppress radio updates when sound is muted', () => {
+      const sound = new SoundManager();
+      const radio = new RadioSystem(sound);
+
+      sound.toggleMute(); // Muted
+      expect(sound.getIsMuted()).toBe(true);
+
+      const stepBefore = radio.currentStep;
+      radio.update(1.0, true);
+      expect(radio.currentStep).toBe(stepBefore);
+    });
+
+    it('should suppress radio updates when not in a vehicle', () => {
+      const sound = new SoundManager();
+      const radio = new RadioSystem(sound);
+
+      const stepBefore = radio.currentStep;
+      radio.update(1.0, false);
+      expect(radio.currentStep).toBe(stepBefore);
+    });
+
     it('should suspend and resume audio when tab visibility changes', () => {
       const sound = new SoundManager();
       sound.suspend();

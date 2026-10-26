@@ -447,13 +447,19 @@ export class Game {
     }
     if (this.input.toggleMute) {
       const muted = this.sound.toggleMute();
+      this.hud.updateMuteButton(muted);
       this.hud.showNotification(muted ? 'Ton stummgeschaltet 🔇' : 'Ton aktiviert 🔊');
     }
     if (this.input.cycleRadio) {
       const station = this.radio.cycleStation();
       this.hud.showRadioStation(station.name, station.genre);
     }
-    this.radio.update(dt, true);
+    const inVehicle =
+      this.mode === 'IN_CAR' ||
+      this.mode === 'IN_HELI' ||
+      this.mode === 'IN_TANK' ||
+      this.mode === 'IN_BOAT';
+    this.radio.update(dt, inVehicle);
     if (this.input.horn) {
       this.sound.playHorn();
       const pX = this.mode === 'IN_CAR' ? this.car.physics.x : this.player.x;

@@ -526,6 +526,7 @@ export class HUD {
 
       <!-- Quick Buttons on Top -->
       <div class="hud-mobile-quickbar">
+        <button class="hud-quick-btn" id="m-btn-mute" style="border-color:#ef4444;color:#ef4444;">🔊 TON</button>
         <button class="hud-quick-btn" id="m-btn-radio" style="border-color:#a855f7;color:#a855f7;">📻 RADIO</button>
         <button class="hud-quick-btn" id="m-btn-hover" style="border-color:#06b6d4;color:#06b6d4;">🚀 HOVER</button>
         <button class="hud-quick-btn" id="m-btn-jetpack" style="border-color:#38bdf8;color:#38bdf8;">🚀 JETPACK</button>
@@ -548,7 +549,7 @@ export class HUD {
         <div><kbd>E</kbd>: Einsteigen | <kbd>Tab</kbd>: Stunt-Editor 🏗️ | <kbd>C</kbd>: Cockpit 🥽</div>
         <div><kbd>Esc</kbd>: Optionen & Pause ⚙️ | Controller (Gamepad) unterstützt 🎮</div>
         <div><kbd>L</kbd>: Tag/Nacht ☀️🌙 | <kbd>K</kbd>: Wetter 🌧️⚡</div>
-        <div><kbd>B</kbd>: Radio 📻 | <kbd>N</kbd>: Nitro 🔥 | <kbd>F</kbd>: Schießen 💥</div>
+        <div><kbd>B</kbd>: Radio 📻 | <kbd>M</kbd>: Stumm 🔇 | <kbd>N</kbd>: Nitro 🔥 | <kbd>F</kbd>: Schießen 💥</div>
       </div>
 
       <div class="hud-top-right">
@@ -834,6 +835,15 @@ export class HUD {
     bindTouch('t-btn-fire', 'fire', true);
 
     // Mobile Top Quickbar Hooks
+    const muteBtn = document.getElementById('m-btn-mute');
+    muteBtn?.addEventListener('click', () => {
+      if (this.sound) {
+        const isMuted = this.sound.toggleMute();
+        this.updateMuteButton(isMuted);
+        this.showNotification(isMuted ? 'Ton stummgeschaltet 🔇' : 'Ton aktiviert 🔊');
+      }
+    });
+
     document.getElementById('m-btn-radio')?.addEventListener('click', () => {
       if (this.input) this.input.touchState.radioCycle = true;
     });
@@ -1224,6 +1234,15 @@ export class HUD {
     setTimeout(() => {
       if (el) el.style.display = 'none';
     }, 3000);
+  }
+
+  public updateMuteButton(isMuted: boolean): void {
+    const muteBtn = document.getElementById('m-btn-mute');
+    if (muteBtn) {
+      muteBtn.textContent = isMuted ? '🔇 STUMM' : '🔊 TON';
+      muteBtn.style.color = isMuted ? '#9ca3af' : '#ef4444';
+      muteBtn.style.borderColor = isMuted ? '#9ca3af' : '#ef4444';
+    }
   }
 
   public setPrompt(text: string | null): void {

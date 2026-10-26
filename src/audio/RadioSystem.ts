@@ -45,7 +45,7 @@ export class RadioSystem {
   private sound: SoundManager;
 
   private stepTimer: number = 0;
-  private currentStep: number = 0;
+  public currentStep: number = 0;
   private masterGain: GainNode | null = null;
   private isMuted: boolean = false;
   public musicVolume: number = 0.8;
@@ -57,7 +57,9 @@ export class RadioSystem {
   public setMusicVolume(v: number): void {
     this.musicVolume = Math.max(0, Math.min(1, v));
     if (this.masterGain && this.sound.ctx) {
-      this.masterGain.gain.setValueAtTime(0.08 * this.musicVolume, this.sound.ctx.currentTime);
+      const vol = 0.08 * this.musicVolume;
+      this.masterGain.gain.value = vol;
+      this.masterGain.gain.setValueAtTime(vol, this.sound.ctx.currentTime);
     }
   }
 
@@ -67,7 +69,9 @@ export class RadioSystem {
     if (!ctx) return null;
 
     this.masterGain = ctx.createGain();
-    this.masterGain.gain.setValueAtTime(0.08 * this.musicVolume, ctx.currentTime);
+    const vol = 0.08 * this.musicVolume;
+    this.masterGain.gain.value = vol;
+    this.masterGain.gain.setValueAtTime(vol, ctx.currentTime);
     this.masterGain.connect(this.sound.masterGain || ctx.destination);
     return this.masterGain;
   }
@@ -106,7 +110,7 @@ export class RadioSystem {
   }
 
   public update(dt: number, inVehicle: boolean = true): void {
-    if (!inVehicle || this.isMuted) return;
+    if (!inVehicle || this.isMuted || this.sound.getIsMuted()) return;
 
     const station = this.getCurrentStation();
     if (station.id === 'off' || station.bpm <= 0) return;
