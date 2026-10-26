@@ -92,15 +92,15 @@ export class PostProcessingManager {
     }
 
     try {
-      const width = window.innerWidth || 800;
-      const height = window.innerHeight || 600;
+      const width = Math.min(window.innerWidth || 800, 1920);
+      const height = Math.min(window.innerHeight || 600, 1080);
 
-      // High-performance float render target with anti-aliasing
+      // Safe, cross-platform render target supported by 100% of WebGL devices without black screen
       const renderTarget = new THREE.WebGLRenderTarget(width, height, {
         minFilter: THREE.LinearFilter,
         magFilter: THREE.LinearFilter,
         format: THREE.RGBAFormat,
-        type: THREE.HalfFloatType,
+        type: THREE.UnsignedByteType,
       });
 
       this.composer = new EffectComposer(this.renderer, renderTarget);
@@ -210,7 +210,13 @@ export class PostProcessingManager {
 
   public render(): void {
     if (this.isEnabled && this.composer) {
-      this.composer.render();
+      try {
+        this.composer.render();
+      } catch {
+        // Safe fallback: if composer throws or fails, render directly via WebGLRenderer
+        this.isEnabled = false;
+        this.renderer.render(this.scene, this.camera);
+      }
     } else {
       this.renderer.render(this.scene, this.camera);
     }

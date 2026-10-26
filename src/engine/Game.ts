@@ -315,6 +315,23 @@ export class Game {
     this.hud.showNotification(
       'Willkommen in GTA 7! Gas: [W] | Nitro: [N] | DeLorean Flugmodus: [V]/[X] | Multiplayer: [P]!',
     );
+
+    // Immediate first render to ensure canvas is never black on initial load
+    try {
+      this.renderer.render();
+    } catch {
+      // Ignored
+    }
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && this.isRunning) {
+          this.lastTime = performance.now();
+          this.renderer.render();
+        }
+      });
+    }
+
     requestAnimationFrame((time) => this.loop(time));
   }
 

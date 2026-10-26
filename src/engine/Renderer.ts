@@ -81,8 +81,24 @@ export class Renderer {
     this.initWeather();
     this.initSpeedStreaks();
 
-    // Cinematic Post-Processing Pipeline (Unreal Bloom & Hyperspace Speed Warp)
-    this.postProcessing = new PostProcessingManager(this.renderer, this.scene, this.camera);
+    // Cinematic Post-Processing Pipeline (Unreal Bloom & Hyperspace Speed Warp - disabled by default for 100% universal stability)
+    this.postProcessing = new PostProcessingManager(this.renderer, this.scene, this.camera, false);
+
+    // Register WebGL Context Lost & Restored handlers (Prevents permanent black screen)
+    if (this.canvas && typeof this.canvas.addEventListener === 'function') {
+      this.canvas.addEventListener('webglcontextlost', (event) => {
+        event.preventDefault();
+        // eslint-disable-next-line no-console
+        console.warn('WebGL context lost. Recovery initiated...');
+      });
+      this.canvas.addEventListener('webglcontextrestored', () => {
+        // eslint-disable-next-line no-console
+        console.info('WebGL context restored successfully.');
+        if (typeof window !== 'undefined') {
+          this.renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+      });
+    }
 
     if (typeof window !== 'undefined') {
       window.addEventListener('resize', () => this.onWindowResize());
@@ -318,12 +334,12 @@ export class Renderer {
         );
       }
     } else {
-      // Cyber Night Mode
-      this.sunLight.intensity = 0.05;
-      this.ambientLight.intensity = 0.42;
-      this.ambientLight.color.setHex(0x1e293b);
+      // Cyber Night Mode: Vibrant neon moonlight & ambient glow - never pitch black!
+      this.sunLight.intensity = 0.08;
+      this.ambientLight.intensity = 0.68;
+      this.ambientLight.color.setHex(0x38bdf8);
       if (this.scene.fog instanceof THREE.FogExp2) {
-        this.scene.fog.color.setHex(0x090d16);
+        this.scene.fog.color.setHex(0x0f172a);
       }
     }
 
@@ -513,9 +529,14 @@ export class Renderer {
   }
 
   public render(): void {
-    if (this.postProcessing) {
-      this.postProcessing.render();
-    } else {
+    try {
+      if (this.postProcessing && this.postProcessing.isEnabled) {
+        this.postProcessing.render();
+      } else {
+        this.renderer.render(this.scene, this.camera);
+      }
+    } catch {
+      // Bulletproof failsafe: Always render direct scene if post-processing fails
       this.renderer.render(this.scene, this.camera);
     }
   }
