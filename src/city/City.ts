@@ -232,6 +232,9 @@ export class City {
   }
 
   public getRoofHeightAt(x: number, z: number, radius: number = 0): number {
+    if (x >= 3800 && z >= 3800 && x <= 4800 && z <= 4800) {
+      return 100.0; // Interior floor elevation
+    }
     let maxH = 0;
     for (const b of this.buildingBounds) {
       // Check upper tier first if available
@@ -329,8 +332,11 @@ export class City {
     }
 
     // 3. Enforce map boundaries
-    // If coordinates are in the Other World realm (around 2500, 2500), bypass city bounds
-    if (Math.hypot(curX - 2500, curZ - 2500) < 600) {
+    // If coordinates are in the Other World realm or Interior Realm, bypass city bounds
+    if (
+      Math.hypot(curX - 2500, curZ - 2500) < 600 ||
+      (curX >= 3800 && curZ >= 3800 && curX <= 4800 && curZ <= 4800)
+    ) {
       return { x: curX, z: curZ, corrected: wasCorrected, roofY: resolvedRoofY };
     }
 
@@ -413,8 +419,11 @@ export class City {
       }
     }
 
-    // If coordinates are in the Other World realm (around 2500, 2500), bypass city bounds
-    if (Math.hypot(x - 2500, z - 2500) < 600) {
+    // If coordinates are in the Other World realm or Interior Realm, bypass city bounds
+    if (
+      Math.hypot(x - 2500, z - 2500) < 600 ||
+      (x >= 3800 && z >= 3800 && x <= 4800 && z <= 4800)
+    ) {
       return { collided: false, normalX: 0, normalZ: 0, depth: 0 };
     }
 
@@ -570,8 +579,11 @@ export class City {
         }
       }
 
-      // If coordinates are in the Other World realm (around 2500, 2500), bypass city bounds
-      if (Math.hypot(curX - 2500, curZ - 2500) < 600) {
+      // If coordinates are in the Other World realm or Interior Realm, bypass city bounds
+      if (
+        Math.hypot(curX - 2500, curZ - 2500) < 600 ||
+        (curX >= 3800 && curZ >= 3800 && curX <= 4800 && curZ <= 4800)
+      ) {
         continue;
       }
 

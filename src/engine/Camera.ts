@@ -15,6 +15,21 @@ export class GameCamera {
     this.camera = camera;
   }
 
+  public reset(targetPos: THREE.Vector3, heading: number = 0): void {
+    const dist = CAMERA_CONFIG.FOOT_DISTANCE;
+    const height = CAMERA_CONFIG.FOOT_HEIGHT;
+    const forwardX = Math.sin(heading);
+    const forwardZ = Math.cos(heading);
+    this.currentCameraPos.set(
+      targetPos.x - forwardX * dist,
+      targetPos.y + height,
+      targetPos.z - forwardZ * dist,
+    );
+    this.currentTargetPos.set(targetPos.x, targetPos.y + 1.5, targetPos.z);
+    this.camera.position.copy(this.currentCameraPos);
+    this.camera.lookAt(this.currentTargetPos);
+  }
+
   public cycleMode(): CameraMode {
     if (this.mode === 'CHASE') this.mode = 'CLOSE';
     else if (this.mode === 'CLOSE') this.mode = 'COCKPIT';

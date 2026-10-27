@@ -33,6 +33,7 @@ import { eventBus } from '../utils/EventBus';
 import { GangSystem } from '../gangs/GangSystem';
 import { SkidmarkSystem } from '../vehicles/SkidmarkSystem';
 import { PortalSystem } from '../world/PortalSystem';
+import { InteriorSystem } from '../interiors/InteriorSystem';
 
 export type PlayerMode = 'IN_CAR' | 'ON_FOOT' | 'IN_HELI' | 'IN_TANK' | 'IN_BOAT';
 
@@ -57,6 +58,7 @@ export class Game {
   public radio: RadioSystem;
   public hud: HUD;
   public portal: PortalSystem;
+  public interiors: InteriorSystem;
 
   // Master Expansion Subsystems (Phases 13-20)
   public military: MilitarySystem;
@@ -138,6 +140,7 @@ export class Game {
     this.story = new StorySystem(this.economy, this.sound);
     this.stuntEditor = new StuntEditor(this.renderer.scene, this.sound);
     this.portal = new PortalSystem(this.renderer.scene, this.economy, this.sound);
+    this.interiors = new InteriorSystem(this.renderer.scene);
 
     // Multiplayer initialization
     this.network = new NetworkManager();
@@ -1068,6 +1071,25 @@ export class Game {
           this.exitCar();
         }
       }
+
+      // Building Interiors Proximity Check (while in car)
+      this.interiors.update(
+        dt,
+        this.player,
+        this.hud,
+        this.input,
+        this.sound,
+        this.weapons,
+        this.police,
+        this.economy,
+        this.camera,
+        this.car,
+      );
+      if (this.interiors.currentInteriorId !== null) {
+        this.mode = 'ON_FOOT';
+        this.player.group.visible = true;
+        this.sound.updateEnginePitch(0, false);
+      }
     } else if (this.mode === 'IN_HELI') {
       // Helicopter Flight Mode
       this.helicopter.update(dt, this.input, this.city);
@@ -1284,6 +1306,8 @@ export class Game {
           this.player.vy = 0;
           this.hud.showNotification('🌌 Vom kosmischen Portal gerettet!');
         }
+      } else if (this.interiors.currentInteriorId !== null) {
+        // Player is inside interior: bounds clamped by InteriorSystem
       } else if (
         this.player.y < -1.5 ||
         this.player.x > 410 ||
@@ -1374,6 +1398,19 @@ export class Game {
       } else {
         this.hud.setPrompt(null);
       }
+
+      // Building Interiors (Exterior Entrance Proximity & Interior Interaction)
+      this.interiors.update(
+        dt,
+        this.player,
+        this.hud,
+        this.input,
+        this.sound,
+        this.weapons,
+        this.police,
+        this.economy,
+        this.camera,
+      );
     }
 
     // 4. Update Subsystems
@@ -1396,7 +1433,20 @@ export class Game {
       this.mode === 'IN_CAR' ? this.car.physics.speed : 0,
       this.city,
     );
-    this.police.update(dt, playerPos.x, playerPos.z, playerPos.y);
+    let copTargetX = playerPos.x;
+    let copTargetZ = playerPos.z;
+    let copTargetY = playerPos.y;
+    if (this.interiors.currentInteriorId !== null) {
+      const activeDoor = this.interiors.doors.find(
+        (d) => d.id === this.interiors.currentInteriorId,
+      );
+      if (activeDoor) {
+        copTargetX = activeDoor.exteriorX;
+        copTargetZ = activeDoor.exteriorZ;
+        copTargetY = 0;
+      }
+    }
+    this.police.update(dt, copTargetX, copTargetZ, copTargetY);
     this.sound.updateSiren(this.police.wantedLevel, dt);
     this.economy.update(dt, playerPos.x, playerPos.z);
 
@@ -1540,7 +1590,9 @@ export class Game {
     // Bulletproof Auto-Rescue Watchdog: Prevent falling into void or out-of-bounds lock
     // =========================================================================
     // 1. DeLorean Car Watchdog
-    if (
+    if (this.portal.currentDimension === 'OTHER_WORLD') {
+      // exempt from city street watchdog
+    } else if (
       this.car.physics.y < -12.0 ||
       Math.abs(this.car.physics.x) > 380 ||
       Math.abs(this.car.physics.z) > 380 ||
@@ -1555,7 +1607,11 @@ export class Game {
     }
 
     // 2. Player on Foot Watchdog
-    if (
+    if (this.portal.currentDimension === 'OTHER_WORLD') {
+      // exempt from city street watchdog
+    } else if (this.interiors.currentInteriorId !== null) {
+      // exempt from city street watchdog
+    } else if (
       this.player.y < -12.0 ||
       Math.abs(this.player.x) > 380 ||
       Math.abs(this.player.z) > 380 ||

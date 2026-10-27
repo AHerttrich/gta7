@@ -1609,6 +1609,28 @@ export class HUD {
     ctx.arc(px, pz, 2, 0, Math.PI * 2);
     ctx.fill();
 
+    // Enterable Buildings Icons (Safehouse, Gun Store, Club, Hacker Loft, Bank)
+    const enterableBuildings = [
+      { x: -88, z: -56, icon: '🏠', bg: '#facc15' }, // Penthouse Safehouse
+      { x: 56, z: -88, icon: '🔫', bg: '#ef4444' }, // Ammu-Nation Waffenladen
+      { x: 88, z: 56, icon: '🍸', bg: '#ec4899' }, // Club Neon Dreams
+      { x: -144, z: 0, icon: '💻', bg: '#00f0ff' }, // Hacker Syndikat Loft
+      { x: 0, z: 56, icon: '🏦', bg: '#eab308' }, // Cyber City Bank
+    ];
+    enterableBuildings.forEach((b) => {
+      const bx = (b.x - playerX) * scale;
+      const bz = (b.z - playerZ) * scale;
+      ctx.fillStyle = b.bg;
+      ctx.beginPath();
+      ctx.arc(bx, bz, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '7px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(b.icon, bx, bz);
+    });
+
     // Active Mission Target
     if (activeTarget) {
       const ax = (activeTarget.x - playerX) * scale;
