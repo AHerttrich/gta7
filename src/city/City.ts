@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CITY_CONFIG } from '../utils/Constants';
 import { Road } from './Road';
-import { Building, BuildingBox } from './Building';
+import { Building, BuildingBox, BuildingStyle } from './Building';
 
 export class City {
   public group: THREE.Group;
@@ -39,10 +39,40 @@ export class City {
     groundMesh.receiveShadow = true;
     this.group.add(groundMesh);
 
-    // 2. City Blocks with Buildings, Sidewalks, Palm Trees & Street Lamps
+    // 2. City Blocks with Diverse Architectural Styles, Buildings, Sidewalks & Props
     const neonColors = [0x00d4ff, 0xff007f, 0x10b981, 0xf59e0b, 0xa855f7];
-    const billboardLabels = ['GTA 7', 'DELOREAN', 'MATTI & CO', 'CYBER CITY', 'NEON SPEED'];
+    const billboardLabels = [
+      'GTA 7',
+      'HOTEL VICE',
+      'DELOREAN',
+      'CYBER BANK',
+      'NEXUS TECH',
+      'NEON SPEED',
+      'MATTI & CO',
+      'TOKYO DRIFT',
+    ];
     let billboardIdx = 0;
+
+    // Architectural distribution across city districts
+    const districtStyles: BuildingStyle[][] = [
+      [
+        'CYBER_TOWER',
+        'RESIDENTIAL_BLOCK',
+        'LUXURY_RESORT',
+        'RESIDENTIAL_BLOCK',
+        'CLASSIC_BRICK_LOFT',
+      ],
+      ['RESIDENTIAL_BLOCK', 'COMMERCIAL_HQ', 'TWIN_TOWERS', 'ROUND_TOWER', 'LUXURY_RESORT'],
+      ['PAGODA_NEON_TOWER', 'ROUND_TOWER', 'CYBER_TOWER', 'TWIN_TOWERS', 'LUXURY_RESORT'],
+      ['RESIDENTIAL_BLOCK', 'COMMERCIAL_HQ', 'CYBER_TOWER', 'COMMERCIAL_HQ', 'RESIDENTIAL_BLOCK'],
+      [
+        'CLASSIC_BRICK_LOFT',
+        'PAGODA_NEON_TOWER',
+        'LUXURY_RESORT',
+        'RESIDENTIAL_BLOCK',
+        'CLASSIC_BRICK_LOFT',
+      ],
+    ];
 
     for (let i = 0; i < GRID_SIZE; i++) {
       for (let j = 0; j < GRID_SIZE; j++) {
@@ -61,18 +91,21 @@ export class City {
         sidewalkMesh.receiveShadow = true;
         this.group.add(sidewalkMesh);
 
-        // Place buildings in this block
+        // Place buildings in this block with varied architecture
         const distFromCenter = Math.hypot(i - GRID_SIZE / 2, j - GRID_SIZE / 2);
         const isDowntown = distFromCenter < 1.5;
 
-        // Heights
+        // Heights tailored by style and district
         const baseHeight = isDowntown ? 52 + Math.random() * 45 : 20 + Math.random() * 28;
         const color = neonColors[(i + j) % neonColors.length];
 
         const bWidth = BLOCK_SIZE * 0.74;
         const bDepth = BLOCK_SIZE * 0.74;
 
-        const hasBillboard = isDowntown && billboardIdx < billboardLabels.length;
+        const style = districtStyles[i % districtStyles.length][j % districtStyles[0].length];
+
+        const hasBillboard =
+          (isDowntown || style === 'LUXURY_RESORT') && billboardIdx < billboardLabels.length;
         const billboardText = hasBillboard ? billboardLabels[billboardIdx++] : undefined;
 
         const building = Building.createBuilding(
@@ -83,9 +116,13 @@ export class City {
           baseHeight,
           color,
           billboardText,
+          style,
         );
         this.group.add(building.mesh);
         this.buildingBounds.push(building.bounds);
+        if (building.extraBounds) {
+          this.buildingBounds.push(...building.extraBounds);
+        }
 
         // Boulevard Palm Trees at sidewalk edges
         const halfB = BLOCK_SIZE / 2 - 3.5;
