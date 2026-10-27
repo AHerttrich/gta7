@@ -117,25 +117,25 @@ describe('Pedestrian Ragdoll Physics & Mobile Controls', () => {
     const ped = system.pedestrians[0];
 
     // Place pedestrian near boundary walking outwards towards +X (East)
-    ped.x = 213.9;
+    ped.x = system.mapLimit - 0.1;
     ped.z = 0;
     ped.rotationY = Math.PI / 2; // East
     ped.speed = 5.0;
 
-    // Advance 0.5s: without containment it would reach > 216m
+    // Advance 0.5s: without containment it would reach > mapLimit + 2m
     system.update(0.5, 0, 0, 0);
 
-    expect(ped.x).toBeLessThanOrEqual(214.0);
+    expect(ped.x).toBeLessThanOrEqual(system.mapLimit);
     // Heading should have been redirected away from +X
     expect(ped.rotationY).not.toBe(Math.PI / 2);
 
     // Place near south boundary walking outwards towards +Z (South)
     ped.x = 0;
-    ped.z = 213.9;
+    ped.z = system.mapLimit - 0.1;
     ped.rotationY = 0; // South (+Z)
     system.update(0.5, 0, 0, 0);
 
-    expect(ped.z).toBeLessThanOrEqual(214.0);
+    expect(ped.z).toBeLessThanOrEqual(system.mapLimit);
     expect(ped.rotationY).not.toBe(0);
   });
 
@@ -144,13 +144,13 @@ describe('Pedestrian Ragdoll Physics & Mobile Controls', () => {
     const system = new PedestrianSystem(scene);
     const ped = system.pedestrians[0];
 
-    // Scenario A: Blasted far beyond emergency boundary (> 225m)
-    ped.x = 350.0;
-    ped.z = 400.0;
+    // Scenario A: Blasted far beyond emergency boundary (> emergencyLimit)
+    ped.x = system.emergencyLimit + 100.0;
+    ped.z = system.emergencyLimit + 100.0;
     system.update(0.1, 0, 0, 0);
 
-    expect(Math.abs(ped.x)).toBeLessThanOrEqual(214.0);
-    expect(Math.abs(ped.z)).toBeLessThanOrEqual(214.0);
+    expect(Math.abs(ped.x)).toBeLessThanOrEqual(system.mapLimit);
+    expect(Math.abs(ped.z)).toBeLessThanOrEqual(system.mapLimit);
     expect(ped.y).toBe(0.25);
     expect(ped.state).toBe('WALKING');
 
@@ -159,8 +159,8 @@ describe('Pedestrian Ragdoll Physics & Mobile Controls', () => {
     system.update(0.1, 0, 0, 0);
 
     expect(ped.y).toBe(0.25);
-    expect(Math.abs(ped.x)).toBeLessThanOrEqual(214.0);
-    expect(Math.abs(ped.z)).toBeLessThanOrEqual(214.0);
+    expect(Math.abs(ped.x)).toBeLessThanOrEqual(system.mapLimit);
+    expect(Math.abs(ped.z)).toBeLessThanOrEqual(system.mapLimit);
     expect(ped.state).toBe('WALKING');
   });
 

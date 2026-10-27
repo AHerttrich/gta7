@@ -194,21 +194,21 @@ describe('Anti-Penetration & Building Clipping Prevention', () => {
     expect(city.checkCollision(resolved.x, resolved.z, 2.0, 0.5).collided).toBe(false);
   });
 
-  it('should allow free driving on outer perimeter roads (x=225) and western ocean (x=-250) without phantom boundary walls', () => {
+  it('should allow free driving on outer perimeter roads (x=310) and western ocean (x=-320) without phantom boundary walls', () => {
     const city = new City();
 
     // Outer city road
-    const outerRoadCol = city.checkCollision(225, 0, 2.0);
+    const outerRoadCol = city.checkCollision(310, 0, 2.0);
     expect(outerRoadCol.collided).toBe(false);
 
-    const outerRoadSwept = city.checkSweptCollision(220, 0, 225, 0, 2.0);
+    const outerRoadSwept = city.checkSweptCollision(308, 0, 312, 0, 2.0);
     expect(outerRoadSwept.collided).toBe(false);
 
-    // Western ocean & marina waters (beyond city grid edge -220m)
-    const oceanCol = city.checkCollision(-250, 0, 2.0);
+    // Western ocean & marina waters (beyond expanded city grid edge -308m)
+    const oceanCol = city.checkCollision(-320, 50, 2.0);
     expect(oceanCol.collided).toBe(false);
 
-    const oceanSwept = city.checkSweptCollision(-230, 0, -280, 0, 2.0);
+    const oceanSwept = city.checkSweptCollision(-315, 50, -330, 50, 2.0);
     expect(oceanSwept.collided).toBe(false);
   });
 
@@ -231,24 +231,24 @@ describe('Anti-Penetration & Building Clipping Prevention', () => {
     const city = new City();
 
     // Beyond east boundary
-    const east = city.resolveBuildingIntersection(350, 0, 2.0);
+    const east = city.resolveBuildingIntersection(450, 0, 2.0);
     expect(east.corrected).toBe(true);
-    expect(east.x).toBeLessThanOrEqual(305);
+    expect(east.x).toBeLessThanOrEqual(city.maxBoundXPositive);
 
     // Beyond west ocean boundary
-    const west = city.resolveBuildingIntersection(-360, 0, 2.0);
+    const west = city.resolveBuildingIntersection(-500, 0, 2.0);
     expect(west.corrected).toBe(true);
-    expect(west.x).toBeGreaterThanOrEqual(-335);
+    expect(west.x).toBeGreaterThanOrEqual(city.maxBoundXNegative);
 
     // Beyond north boundary
-    const north = city.resolveBuildingIntersection(0, -350, 2.0);
+    const north = city.resolveBuildingIntersection(0, -450, 2.0);
     expect(north.corrected).toBe(true);
-    expect(north.z).toBeGreaterThanOrEqual(-305);
+    expect(north.z).toBeGreaterThanOrEqual(-city.maxBoundZ);
 
     // Beyond south boundary
-    const south = city.resolveBuildingIntersection(0, 350, 2.0);
+    const south = city.resolveBuildingIntersection(0, 450, 2.0);
     expect(south.corrected).toBe(true);
-    expect(south.z).toBeLessThanOrEqual(305);
+    expect(south.z).toBeLessThanOrEqual(city.maxBoundZ);
   });
 
   it('should prevent police ram push from penetrating building or crossing map edge via swept collision', () => {
@@ -265,10 +265,10 @@ describe('Anti-Penetration & Building Clipping Prevention', () => {
     expect(sweptWall.safeX).toBeGreaterThanOrEqual(b.maxX);
 
     // Cop shoving car towards outer map edge
-    const edgeStartX = 300.0;
-    const edgeTargetX = 330.0;
+    const edgeStartX = city.maxBoundXPositive - 5.0;
+    const edgeTargetX = city.maxBoundXPositive + 25.0;
     const sweptEdge = city.checkSweptCollision(edgeStartX, 0, edgeTargetX, 0, 2.0, 0.5);
     expect(sweptEdge.collided).toBe(true);
-    expect(sweptEdge.safeX).toBeLessThanOrEqual(305.0);
+    expect(sweptEdge.safeX).toBeLessThanOrEqual(city.maxBoundXPositive);
   });
 });

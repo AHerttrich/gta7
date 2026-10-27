@@ -56,9 +56,11 @@ export class TrafficSystem {
 
     const laneOffset = 4.2; // Right hand traffic lane offset
 
+    const mapSpan = CITY_CONFIG.GRID_SIZE * (CITY_CONFIG.BLOCK_SIZE + CITY_CONFIG.ROAD_WIDTH);
+
     for (let i = 0; i < count; i++) {
       const roadCoord = this.roadCoordinates[i % this.roadCoordinates.length];
-      const otherCoord = (Math.random() - 0.5) * 320;
+      const otherCoord = (Math.random() - 0.5) * mapSpan;
       const color = carColors[i % carColors.length];
 
       // Alternating N/S and E/W streets
@@ -176,7 +178,8 @@ export class TrafficSystem {
   }
 
   public update(dt: number, playerCarX: number, playerCarZ: number): void {
-    const mapLimit = 220;
+    const mapLimit =
+      (CITY_CONFIG.GRID_SIZE * (CITY_CONFIG.BLOCK_SIZE + CITY_CONFIG.ROAD_WIDTH)) / 2;
 
     for (const car of this.cars) {
       if (car.isWrecked) continue;

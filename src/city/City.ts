@@ -7,6 +7,9 @@ export class City {
   public group: THREE.Group;
   public buildingBounds: BuildingBox[] = [];
   public groundMat!: THREE.MeshStandardMaterial;
+  public maxBoundXPositive: number = CITY_CONFIG.MAX_BOUND_X_POS;
+  public maxBoundXNegative: number = CITY_CONFIG.MAX_BOUND_X_NEG;
+  public maxBoundZ: number = CITY_CONFIG.MAX_BOUND_Z;
 
   constructor() {
     this.group = new THREE.Group();
@@ -31,8 +34,8 @@ export class City {
     const totalSize = GRID_SIZE * step;
     const halfSize = totalSize / 2;
 
-    // 1. Ground asphalt plane
-    const groundGeo = new THREE.PlaneGeometry(totalSize + 200, totalSize + 200);
+    // 1. Ground asphalt plane (expanded for 7x7 grid + surroundings)
+    const groundGeo = new THREE.PlaneGeometry(totalSize + 400, totalSize + 400);
     groundGeo.rotateX(-Math.PI / 2);
     this.groundMat = Road.createRoadMaterial();
     const groundMesh = new THREE.Mesh(groundGeo, this.groundMat);
@@ -53,7 +56,8 @@ export class City {
     ];
     let billboardIdx = 0;
 
-    // Architectural distribution across city districts
+    // Architectural distribution across 7x7 city districts (49 blocks)
+    // Note: districtStyles[0][0] is CYBER_TOWER to support centered rooftop bounds tests
     const districtStyles: BuildingStyle[][] = [
       [
         'CYBER_TOWER',
@@ -61,16 +65,62 @@ export class City {
         'LUXURY_RESORT',
         'RESIDENTIAL_BLOCK',
         'CLASSIC_BRICK_LOFT',
+        'ROUND_TOWER',
+        'CYBER_TOWER',
       ],
-      ['RESIDENTIAL_BLOCK', 'COMMERCIAL_HQ', 'TWIN_TOWERS', 'ROUND_TOWER', 'LUXURY_RESORT'],
-      ['PAGODA_NEON_TOWER', 'ROUND_TOWER', 'CYBER_TOWER', 'TWIN_TOWERS', 'LUXURY_RESORT'],
-      ['RESIDENTIAL_BLOCK', 'COMMERCIAL_HQ', 'CYBER_TOWER', 'COMMERCIAL_HQ', 'RESIDENTIAL_BLOCK'],
+      [
+        'RESIDENTIAL_BLOCK',
+        'COMMERCIAL_HQ',
+        'TWIN_TOWERS',
+        'ROUND_TOWER',
+        'LUXURY_RESORT',
+        'COMMERCIAL_HQ',
+        'RESIDENTIAL_BLOCK',
+      ],
+      [
+        'PAGODA_NEON_TOWER',
+        'ROUND_TOWER',
+        'CYBER_TOWER',
+        'TWIN_TOWERS',
+        'LUXURY_RESORT',
+        'PAGODA_NEON_TOWER',
+        'ROUND_TOWER',
+      ],
+      [
+        'RESIDENTIAL_BLOCK',
+        'COMMERCIAL_HQ',
+        'CYBER_TOWER',
+        'CYBER_TOWER',
+        'COMMERCIAL_HQ',
+        'RESIDENTIAL_BLOCK',
+        'TWIN_TOWERS',
+      ],
       [
         'CLASSIC_BRICK_LOFT',
         'PAGODA_NEON_TOWER',
         'LUXURY_RESORT',
         'RESIDENTIAL_BLOCK',
         'CLASSIC_BRICK_LOFT',
+        'ROUND_TOWER',
+        'LUXURY_RESORT',
+      ],
+      [
+        'TWIN_TOWERS',
+        'COMMERCIAL_HQ',
+        'ROUND_TOWER',
+        'CYBER_TOWER',
+        'TWIN_TOWERS',
+        'COMMERCIAL_HQ',
+        'PAGODA_NEON_TOWER',
+      ],
+      [
+        'CYBER_TOWER',
+        'RESIDENTIAL_BLOCK',
+        'COMMERCIAL_HQ',
+        'LUXURY_RESORT',
+        'CLASSIC_BRICK_LOFT',
+        'RESIDENTIAL_BLOCK',
+        'CYBER_TOWER',
       ],
     ];
 
@@ -91,9 +141,28 @@ export class City {
         sidewalkMesh.receiveShadow = true;
         this.group.add(sidewalkMesh);
 
+        // Special Handcrafted Landmark POIs
+        if (i === 3 && j === 3) {
+          // Grand Central Cyber Park at Block [3, 3] (Center: x=0, z=0)
+          this.createCentralPark(blockCenterX, blockCenterZ, BLOCK_SIZE);
+          continue;
+        }
+
+        if (i === 5 && j === 3) {
+          // GTA 7 International Airport at Block [5, 3] (Center: x=176, z=0)
+          this.createAirport(blockCenterX, blockCenterZ, BLOCK_SIZE);
+          continue;
+        }
+
+        if (i === 2 && j === 5) {
+          // Stunt Mega Stadium at Block [2, 5] (Center: x=-88, z=176)
+          this.createStuntStadium(blockCenterX, blockCenterZ, BLOCK_SIZE);
+          continue;
+        }
+
         // Place buildings in this block with varied architecture
         const distFromCenter = Math.hypot(i - GRID_SIZE / 2, j - GRID_SIZE / 2);
-        const isDowntown = distFromCenter < 1.5;
+        const isDowntown = distFromCenter < 2.0;
 
         // Heights tailored by style and district
         const baseHeight = isDowntown ? 52 + Math.random() * 45 : 20 + Math.random() * 28;
@@ -136,6 +205,9 @@ export class City {
         this.group.add(lamp1, lamp2);
       }
     }
+
+    // 3. Handcrafted Oceanic POI: Lighthouse Island in the Western Ocean Bay
+    this.createLighthouseIsland();
 
     // 3. Lane Dash Markings & Crosswalks along roads
     for (let i = 0; i <= GRID_SIZE; i++) {
@@ -256,15 +328,15 @@ export class City {
       wasCorrected = true;
     }
 
-    // 3. Enforce map boundaries (positive X <= 305, negative X >= -335, |Z| <= 305)
+    // 3. Enforce map boundaries
     // If coordinates are in the Other World realm (around 2500, 2500), bypass city bounds
     if (Math.hypot(curX - 2500, curZ - 2500) < 600) {
       return { x: curX, z: curZ, corrected: wasCorrected, roofY: resolvedRoofY };
     }
 
-    const maxBoundXPositive = 305.0;
-    const maxBoundXNegative = -335.0;
-    const maxBoundZ = 305.0;
+    const maxBoundXPositive = this.maxBoundXPositive;
+    const maxBoundXNegative = this.maxBoundXNegative;
+    const maxBoundZ = this.maxBoundZ;
 
     if (curX > maxBoundXPositive - radius) {
       curX = maxBoundXPositive - radius - 0.2;
@@ -346,10 +418,10 @@ export class City {
       return { collided: false, normalX: 0, normalZ: 0, depth: 0 };
     }
 
-    // Check map boundaries (terrain extends to 320m, west ocean to -340m)
-    const maxBoundXPositive = 305.0;
-    const maxBoundXNegative = -335.0; // Ocean bay
-    const maxBoundZ = 305.0;
+    // Check map boundaries
+    const maxBoundXPositive = this.maxBoundXPositive;
+    const maxBoundXNegative = this.maxBoundXNegative;
+    const maxBoundZ = this.maxBoundZ;
 
     if (x > maxBoundXPositive) {
       return {
@@ -503,9 +575,9 @@ export class City {
         continue;
       }
 
-      const maxBoundXPositive = 305.0;
-      const maxBoundXNegative = -335.0; // Ocean bay
-      const maxBoundZ = 305.0;
+      const maxBoundXPositive = this.maxBoundXPositive;
+      const maxBoundXNegative = this.maxBoundXNegative;
+      const maxBoundZ = this.maxBoundZ;
 
       if (curX > maxBoundXPositive) {
         return {
@@ -540,5 +612,462 @@ export class City {
       }
     }
     return { collided: false, normalX: 0, normalZ: 0, safeX: x2, safeZ: z2, depth: 0 };
+  }
+
+  // -------------------------------------------------------------
+  // Handcrafted POI Landmark Builders
+  // -------------------------------------------------------------
+
+  private createCentralPark(cx: number, cz: number, blockSize: number): void {
+    // 1. Lush Green Park Foundation
+    const parkGeo = new THREE.BoxGeometry(blockSize, 0.35, blockSize);
+    const parkMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.85 });
+    const park = new THREE.Mesh(parkGeo, parkMat);
+    park.position.set(cx, 0.35 / 2, cz);
+    park.receiveShadow = true;
+    this.group.add(park);
+
+    // 2. Central Reflective Pond
+    const pondGeo = new THREE.CylinderGeometry(15, 17, 0.2, 20);
+    const pondMat = new THREE.MeshStandardMaterial({
+      color: 0x0284c7,
+      roughness: 0.1,
+      metalness: 0.85,
+      transparent: true,
+      opacity: 0.88,
+    });
+    const pond = new THREE.Mesh(pondGeo, pondMat);
+    pond.position.set(cx, 0.36, cz);
+    pond.receiveShadow = true;
+    this.group.add(pond);
+
+    // 3. Arched Wooden Footbridge across Pond
+    const bridgeGeo = new THREE.BoxGeometry(5.5, 0.6, 26);
+    const bridgeMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.8 });
+    const bridge = new THREE.Mesh(bridgeGeo, bridgeMat);
+    bridge.position.set(cx, 0.85, cz);
+    bridge.castShadow = true;
+    this.group.add(bridge);
+
+    const railMat = new THREE.MeshStandardMaterial({ color: 0xa16207, roughness: 0.6 });
+    const leftRail = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.9, 26), railMat);
+    leftRail.position.set(cx - 2.6, 1.45, cz);
+    const rightRail = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.9, 26), railMat);
+    rightRail.position.set(cx + 2.6, 1.45, cz);
+    this.group.add(leftRail, rightRail);
+
+    // 4. Cyber Cherry Blossom Trees (Sakura)
+    const treeOffsets = [
+      [-22, -20],
+      [22, -20],
+      [-22, 20],
+      [22, 20],
+      [-16, 0],
+      [16, 0],
+    ];
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.9 });
+    const sakuraMat1 = new THREE.MeshStandardMaterial({
+      color: 0xf472b6,
+      roughness: 0.4,
+      emissive: 0xdb2777,
+      emissiveIntensity: 0.25,
+    });
+    const sakuraMat2 = new THREE.MeshStandardMaterial({
+      color: 0xfb7185,
+      roughness: 0.4,
+      emissive: 0xe11d48,
+      emissiveIntensity: 0.25,
+    });
+
+    treeOffsets.forEach(([dx, dz], idx) => {
+      const tx = cx + dx;
+      const tz = cz + dz;
+
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.6, 4.5, 8), trunkMat);
+      trunk.position.set(tx, 2.25, tz);
+      trunk.castShadow = true;
+
+      const foliage1 = new THREE.Mesh(
+        new THREE.IcosahedronGeometry(2.6, 1),
+        idx % 2 === 0 ? sakuraMat1 : sakuraMat2,
+      );
+      foliage1.position.set(tx, 5.2, tz);
+      foliage1.castShadow = true;
+
+      const foliage2 = new THREE.Mesh(
+        new THREE.IcosahedronGeometry(1.8, 1),
+        idx % 2 === 0 ? sakuraMat2 : sakuraMat1,
+      );
+      foliage2.position.set(tx, 6.8, tz);
+      foliage2.castShadow = true;
+
+      this.group.add(trunk, foliage1, foliage2);
+      this.buildingBounds.push({
+        minX: tx - 0.6,
+        maxX: tx + 0.6,
+        minZ: tz - 0.6,
+        maxZ: tz + 0.6,
+        height: 5.5,
+      });
+    });
+
+    // 5. Park Benches
+    const benchOffsets = [
+      [-10, -14],
+      [10, -14],
+      [-10, 14],
+      [10, 14],
+    ];
+    const benchMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.7 });
+    benchOffsets.forEach(([bx, bz]) => {
+      const bench = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.7, 0.9), benchMat);
+      bench.position.set(cx + bx, 0.6, cz + bz);
+      this.group.add(bench);
+    });
+
+    // 6. Central Hero Golden Cyber Statue
+    const pedestalMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7 });
+    const goldMat = new THREE.MeshStandardMaterial({
+      color: 0xfacc15,
+      metalness: 0.85,
+      roughness: 0.25,
+      emissive: 0xca8a04,
+      emissiveIntensity: 0.2,
+    });
+    const pedestal = new THREE.Mesh(new THREE.BoxGeometry(3.6, 1.8, 3.6), pedestalMat);
+    pedestal.position.set(cx + 18, 1.1, cz - 16);
+    const heroBody = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.9, 4.2, 8), goldMat);
+    heroBody.position.set(cx + 18, 4.0, cz - 16);
+    const heroHead = new THREE.Mesh(new THREE.SphereGeometry(0.7, 12, 12), goldMat);
+    heroHead.position.set(cx + 18, 6.5, cz - 16);
+
+    this.group.add(pedestal, heroBody, heroHead);
+    this.buildingBounds.push({
+      minX: cx + 18 - 2.0,
+      maxX: cx + 18 + 2.0,
+      minZ: cz - 16 - 2.0,
+      maxZ: cz - 16 + 2.0,
+      height: 7.5,
+    });
+  }
+
+  private createAirport(cx: number, cz: number, blockSize: number): void {
+    // 1. Tarmac Apron Foundation
+    const airportGeo = new THREE.BoxGeometry(blockSize, 0.3, blockSize);
+    const airportMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.85 });
+    const airport = new THREE.Mesh(airportGeo, airportMat);
+    airport.position.set(cx, 0.15, cz);
+    airport.receiveShadow = true;
+    this.group.add(airport);
+
+    // 2. Main Runway Strip (Along Z Axis)
+    const runwayGeo = new THREE.BoxGeometry(22, 0.35, blockSize);
+    const runwayMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.7 });
+    const runway = new THREE.Mesh(runwayGeo, runwayMat);
+    runway.position.set(cx + 10, 0.18, cz);
+    runway.receiveShadow = true;
+    this.group.add(runway);
+
+    // Runway Centerline Dashes
+    const dashMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    for (let dz = -26; dz <= 26; dz += 10) {
+      const dash = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.38, 5.0), dashMat);
+      dash.position.set(cx + 10, 0.2, cz + dz);
+      this.group.add(dash);
+    }
+
+    // Runway Approach Threshold Lights
+    const lightMatGreen = new THREE.MeshBasicMaterial({ color: 0x22c55e });
+    const lightMatRed = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+    for (let tx = -8; tx <= 8; tx += 4) {
+      const tNorth = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.5, 0.9), lightMatGreen);
+      tNorth.position.set(cx + 10 + tx, 0.3, cz - blockSize / 2 + 2);
+      const tSouth = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.5, 0.9), lightMatRed);
+      tSouth.position.set(cx + 10 + tx, 0.3, cz + blockSize / 2 - 2);
+      this.group.add(tNorth, tSouth);
+    }
+
+    // 3. Airport Control Tower
+    const towerX = cx - 22;
+    const towerZ = cz - 15;
+    const towerBase = new THREE.Mesh(
+      new THREE.CylinderGeometry(4.0, 5.4, 32, 16),
+      new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.6 }),
+    );
+    towerBase.position.set(towerX, 16, towerZ);
+    towerBase.castShadow = true;
+
+    const controlCab = new THREE.Mesh(
+      new THREE.CylinderGeometry(6.8, 5.0, 4.5, 16),
+      new THREE.MeshStandardMaterial({
+        color: 0x00e5ff,
+        roughness: 0.1,
+        metalness: 0.9,
+        transparent: true,
+        opacity: 0.82,
+      }),
+    );
+    controlCab.position.set(towerX, 34, towerZ);
+
+    const roofDome = new THREE.Mesh(
+      new THREE.CylinderGeometry(4.5, 6.8, 1.4, 16),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 }),
+    );
+    roofDome.position.set(towerX, 36.8, towerZ);
+
+    const radarDish = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.2, 0.4, 0.3, 12),
+      new THREE.MeshBasicMaterial({ color: 0xffffff }),
+    );
+    radarDish.position.set(towerX, 38.4, towerZ);
+    radarDish.rotation.x = 0.5;
+
+    const beacon = new THREE.Mesh(
+      new THREE.SphereGeometry(0.5, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0xef4444 }),
+    );
+    beacon.position.set(towerX, 39.5, towerZ);
+
+    this.group.add(towerBase, controlCab, roofDome, radarDish, beacon);
+    this.buildingBounds.push({
+      minX: towerX - 5.5,
+      maxX: towerX + 5.5,
+      minZ: towerZ - 5.5,
+      maxZ: towerZ + 5.5,
+      height: 39,
+    });
+
+    // 4. Aircraft Hangar
+    const hangarX = cx - 20;
+    const hangarZ = cz + 16;
+    const hangar = new THREE.Mesh(
+      new THREE.BoxGeometry(16, 9, 22),
+      new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 }),
+    );
+    hangar.position.set(hangarX, 4.5, hangarZ);
+    hangar.castShadow = true;
+    this.group.add(hangar);
+    this.buildingBounds.push({
+      minX: hangarX - 8.5,
+      maxX: hangarX + 8.5,
+      minZ: hangarZ - 11.5,
+      maxZ: hangarZ + 11.5,
+      height: 9,
+    });
+
+    // 5. Parked Private Jet
+    const jetGroup = new THREE.Group();
+    const jetMat = new THREE.MeshStandardMaterial({
+      color: 0xf8fafc,
+      roughness: 0.3,
+      metalness: 0.7,
+    });
+    const blueMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.3 });
+
+    const fuselage = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 13, 12), jetMat);
+    fuselage.rotation.x = Math.PI / 2;
+    fuselage.position.y = 1.6;
+
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(1.2, 3.2, 12), jetMat);
+    nose.rotation.x = -Math.PI / 2;
+    nose.position.set(0, 1.6, -7.5);
+
+    const wings = new THREE.Mesh(new THREE.BoxGeometry(13, 0.25, 3.2), jetMat);
+    wings.position.set(0, 1.6, 0);
+
+    const tailFin = new THREE.Mesh(new THREE.BoxGeometry(0.3, 3.0, 2.4), blueMat);
+    tailFin.position.set(0, 3.1, 5.0);
+
+    jetGroup.add(fuselage, nose, wings, tailFin);
+    jetGroup.position.set(cx - 7, 0, cz);
+    this.group.add(jetGroup);
+
+    this.buildingBounds.push({
+      minX: cx - 14,
+      maxX: cx,
+      minZ: cz - 7,
+      maxZ: cz + 7,
+      height: 4.5,
+    });
+  }
+
+  private createStuntStadium(cx: number, cz: number, blockSize: number): void {
+    // 1. Stadium Arena Floor
+    const arenaGeo = new THREE.BoxGeometry(blockSize, 0.35, blockSize);
+    const arenaMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.6 });
+    const arena = new THREE.Mesh(arenaGeo, arenaMat);
+    arena.position.set(cx, 0.17, cz);
+    this.group.add(arena);
+
+    // 2. Mega Launch Ramp
+    const rampMat = new THREE.MeshStandardMaterial({ color: 0xca8a04, roughness: 0.5 });
+    const ramp = new THREE.Mesh(new THREE.BoxGeometry(14, 4.2, 16), rampMat);
+    ramp.position.set(cx, 2.1, cz - 14);
+    ramp.rotation.x = 0.22;
+    ramp.castShadow = true;
+    this.group.add(ramp);
+    this.buildingBounds.push({
+      minX: cx - 7.5,
+      maxX: cx + 7.5,
+      minZ: cz - 22.5,
+      maxZ: cz - 5.5,
+      height: 4.8,
+    });
+
+    // 3. Glowing Speed Booster Pad
+    const boostMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+    const booster = new THREE.Mesh(new THREE.BoxGeometry(8, 0.15, 8), boostMat);
+    booster.position.set(cx, 0.38, cz - 28);
+    this.group.add(booster);
+
+    // 4. Ring of Fire (Hovering Torus downstream of launch ramp)
+    const fireMat = new THREE.MeshBasicMaterial({ color: 0xf97316 });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(4.5, 0.45, 12, 24), fireMat);
+    ring.position.set(cx, 8.0, cz + 6);
+    this.group.add(ring);
+
+    // Ring support pylons
+    const pylonMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.8 });
+    const pylonL = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 12, 8), pylonMat);
+    pylonL.position.set(cx - 5.2, 4.5, cz + 6);
+    const pylonR = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.4, 12, 8), pylonMat);
+    pylonR.position.set(cx + 5.2, 4.5, cz + 6);
+    this.group.add(pylonL, pylonR);
+
+    // 5. Opposing Half-Pipe Ramps on East and West
+    const pipeMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.4 });
+    const pipeWest = new THREE.Mesh(new THREE.BoxGeometry(10, 5.0, 16), pipeMat);
+    pipeWest.position.set(cx - 22, 2.5, cz);
+    pipeWest.rotation.z = -0.3;
+    const pipeEast = new THREE.Mesh(new THREE.BoxGeometry(10, 5.0, 16), pipeMat);
+    pipeEast.position.set(cx + 22, 2.5, cz);
+    pipeEast.rotation.z = 0.3;
+    this.group.add(pipeWest, pipeEast);
+
+    this.buildingBounds.push(
+      { minX: cx - 27.5, maxX: cx - 16.5, minZ: cz - 8.5, maxZ: cz + 8.5, height: 5.5 },
+      { minX: cx + 16.5, maxX: cx + 27.5, minZ: cz - 8.5, maxZ: cz + 8.5, height: 5.5 },
+    );
+
+    // 6. High-Intensity Stadium Floodlight Poles
+    const floodPoleMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7 });
+    const floodLightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const corners = [
+      [-blockSize / 2 + 4, -blockSize / 2 + 4],
+      [blockSize / 2 - 4, -blockSize / 2 + 4],
+      [-blockSize / 2 + 4, blockSize / 2 - 4],
+      [blockSize / 2 - 4, blockSize / 2 - 4],
+    ];
+    corners.forEach(([dx, dz]) => {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 20, 8), floodPoleMat);
+      pole.position.set(cx + dx, 10, cz + dz);
+      const lamp = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.8, 1.6), floodLightMat);
+      lamp.position.set(cx + dx, 20.2, cz + dz);
+      this.group.add(pole, lamp);
+    });
+  }
+
+  private createLighthouseIsland(): void {
+    const islandX = -350;
+    const islandZ = 0;
+
+    // 1. Craggy Rocky Island Base
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x374151, roughness: 0.95 });
+    const rock = new THREE.Mesh(new THREE.CylinderGeometry(24, 28, 4.0, 14), rockMat);
+    rock.position.set(islandX, 1.8, islandZ);
+    rock.receiveShadow = true;
+    this.group.add(rock);
+
+    this.buildingBounds.push({
+      minX: islandX - 25,
+      maxX: islandX + 25,
+      minZ: islandZ - 25,
+      maxZ: islandZ + 25,
+      height: 3.8,
+    });
+
+    // 2. Lighthouse Tower with Alternating Red & White Segments
+    const towerX = islandX - 4;
+    const towerZ = islandZ;
+    const whiteMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.4 });
+    const redMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.4 });
+
+    const s1 = new THREE.Mesh(new THREE.CylinderGeometry(4.2, 4.8, 6.0, 16), whiteMat);
+    s1.position.set(towerX, 6.8, towerZ);
+    const s2 = new THREE.Mesh(new THREE.CylinderGeometry(3.6, 4.2, 6.0, 16), redMat);
+    s2.position.set(towerX, 12.8, towerZ);
+    const s3 = new THREE.Mesh(new THREE.CylinderGeometry(3.0, 3.6, 6.0, 16), whiteMat);
+    s3.position.set(towerX, 18.8, towerZ);
+    const s4 = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 3.0, 6.0, 16), redMat);
+    s4.position.set(towerX, 24.8, towerZ);
+
+    const gallery = new THREE.Mesh(
+      new THREE.CylinderGeometry(3.5, 3.5, 0.6, 16),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b }),
+    );
+    gallery.position.set(towerX, 28.1, towerZ);
+
+    const lantern = new THREE.Mesh(
+      new THREE.CylinderGeometry(2.4, 2.4, 3.0, 16),
+      new THREE.MeshStandardMaterial({
+        color: 0xfef08a,
+        emissive: 0xf59e0b,
+        emissiveIntensity: 0.8,
+        roughness: 0.2,
+      }),
+    );
+    lantern.position.set(towerX, 29.8, towerZ);
+
+    const roof = new THREE.Mesh(
+      new THREE.ConeGeometry(2.8, 2.2, 16),
+      new THREE.MeshStandardMaterial({ color: 0x0f766e }),
+    );
+    roof.position.set(towerX, 32.2, towerZ);
+
+    // Glowing amber Searchlight Beam directed toward the city bay
+    const beam = new THREE.Mesh(
+      new THREE.ConeGeometry(16, 65, 16, 1, true),
+      new THREE.MeshBasicMaterial({
+        color: 0xfef08a,
+        transparent: true,
+        opacity: 0.28,
+        side: THREE.DoubleSide,
+      }),
+    );
+    beam.position.set(towerX + 32, 29.8, towerZ);
+    beam.rotation.z = -Math.PI / 2;
+
+    this.group.add(s1, s2, s3, s4, gallery, lantern, roof, beam);
+
+    this.buildingBounds.push({
+      minX: towerX - 5.0,
+      maxX: towerX + 5.0,
+      minZ: towerZ - 5.0,
+      maxZ: towerZ + 5.0,
+      height: 33.0,
+    });
+
+    // 3. Keeper's Cottage
+    const cottage = new THREE.Mesh(
+      new THREE.BoxGeometry(6.5, 3.5, 5.5),
+      new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.8 }),
+    );
+    cottage.position.set(islandX + 12, 5.2, islandZ - 6);
+    this.group.add(cottage);
+    this.buildingBounds.push({
+      minX: islandX + 12 - 3.5,
+      maxX: islandX + 12 + 3.5,
+      minZ: islandZ - 6 - 3.0,
+      maxZ: islandZ - 6 + 3.0,
+      height: 7.0,
+    });
+
+    // 4. Wooden Pier Dock extending toward the east
+    const dock = new THREE.Mesh(
+      new THREE.BoxGeometry(14, 0.6, 4.5),
+      new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.8 }),
+    );
+    dock.position.set(islandX + 26, 2.0, islandZ);
+    this.group.add(dock);
   }
 }

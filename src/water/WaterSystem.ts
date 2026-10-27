@@ -32,8 +32,8 @@ export class WaterSystem {
     this.group = new THREE.Group();
     this.scene.add(this.group);
 
-    // 1. Vast Western Ocean Bay
-    const waterGeo = new THREE.PlaneGeometry(280, 500, 32, 32);
+    // 1. Vast Western Ocean Bay (expanded for 7x7 city & Lighthouse Island)
+    const waterGeo = new THREE.PlaneGeometry(380, 800, 32, 32);
     waterGeo.rotateX(-Math.PI / 2);
     const waterMat = new THREE.MeshStandardMaterial({
       color: 0x0284c7, // Vibrant Azure
@@ -43,7 +43,7 @@ export class WaterSystem {
       opacity: 0.88,
     });
     this.waterMesh = new THREE.Mesh(waterGeo, waterMat);
-    this.waterMesh.position.set(-200, 0.05, 0);
+    this.waterMesh.position.set(-290, 0.05, 0);
     this.waterMesh.receiveShadow = true;
     this.group.add(this.waterMesh);
 
@@ -51,8 +51,8 @@ export class WaterSystem {
     this.buildMarina();
 
     // 3. Docked Water Vehicles
-    this.speedboat = new Boat(-165, 20, false);
-    this.jetSki = new Boat(-165, -20, true);
+    this.speedboat = new Boat(-195, 20, false);
+    this.jetSki = new Boat(-195, -20, true);
     this.scene.add(this.speedboat.group, this.jetSki.group);
 
     // 4. Sunken Smuggling Crates
@@ -63,7 +63,7 @@ export class WaterSystem {
     const dockGeo = new THREE.BoxGeometry(14, 0.8, 120);
     const dockMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.8 }); // Timber
     const dock = new THREE.Mesh(dockGeo, dockMat);
-    dock.position.set(-155, 0.4, 0);
+    dock.position.set(-185, 0.4, 0);
     dock.castShadow = true;
     dock.receiveShadow = true;
     this.group.add(dock);
@@ -71,9 +71,9 @@ export class WaterSystem {
 
   private spawnCrates(): void {
     const locations = [
-      { x: -190, z: -70, val: 1500 },
-      { x: -230, z: 0, val: 2000 },
-      { x: -210, z: 90, val: 2500 },
+      { x: -240, z: -100, val: 1500 },
+      { x: -290, z: 20, val: 2000 },
+      { x: -330, z: 80, val: 2500 },
     ];
 
     locations.forEach((loc) => {

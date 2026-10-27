@@ -1012,9 +1012,9 @@ export class Game {
         }
       } else if (
         this.car.physics.y < -8.0 ||
-        this.car.physics.x > 310 ||
-        this.car.physics.x < -340 ||
-        Math.abs(this.car.physics.z) > 310
+        this.car.physics.x > 410 ||
+        this.car.physics.x < -450 ||
+        Math.abs(this.car.physics.z) > 410
       ) {
         // Void & Out-of-bounds auto-rescue
         this.car.physics.reset(44, 44, 0);
@@ -1244,9 +1244,9 @@ export class Game {
         }
       } else if (
         this.player.y < -1.5 ||
-        this.player.x > 310 ||
-        this.player.x < -340 ||
-        Math.abs(this.player.z) > 310
+        this.player.x > 410 ||
+        this.player.x < -450 ||
+        Math.abs(this.player.z) > 410
       ) {
         this.player.setPosition(44, 0.25, 44);
         this.player.vy = 0;
@@ -1527,8 +1527,8 @@ export class Game {
     // 3. Helicopter Watchdog
     if (
       this.helicopter.y < -12.0 ||
-      Math.abs(this.helicopter.x) > 380 ||
-      Math.abs(this.helicopter.z) > 380 ||
+      Math.abs(this.helicopter.x) > 480 ||
+      Math.abs(this.helicopter.z) > 480 ||
       Number.isNaN(this.helicopter.x) ||
       Number.isNaN(this.helicopter.z)
     ) {

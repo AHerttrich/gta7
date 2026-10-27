@@ -21,12 +21,12 @@ export class TrainSystem {
   private scene: THREE.Scene;
   private sound: SoundManager;
 
-  // Track Waypoints (Elevated Circuit along Avenue Corridors: x, z = ±132)
+  // Track Waypoints (Elevated Circuit along Outer Avenue Corridors: x, z = ±220)
   private subwayWaypoints = [
-    { x: -132, z: -132 },
-    { x: 132, z: -132 },
-    { x: 132, z: 132 },
-    { x: -132, z: 132 },
+    { x: -220, z: -220 },
+    { x: 220, z: -220 },
+    { x: 220, z: 220 },
+    { x: -220, z: 220 },
   ];
 
   constructor(scene: THREE.Scene, sound: SoundManager) {
@@ -111,7 +111,7 @@ export class TrainSystem {
     const safeDt = Math.max(0, dt);
 
     // 1. Move Elevated Sky-Train along avenue circuit (elevated at y = 8.5m)
-    this.subwayProgress = (this.subwayProgress + (this.subwaySpeed / 528) * safeDt) % 1.0;
+    this.subwayProgress = (this.subwayProgress + (this.subwaySpeed / 1760) * safeDt) % 1.0;
     if (this.subwayProgress < 0) this.subwayProgress += 1.0;
 
     const subIdx = Math.floor(this.subwayProgress * 4) % 4;
@@ -130,10 +130,10 @@ export class TrainSystem {
     this.subwayGroup.rotation.y = subAngle;
 
     // 2. Move Unstoppable Freight Train (East-West Industrial Line along z = -220)
-    this.freightProgress = (this.freightProgress + (this.freightSpeed / 400) * safeDt) % 1.0;
+    this.freightProgress = (this.freightProgress + (this.freightSpeed / 560) * safeDt) % 1.0;
     if (this.freightProgress < 0) this.freightProgress += 1.0;
 
-    const fx = THREE.MathUtils.lerp(-200, 200, this.freightProgress);
+    const fx = THREE.MathUtils.lerp(-280, 280, this.freightProgress);
     const fz = -220;
     this.freightTrainGroup.position.set(fx, 0, fz);
     this.freightTrainGroup.rotation.y = Math.PI / 2;

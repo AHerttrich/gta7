@@ -1506,28 +1506,75 @@ export class HUD {
     const w = this.minimapCanvas.width;
     const h = this.minimapCanvas.height;
     const center = w / 2;
-    const scale = this.isMinimapZoomed ? 0.21 : 0.48;
+    const scale = this.isMinimapZoomed ? 0.16 : 0.38;
 
     ctx.clearRect(0, 0, w, h);
 
     ctx.save();
     ctx.translate(center, center);
 
-    // City grid roads
+    // City grid roads (expanded 7x7 grid)
+    const maxRoad = 308;
     ctx.strokeStyle = '#334155';
-    ctx.lineWidth = 6;
-    for (let x = -200; x <= 200; x += 88) {
+    ctx.lineWidth = 5;
+    for (let x = -maxRoad; x <= maxRoad; x += 88) {
       ctx.beginPath();
-      ctx.moveTo((x - playerX) * scale, (-200 - playerZ) * scale);
-      ctx.lineTo((x - playerX) * scale, (200 - playerZ) * scale);
+      ctx.moveTo((x - playerX) * scale, (-maxRoad - playerZ) * scale);
+      ctx.lineTo((x - playerX) * scale, (maxRoad - playerZ) * scale);
       ctx.stroke();
     }
-    for (let z = -200; z <= 200; z += 88) {
+    for (let z = -maxRoad; z <= maxRoad; z += 88) {
       ctx.beginPath();
-      ctx.moveTo((-200 - playerX) * scale, (z - playerZ) * scale);
-      ctx.lineTo((200 - playerX) * scale, (z - playerZ) * scale);
+      ctx.moveTo((-maxRoad - playerX) * scale, (z - playerZ) * scale);
+      ctx.lineTo((maxRoad - playerX) * scale, (z - playerZ) * scale);
       ctx.stroke();
     }
+
+    // Grand Central Cyber Park (Emerald Green 🌳)
+    const cpx = (0 - playerX) * scale;
+    const cpz = (0 - playerZ) * scale;
+    ctx.fillStyle = '#10b981';
+    ctx.fillRect(cpx - 5, cpz - 5, 10, 10);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🌳', cpx, cpz);
+
+    // GTA 7 Airport (Sky Blue ✈️)
+    const apx = (176 - playerX) * scale;
+    const apz = (0 - playerZ) * scale;
+    ctx.fillStyle = '#0284c7';
+    ctx.fillRect(apx - 6, apz - 6, 12, 12);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('✈️', apx, apz);
+
+    // Stunt Mega Stadium (Amber 🛹)
+    const ssx = (-88 - playerX) * scale;
+    const ssz = (176 - playerZ) * scale;
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillRect(ssx - 5, ssz - 5, 10, 10);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🛹', ssx, ssz);
+
+    // Lighthouse Island in Western Ocean (Crimson 🗼)
+    const lhx = (-350 - playerX) * scale;
+    const lhz = (0 - playerZ) * scale;
+    ctx.fillStyle = '#e11d48';
+    ctx.beginPath();
+    ctx.arc(lhx, lhz, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🗼', lhx, lhz);
 
     // Pay 'n' Spray Garage Icon (Green Square 🟩)
     const gx = (CITY_CONFIG.GARAGE_X - playerX) * scale;

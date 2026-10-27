@@ -34,6 +34,10 @@ export interface Pedestrian {
 export class PedestrianSystem {
   public pedestrians: Pedestrian[] = [];
   public group: THREE.Group;
+  public readonly mapLimit: number =
+    (CITY_CONFIG.GRID_SIZE * (CITY_CONFIG.BLOCK_SIZE + CITY_CONFIG.ROAD_WIDTH)) / 2 - 6.0;
+  public readonly emergencyLimit: number =
+    (CITY_CONFIG.GRID_SIZE * (CITY_CONFIG.BLOCK_SIZE + CITY_CONFIG.ROAD_WIDTH)) / 2 + 11.0;
   private scene: THREE.Scene;
 
   constructor(scene: THREE.Scene) {
@@ -302,8 +306,8 @@ export class PedestrianSystem {
   }
 
   public update(dt: number, carX: number, carZ: number, carSpeed: number, city?: City): void {
-    const MAP_LIMIT = 214.0;
-    const EMERGENCY_LIMIT = 225.0;
+    const MAP_LIMIT = this.mapLimit;
+    const EMERGENCY_LIMIT = this.emergencyLimit;
 
     for (const ped of this.pedestrians) {
       // 0. Emergency rescue watchdog (fell into void, water, or catapulted into space)

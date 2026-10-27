@@ -40,13 +40,16 @@ export const PLAYER_CONFIG = {
 export const CITY_CONFIG = {
   BLOCK_SIZE: 70.0,
   ROAD_WIDTH: 18.0,
-  GRID_SIZE: 5, // 5x5 blocks
+  GRID_SIZE: 7, // 7x7 blocks (expanded city area)
   SIDEWALK_WIDTH: 3.0,
   SIDEWALK_HEIGHT: 0.25,
   GARAGE_X: -44,
   GARAGE_Z: 44,
   RACE_START_X: 44,
   RACE_START_Z: -44,
+  MAX_BOUND_X_POS: 395.0,
+  MAX_BOUND_X_NEG: -435.0,
+  MAX_BOUND_Z: 395.0,
 } as const;
 
 // Camera Presets
