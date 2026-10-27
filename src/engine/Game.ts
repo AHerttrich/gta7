@@ -682,6 +682,7 @@ export class Game {
 
       // Collision with Traffic Cars
       for (const tCar of this.traffic.cars) {
+        if (this.car.physics.isAirborne || this.car.physics.y > 1.8) continue;
         const dx = this.car.physics.x - tCar.x;
         const dz = this.car.physics.z - tCar.z;
         const d = Math.hypot(dx, dz);
@@ -735,6 +736,19 @@ export class Game {
 
       // Police Cruisers Ramming Player Car
       for (const cop of this.police.copCars) {
+        // Vertical 3D altitude check: ground police cruisers cannot ram airborne / jumping / hovering cars
+        const copY = cop.y ?? 0;
+        const dy = Math.abs(this.car.physics.y - copY);
+        const isAirborne =
+          this.car.physics.isAirborne ||
+          this.car.physics.isHoverMode ||
+          this.car.physics.y > this.car.physics.groundY + 0.8;
+
+        if (dy > 1.8 || (isAirborne && dy > 1.2)) {
+          // Cop cruiser passes underneath cleanly while player car is in the air!
+          continue;
+        }
+
         const dx = this.car.physics.x - cop.x;
         const dz = this.car.physics.z - cop.z;
         const d = Math.hypot(dx, dz);
@@ -786,8 +800,8 @@ export class Game {
           this.car.physics.prevZ = this.car.physics.z;
 
           // Keep cop car strictly within playable map boundaries
-          cop.x = Math.max(-330, Math.min(300, cop.x));
-          cop.z = Math.max(-300, Math.min(300, cop.z));
+          cop.x = Math.max(-410, Math.min(380, cop.x));
+          cop.z = Math.max(-380, Math.min(380, cop.z));
 
           const impactSpeed = Math.abs(this.car.physics.speed) + Math.abs(cop.speed);
           if (impactSpeed > 3.0 && this.crashCooldown <= 0) {
@@ -878,6 +892,8 @@ export class Game {
 
       // Check Collision with Pedestrians
       for (const ped of this.pedestrians.pedestrians) {
+        // Vertical check: pedestrians are on sidewalks/roads (ped.y ≈ 0.25); ignore if car is airborne
+        if (Math.abs(this.car.physics.y - ped.y) > 1.8) continue;
         const d = Math.hypot(this.car.physics.x - ped.x, this.car.physics.z - ped.z);
         if (d < 2.0 && Math.abs(this.car.physics.speed) > 4.0 && ped.state === 'WALKING') {
           this.sound.playPedestrianHit();
@@ -898,6 +914,7 @@ export class Game {
           this.car.physics.x,
           this.car.physics.z,
           this.car.physics.speed,
+          this.car.physics.y,
         )
       ) {
         this.sound.playCrash();
@@ -907,17 +924,29 @@ export class Game {
       }
 
       // Police Spike Strip collisions
-      if (this.police.checkSpikeStripCollision(this.car.physics.x, this.car.physics.z)) {
+      if (
+        this.police.checkSpikeStripCollision(
+          this.car.physics.x,
+          this.car.physics.z,
+          this.car.physics.y,
+        )
+      ) {
         this.sound.playCrash(22);
         this.car.physics.blowTires();
       }
 
-      // Police Tactical PIT Maneuver
+      // Police Tactical PIT Maneuver (only applies when car is on ground)
+      const isCarAirborne =
+        this.car.physics.isAirborne ||
+        this.car.physics.isHoverMode ||
+        this.car.physics.y > this.car.physics.groundY + 0.8;
       const pit = this.police.checkPitManeuver(
         this.car.physics.x,
         this.car.physics.z,
         this.car.physics.heading,
         this.car.physics.speed,
+        this.car.physics.y,
+        isCarAirborne,
       );
       if (pit.triggered) {
         this.car.physics.heading += pit.spinDir * 1.6 * dt;
@@ -1177,6 +1206,19 @@ export class Game {
 
       // Police Cruisers Ramming / Running Down Player on Foot
       for (const cop of this.police.copCars) {
+        // Vertical 3D altitude check: ground police cruisers cannot hit player in the air (jetpack, jump, roof)
+        const copY = cop.y ?? 0;
+        const dy = this.player.y - copY;
+        const isAirborne =
+          this.player.y > 1.6 ||
+          this.player.vy > 1.0 ||
+          (this.player.hasJetpack && this.player.y > 1.0);
+
+        if (dy > 1.5 || (isAirborne && dy > 1.0)) {
+          // Cop cruiser passes underneath cleanly while player is airborne / flying / on roof!
+          continue;
+        }
+
         const d = Math.hypot(this.player.x - cop.x, this.player.z - cop.z);
         if (d < 2.5 && Math.abs(cop.speed) > 3.0 && this.crashCooldown <= 0) {
           this.sound.playPedestrianHit();
@@ -1343,6 +1385,7 @@ export class Game {
         this.car.physics.x,
         this.car.physics.z,
         this.car.physics.speed,
+        this.car.physics.y,
       );
     }
     this.traffic.update(dt, playerPos.x, playerPos.z);
@@ -1353,7 +1396,7 @@ export class Game {
       this.mode === 'IN_CAR' ? this.car.physics.speed : 0,
       this.city,
     );
-    this.police.update(dt, playerPos.x, playerPos.z);
+    this.police.update(dt, playerPos.x, playerPos.z, playerPos.y);
     this.sound.updateSiren(this.police.wantedLevel, dt);
     this.economy.update(dt, playerPos.x, playerPos.z);
 

@@ -6,6 +6,7 @@ import { City } from '../city/City';
 export interface CopCar {
   group: THREE.Group;
   x: number;
+  y?: number;
   z: number;
   speed: number;
   heading: number;
@@ -180,6 +181,7 @@ export class PoliceSystem {
     this.copCars.push({
       group: copGroup,
       x: spawnX,
+      y: 0,
       z: spawnZ,
       speed: 0,
       heading: angle,
@@ -394,7 +396,10 @@ export class PoliceSystem {
     this.spikeStrips = [];
   }
 
-  public checkSpikeStripCollision(carX: number, carZ: number): boolean {
+  public checkSpikeStripCollision(carX: number, carZ: number, carY: number = 0): boolean {
+    // Spike strips lie on the road; cannot puncture tires of jumping, hovering, or flying car
+    if (carY > 1.2) return false;
+
     for (const strip of this.spikeStrips) {
       if (strip.isTriggered) continue;
       const dist = Math.hypot(carX - strip.x, carZ - strip.z);
@@ -416,10 +421,17 @@ export class PoliceSystem {
     playerZ: number,
     playerHeading: number,
     speed: number,
+    playerY: number = 0,
+    isAirborne: boolean = false,
   ): { triggered: boolean; spinDir: number } {
+    // Ground cruisers cannot PIT-maneuver a car that is in the air, jumping, or hovering
+    if (isAirborne || playerY > 1.8) return { triggered: false, spinDir: 0 };
     if (Math.abs(speed) < 10.0) return { triggered: false, spinDir: 0 };
 
     for (const cop of this.copCars) {
+      const copY = cop.y ?? 0;
+      if (Math.abs(playerY - copY) > 1.8) continue;
+
       const dx = playerX - cop.x;
       const dz = playerZ - cop.z;
       const dist = Math.hypot(dx, dz);
@@ -441,7 +453,15 @@ export class PoliceSystem {
     return { triggered: false, spinDir: 0 };
   }
 
-  public checkRoadblockCollision(carX: number, carZ: number, speed: number): boolean {
+  public checkRoadblockCollision(
+    carX: number,
+    carZ: number,
+    speed: number,
+    carY: number = 0,
+  ): boolean {
+    // High jump clears roadblocks (height ~1.2m)
+    if (carY > 2.2) return false;
+
     for (const rb of this.roadblocks) {
       if (rb.isSmashed) continue;
       const dist = Math.hypot(carX - rb.x, carZ - rb.z);
@@ -459,7 +479,7 @@ export class PoliceSystem {
     return false;
   }
 
-  public update(dt: number, playerX: number, playerZ: number): void {
+  public update(dt: number, playerX: number, playerZ: number, playerY: number = 0): void {
     if (this.wantedLevel === 0) return;
 
     // Siren lights flash animation
@@ -483,9 +503,11 @@ export class PoliceSystem {
       while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
       cop.heading += Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), 2.5 * dt);
 
-      // Accelerate towards player
+      // Accelerate towards player (only try to ram if player is near ground level)
       const maxCopSpeed = 22 + this.wantedLevel * 4;
-      if (dist > 4) {
+      const copY = cop.y ?? 0;
+      const dy = Math.abs(playerY - copY);
+      if (dist > 4 || dy > 2.2) {
         cop.speed = Math.min(maxCopSpeed, cop.speed + 16 * dt);
       } else {
         // Ram!
@@ -505,23 +527,23 @@ export class PoliceSystem {
         cop.speed *= 0.5;
       }
 
-      // Map boundary containment for cop cruisers
-      if (cop.x > 300) {
-        cop.x = 300;
+      // Map boundary containment for cop cruisers (expanded city grid)
+      if (cop.x > 380) {
+        cop.x = 380;
         cop.heading = -Math.PI / 2;
-      } else if (cop.x < -330) {
-        cop.x = -330;
+      } else if (cop.x < -410) {
+        cop.x = -410;
         cop.heading = Math.PI / 2;
       }
-      if (cop.z > 300) {
-        cop.z = 300;
+      if (cop.z > 380) {
+        cop.z = 380;
         cop.heading = Math.PI;
-      } else if (cop.z < -300) {
-        cop.z = -300;
+      } else if (cop.z < -380) {
+        cop.z = -380;
         cop.heading = 0;
       }
 
-      cop.group.position.set(cop.x, 0, cop.z);
+      cop.group.position.set(cop.x, copY, cop.z);
       cop.group.rotation.y = cop.heading;
     });
 
@@ -543,13 +565,14 @@ export class PoliceSystem {
       heli.z = THREE.MathUtils.lerp(heli.z, desiredZ, dt * 1.5);
       heli.group.position.set(heli.x, heli.y, heli.z);
 
-      // Searchlight tracks player ground location
-      heli.searchlightTarget.position.set(playerX - heli.x, -heli.y, playerZ - heli.z);
+      // Searchlight tracks player 3D location
+      heli.searchlightTarget.position.set(playerX - heli.x, playerY - heli.y, playerZ - heli.z);
     }
 
-    // Cooldown logic when escaping far away (> 90m)
+    // Cooldown logic when escaping far away (> 80m in 3D space)
     const closestDist = this.copCars.reduce((min, cop) => {
-      return Math.min(min, Math.hypot(playerX - cop.x, playerZ - cop.z));
+      const copY = cop.y ?? 0;
+      return Math.min(min, Math.hypot(playerX - cop.x, playerY - copY, playerZ - cop.z));
     }, 9999);
 
     if (closestDist > 80) {

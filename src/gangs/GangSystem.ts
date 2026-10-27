@@ -385,7 +385,13 @@ export class GangSystem {
     return hitAny;
   }
 
-  public checkPlayerCarRamming(carX: number, carZ: number, speed: number): boolean {
+  public checkPlayerCarRamming(
+    carX: number,
+    carZ: number,
+    speed: number,
+    carY: number = 0,
+  ): boolean {
+    if (carY > 2.0) return false;
     if (Math.abs(speed) < 10.0) return false;
 
     // Ramming Bounty Boss
