@@ -492,4 +492,80 @@ export class SoundManager {
     osc.start();
     osc.stop(now + 0.25);
   }
+
+  public playAlienScreech(): void {
+    if (!this.ctx || this.isMuted || this.isSuspended || this.sfxVolume <= 0) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const mod = this.ctx.createOscillator();
+    const modGain = this.ctx.createGain();
+    const gain = this.ctx.createGain();
+
+    // FM modulation for eerie sci-fi alien screech
+    mod.type = 'sawtooth';
+    mod.frequency.setValueAtTime(32, now);
+
+    modGain.gain.setValueAtTime(260, now);
+    modGain.gain.exponentialRampToValueAtTime(10, now + 0.4);
+
+    mod.connect(osc.frequency);
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(860, now);
+    osc.frequency.exponentialRampToValueAtTime(220, now + 0.42);
+
+    gain.gain.setValueAtTime(0.14 * this.sfxVolume, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain || this.ctx.destination);
+
+    mod.start(now);
+    osc.start(now);
+    mod.stop(now + 0.42);
+    osc.stop(now + 0.42);
+  }
+
+  public playPlasmaShot(): void {
+    if (!this.ctx || this.isMuted || this.isSuspended || this.sfxVolume <= 0) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1350, now);
+    osc.frequency.exponentialRampToValueAtTime(220, now + 0.22);
+
+    gain.gain.setValueAtTime(0.12 * this.sfxVolume, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain || this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.22);
+  }
+
+  public playAlienDeath(): void {
+    if (!this.ctx || this.isMuted || this.isSuspended || this.sfxVolume <= 0) return;
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(420, now);
+    osc.frequency.exponentialRampToValueAtTime(40, now + 0.35);
+
+    gain.gain.setValueAtTime(0.18 * this.sfxVolume, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain || this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.35);
+  }
 }

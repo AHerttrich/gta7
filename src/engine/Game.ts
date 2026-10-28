@@ -33,6 +33,7 @@ import { eventBus } from '../utils/EventBus';
 import { GangSystem } from '../gangs/GangSystem';
 import { SkidmarkSystem } from '../vehicles/SkidmarkSystem';
 import { PortalSystem } from '../world/PortalSystem';
+import { AlienSystem } from '../world/AlienSystem';
 import { InteriorSystem } from '../interiors/InteriorSystem';
 
 export type PlayerMode = 'IN_CAR' | 'ON_FOOT' | 'IN_HELI' | 'IN_TANK' | 'IN_BOAT';
@@ -58,6 +59,7 @@ export class Game {
   public radio: RadioSystem;
   public hud: HUD;
   public portal: PortalSystem;
+  public aliens: AlienSystem;
   public interiors: InteriorSystem;
 
   // Master Expansion Subsystems (Phases 13-20)
@@ -140,6 +142,9 @@ export class Game {
     this.story = new StorySystem(this.economy, this.sound);
     this.stuntEditor = new StuntEditor(this.renderer.scene, this.sound);
     this.portal = new PortalSystem(this.renderer.scene, this.economy, this.sound);
+    this.aliens = new AlienSystem(this.renderer.scene, this.economy, this.sound);
+    this.weapons.setAlienSystem(this.aliens);
+    this.aliens.setDimensionVisibility(false);
     this.interiors = new InteriorSystem(this.renderer.scene);
 
     // Multiplayer initialization
@@ -484,12 +489,12 @@ export class Game {
 
       if (this.mode === 'IN_CAR') {
         originX = this.car.physics.x + Math.sin(this.car.physics.heading) * 1.5;
-        originY = 1.0;
+        originY = this.car.physics.y + 0.5;
         originZ = this.car.physics.z + Math.cos(this.car.physics.heading) * 1.5;
         heading = this.car.physics.heading;
       } else {
         originX = this.player.x + Math.sin(this.player.rotationY) * 0.6;
-        originY = 1.4;
+        originY = this.player.y + 1.2;
         originZ = this.player.z + Math.cos(this.player.rotationY) * 0.6;
         heading = this.player.rotationY;
       }
@@ -1496,6 +1501,7 @@ export class Game {
       }
 
       this.renderer.setDimension(warpCheck.targetDimension);
+      this.aliens.setDimensionVisibility(warpCheck.targetDimension === 'OTHER_WORLD');
 
       if (warpCheck.targetDimension === 'OTHER_WORLD') {
         this.sound.playMoonLanding();
@@ -1505,7 +1511,7 @@ export class Game {
           '🌕 DIMENSIONSSPRUNG: Willkommen auf dem Mond! (Mondbasis Alpha)',
         );
         this.hud.setPrompt(
-          '👨‍🚀 1/6g Mond-Schwerkraft aktiv! Erkunde Apollo 11, Mondkrater & die Erde am Himmel!',
+          '👨‍🚀 1/6g Mond-Schwerkraft aktiv! VORSICHT: Feindliche Aliens & UFOs greifen an!',
         );
       } else {
         this.player.lowGravity = false;
@@ -1531,6 +1537,35 @@ export class Game {
           this.car.repair();
           this.hud.showNotification('🐉 SHENLONG BESCHWOREN! +100.000$ & SUPER SAIYAJIN POWER!');
         }
+      }
+
+      // Update Alien Attack System on the Moon
+      this.aliens.update(
+        dt,
+        playerPos.x,
+        playerPos.y,
+        playerPos.z,
+        this.mode,
+        this.player,
+        this.car,
+        this.hud,
+      );
+
+      // Vehicle ramming aliens on the Moon
+      if (this.mode === 'IN_CAR') {
+        this.aliens.checkCarRamming(
+          this.car.physics.x,
+          this.car.physics.y,
+          this.car.physics.z,
+          this.car.physics.speed,
+        );
+      } else if (this.mode === 'IN_TANK' && this.activeTank) {
+        this.aliens.checkCarRamming(
+          this.activeTank.x,
+          this.activeTank.y,
+          this.activeTank.z,
+          this.activeTank.speed,
+        );
       }
     }
 
@@ -1686,6 +1721,8 @@ export class Game {
               : this.player.rotationY;
     const copPositions = this.police.copCars.map((c) => ({ x: c.x, z: c.z }));
     const trafficPositions = this.traffic.cars.map((c) => ({ x: c.x, z: c.z }));
+    const alienBlips =
+      this.portal.currentDimension === 'OTHER_WORLD' ? this.aliens.getLivingAlienBlips() : [];
     this.hud.updateMinimap(
       playerPos.x,
       playerPos.z,
@@ -1694,6 +1731,7 @@ export class Game {
       trafficPositions,
       activeTarget,
       remotePos,
+      alienBlips,
     );
   }
 

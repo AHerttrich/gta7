@@ -1501,6 +1501,7 @@ export class HUD {
     trafficCars: { x: number; z: number }[] = [],
     activeTarget: { x: number; z: number; color?: string } | null = null,
     remotePeer: { x: number; z: number } | null = null,
+    alienBlips: { x: number; z: number; isUfo?: boolean }[] = [],
   ): void {
     const ctx = this.minimapCtx;
     const w = this.minimapCanvas.width;
@@ -1622,6 +1623,26 @@ export class HUD {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('🌀', rpx, rpz);
+
+      // Lunar Alien Threat Blips (Xenomorphs 👽 & Scout UFOs 🛸)
+      alienBlips.forEach((alien) => {
+        const ax = (alien.x - playerX) * scale;
+        const az = (alien.z - playerZ) * scale;
+
+        ctx.fillStyle = alien.isUfo ? '#06b6d4' : '#22c55e';
+        ctx.beginPath();
+        ctx.arc(ax, az, alien.isUfo ? 4.5 : 3.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = alien.isUfo ? '#38bdf8' : '#a855f7';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.font = '8px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(alien.isUfo ? '🛸' : '👽', ax, az - 5);
+      });
     } else {
       // City grid roads (expanded 7x7 grid)
       const maxRoad = 308;

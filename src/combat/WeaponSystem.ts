@@ -5,6 +5,7 @@ import { PoliceSystem } from '../police/PoliceSystem';
 import { PedestrianSystem } from '../pedestrians/PedestrianSystem';
 import { SoundManager } from '../audio/SoundManager';
 import { GangSystem } from '../gangs/GangSystem';
+import { AlienSystem } from '../world/AlienSystem';
 import { eventBus } from '../utils/EventBus';
 import { EVENTS } from '../utils/Constants';
 
@@ -43,6 +44,7 @@ export class WeaponSystem {
   private police: PoliceSystem;
   private pedestrians: PedestrianSystem;
   private gangs: GangSystem | null = null;
+  private aliens: AlienSystem | null = null;
 
   private bulletGeo: THREE.SphereGeometry;
   private bulletMat: THREE.MeshBasicMaterial;
@@ -76,6 +78,10 @@ export class WeaponSystem {
 
   public setGangSystem(gangs: GangSystem): void {
     this.gangs = gangs;
+  }
+
+  public setAlienSystem(aliens: AlienSystem): void {
+    this.aliens = aliens;
   }
 
   public fire(
@@ -120,6 +126,11 @@ export class WeaponSystem {
       // Hit gang cars or bounty boss
       if (this.gangs) {
         this.gangs.takeWeaponDamage(targetX, targetZ, weapon.damage, 2.5);
+      }
+
+      // Hit aliens on the moon
+      if (this.aliens) {
+        this.aliens.takeWeaponDamage(targetX, originY, targetZ, weapon.damage, 2.5);
       }
       return true;
     }
@@ -217,6 +228,10 @@ export class WeaponSystem {
     if (this.gangs) {
       this.gangs.takeWeaponDamage(x, z, 220, maxRadius);
     }
+
+    if (this.aliens) {
+      this.aliens.takeWeaponDamage(x, y, z, 220, maxRadius);
+    }
   }
 
   public update(dt: number): void {
@@ -268,6 +283,13 @@ export class WeaponSystem {
       // Hit gang cars or bounty boss
       if (!hasHit && this.gangs) {
         if (this.gangs.takeWeaponDamage(p.x, p.z, p.damage, 1.8)) {
+          hasHit = true;
+        }
+      }
+
+      // Hit aliens on the moon
+      if (!hasHit && this.aliens) {
+        if (this.aliens.takeWeaponDamage(p.x, p.y, p.z, p.damage, 2.2)) {
           hasHit = true;
         }
       }
