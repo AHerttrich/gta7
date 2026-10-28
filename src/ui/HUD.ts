@@ -530,6 +530,7 @@ export class HUD {
         <button class="hud-quick-btn" id="m-btn-radio" style="border-color:#a855f7;color:#a855f7;">📻 RADIO</button>
         <button class="hud-quick-btn" id="m-btn-hover" style="border-color:#06b6d4;color:#06b6d4;">🚀 HOVER</button>
         <button class="hud-quick-btn" id="m-btn-jetpack" style="border-color:#38bdf8;color:#38bdf8;">🚀 JETPACK</button>
+        <button class="hud-quick-btn" id="m-btn-house" style="border-color:#f59e0b;color:#f59e0b;">👑 HAUS</button>
         <button class="hud-quick-btn" id="m-btn-casino" style="border-color:#facc15;color:#facc15;">🎰 CASINO</button>
         <button class="hud-quick-btn" id="m-btn-build" style="border-color:#f97316;color:#f97316;">🏗️ BAUEN</button>
         <button class="hud-quick-btn" id="m-btn-time" style="border-color:#f59e0b;color:#f59e0b;">☀️ ZEIT</button>
@@ -545,7 +546,7 @@ export class HUD {
 
       <div class="hud-controls-helper">
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>: Fahren / Laufen / Fliegen</div>
-        <div><kbd>V</kbd> / <kbd>X</kbd>: DeLorean Flug | <kbd>J</kbd>: Jetpack 🚀</div>
+        <div><kbd>V</kbd> / <kbd>X</kbd>: DeLorean Flug | <kbd>J</kbd>: Jetpack 🚀 | <kbd>H</kbd>: Eigenes Haus 👑</div>
         <div><kbd>E</kbd>: Einsteigen | <kbd>Tab</kbd>: Stunt-Editor 🏗️ | <kbd>C</kbd>: Cockpit 🥽</div>
         <div><kbd>Esc</kbd>: Optionen & Pause ⚙️ | Controller (Gamepad) unterstützt 🎮</div>
         <div><kbd>L</kbd>: Tag/Nacht ☀️🌙 | <kbd>K</kbd>: Wetter 🌧️⚡</div>
@@ -852,6 +853,9 @@ export class HUD {
     });
     document.getElementById('m-btn-jetpack')?.addEventListener('click', () => {
       if (this.input) this.input.justPressed['j'] = true;
+    });
+    document.getElementById('m-btn-house')?.addEventListener('click', () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'h' }));
     });
     document.getElementById('m-btn-casino')?.addEventListener('click', () => {
       this.toggleCasino();
@@ -1761,6 +1765,22 @@ export class HUD {
         ctx.textBaseline = 'middle';
         ctx.fillText(b.icon, bx, bz);
       });
+
+      // Player's Own Luxury Villa ("Dein Eigenes Haus" 👑)
+      const vhx = (-176 - playerX) * scale;
+      const vhz = (-172 - playerZ) * scale;
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.arc(vhx, vhz, 6.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('👑', vhx, vhz);
     }
 
     // Active Mission Target

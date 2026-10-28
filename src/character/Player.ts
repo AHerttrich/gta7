@@ -15,13 +15,27 @@ export class Player {
     this.health = Math.max(0, this.health - amount);
   }
 
+  public setOutfit(torsoColor: number, legColor: number): void {
+    if (this.torsoMesh && this.torsoMesh.material instanceof THREE.MeshStandardMaterial) {
+      this.torsoMesh.material.color.setHex(torsoColor);
+    }
+    if (this.leftLeg && this.leftLeg.material instanceof THREE.MeshStandardMaterial) {
+      this.leftLeg.material.color.setHex(legColor);
+    }
+    if (this.rightLeg && this.rightLeg.material instanceof THREE.MeshStandardMaterial) {
+      this.rightLeg.material.color.setHex(legColor);
+    }
+  }
+
   // Cyber Jetpack (Phase 13)
   public hasJetpack: boolean = false;
   public isJetpacking: boolean = false;
   public jetpackFuel: number = 100;
   public vy: number = 0;
   public lowGravity: boolean = false;
+  public speedMultiplier: number = 1.0;
 
+  private torsoMesh!: THREE.Mesh;
   private leftLeg!: THREE.Mesh;
   private rightLeg!: THREE.Mesh;
   private leftArm!: THREE.Mesh;
@@ -49,6 +63,7 @@ export class Player {
     const torso = new THREE.Mesh(torsoGeo, torsoMat);
     torso.position.y = 1.35;
     torso.castShadow = true;
+    this.torsoMesh = torso;
     this.group.add(torso);
 
     // 2. Head & Cap
@@ -195,7 +210,8 @@ export class Player {
     const isMoving = moveDir !== 0;
 
     if (isMoving) {
-      const baseSpeed = input.sprint ? PLAYER_CONFIG.RUN_SPEED : PLAYER_CONFIG.WALK_SPEED;
+      const baseSpeed =
+        (input.sprint ? PLAYER_CONFIG.RUN_SPEED : PLAYER_CONFIG.WALK_SPEED) * this.speedMultiplier;
       const speed = moveDir * baseSpeed * dt;
 
       // Translate forward/backward along player's current facing heading

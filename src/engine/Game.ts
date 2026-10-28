@@ -35,6 +35,7 @@ import { SkidmarkSystem } from '../vehicles/SkidmarkSystem';
 import { PortalSystem } from '../world/PortalSystem';
 import { AlienSystem } from '../world/AlienSystem';
 import { InteriorSystem } from '../interiors/InteriorSystem';
+import { PlayerHouseSystem } from '../housing/PlayerHouseSystem';
 
 export type PlayerMode = 'IN_CAR' | 'ON_FOOT' | 'IN_HELI' | 'IN_TANK' | 'IN_BOAT';
 
@@ -61,6 +62,7 @@ export class Game {
   public portal: PortalSystem;
   public aliens: AlienSystem;
   public interiors: InteriorSystem;
+  public playerHouse: PlayerHouseSystem;
 
   // Master Expansion Subsystems (Phases 13-20)
   public military: MilitarySystem;
@@ -146,6 +148,7 @@ export class Game {
     this.weapons.setAlienSystem(this.aliens);
     this.aliens.setDimensionVisibility(false);
     this.interiors = new InteriorSystem(this.renderer.scene);
+    this.playerHouse = new PlayerHouseSystem();
 
     // Multiplayer initialization
     this.network = new NetworkManager();
@@ -183,6 +186,15 @@ export class Game {
           active
             ? '🚀 CYBER-JETPACK AKTIV! [Leertaste] Steigen — Tank lädt am Boden nach!'
             : '🚀 Jetpack abgelegt.',
+        );
+      } else if (e.key === 'h' || e.key === 'H') {
+        this.playerHouse.handleHomeKey(
+          this.player,
+          this.mode === 'IN_CAR' ? this.car : null,
+          this.mode,
+          this.hud,
+          this.sound,
+          this.camera,
         );
       } else if (this.stuntEditor.isBuildMode) {
         const x = this.mode === 'IN_CAR' ? this.car.physics.x : this.player.x;
@@ -1421,6 +1433,14 @@ export class Game {
     }
 
     // 4. Update Subsystems
+    this.playerHouse.update(
+      dt,
+      this.player,
+      this.mode === 'IN_CAR' ? this.car : null,
+      this.mode,
+      this.hud,
+      this.sound,
+    );
     this.weapons.update(dt);
     this.missions.update(dt, playerPos.x, playerPos.z, this.mode === 'IN_CAR');
     this.gangs.update(dt, playerPos.x, playerPos.z, this.mode === 'IN_CAR');

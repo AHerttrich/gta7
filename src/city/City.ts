@@ -142,6 +142,12 @@ export class City {
         this.group.add(sidewalkMesh);
 
         // Special Handcrafted Landmark POIs
+        if (i === 1 && j === 1) {
+          // Player's Own Luxury Villa Estate ("Dein Eigenes Haus") at Block [1, 1] (Center: x=-176, z=-176)
+          this.createPlayerVillaEstate(blockCenterX, blockCenterZ, BLOCK_SIZE);
+          continue;
+        }
+
         if (i === 3 && j === 3) {
           // Grand Central Cyber Park at Block [3, 3] (Center: x=0, z=0)
           this.createCentralPark(blockCenterX, blockCenterZ, BLOCK_SIZE);
@@ -1084,5 +1090,237 @@ export class City {
     );
     dock.position.set(islandX + 26, 2.0, islandZ);
     this.group.add(dock);
+  }
+
+  private createPlayerVillaEstate(cx: number, cz: number, blockSize: number): void {
+    // 1. Manicured Estate Lawn Foundation
+    const lawnGeo = new THREE.BoxGeometry(blockSize - 1.0, 0.28, blockSize - 1.0);
+    const lawnMat = new THREE.MeshStandardMaterial({
+      color: 0x15803d, // Pristine emerald lawn
+      roughness: 0.85,
+    });
+    const lawn = new THREE.Mesh(lawnGeo, lawnMat);
+    lawn.position.set(cx, 0.14, cz);
+    lawn.receiveShadow = true;
+    this.group.add(lawn);
+
+    // 2. Private Paved Driveway leading to the Villa and Parking spot
+    const driveGeo = new THREE.BoxGeometry(12, 0.32, 34);
+    const driveMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.7,
+      metalness: 0.2,
+    });
+    const driveway = new THREE.Mesh(driveGeo, driveMat);
+    driveway.position.set(cx - 5, 0.16, cz + 15);
+    driveway.receiveShadow = true;
+    this.group.add(driveway);
+
+    // Driveway Entry Gateposts with golden lamps
+    const gatepostMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3 });
+    const lampMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+    const postL = new THREE.Mesh(new THREE.BoxGeometry(1.2, 3.2, 1.2), gatepostMat);
+    postL.position.set(cx - 11.5, 1.6, cz + 31);
+    const lampL = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), lampMat);
+    lampL.position.set(cx - 11.5, 3.4, cz + 31);
+
+    const postR = new THREE.Mesh(new THREE.BoxGeometry(1.2, 3.2, 1.2), gatepostMat);
+    postR.position.set(cx + 1.5, 1.6, cz + 31);
+    const lampR = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), lampMat);
+    lampR.position.set(cx + 1.5, 3.4, cz + 31);
+    this.group.add(postL, lampL, postR, lampR);
+
+    // 3. Driveway Parking Spot (PARKPLATZ - Auto-Reparatur & Nitro) at (cx - 11, cz + 14) -> (-187, -162)
+    const parkX = cx - 11;
+    const parkZ = cz + 14;
+    const parkStall = new THREE.Mesh(
+      new THREE.BoxGeometry(4.8, 0.05, 8.0),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6 }),
+    );
+    parkStall.position.set(parkX, 0.19, parkZ);
+
+    // Yellow stall perimeter lines
+    const lineMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+    const lineL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.06, 8.0), lineMat);
+    lineL.position.set(parkX - 2.3, 0.2, parkZ);
+    const lineR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.06, 8.0), lineMat);
+    lineR.position.set(parkX + 2.3, 0.2, parkZ);
+    const lineTop = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.06, 0.15), lineMat);
+    lineTop.position.set(parkX, 0.2, parkZ - 3.9);
+
+    // Parking Sign
+    const signMat = new THREE.MeshStandardMaterial({ color: 0x22c55e, roughness: 0.3 });
+    const parkSignPole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.08, 0.08, 2.2, 8),
+      new THREE.MeshStandardMaterial({ color: 0x94a3b8 }),
+    );
+    parkSignPole.position.set(parkX - 2.8, 1.1, parkZ - 3.5);
+    const parkSignBoard = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.0, 0.1), signMat);
+    parkSignBoard.position.set(parkX - 2.8, 2.1, parkZ - 3.5);
+
+    this.group.add(parkStall, lineL, lineR, lineTop, parkSignPole, parkSignBoard);
+
+    // 4. Luxury Two-Story Villa Architecture
+    const villaMat = new THREE.MeshStandardMaterial({
+      color: 0xf8fafc,
+      roughness: 0.2,
+      metalness: 0.1,
+    });
+    const slateMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.4,
+      metalness: 0.5,
+    });
+    const glassMat = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      roughness: 0.1,
+      metalness: 0.9,
+      transparent: true,
+      opacity: 0.65,
+    });
+
+    // Ground Floor: 26m wide x 5.2m high x 20m deep
+    const groundFloor = new THREE.Mesh(new THREE.BoxGeometry(26, 5.2, 20), villaMat);
+    groundFloor.position.set(cx, 2.6, cz - 8);
+    groundFloor.castShadow = true;
+    groundFloor.receiveShadow = true;
+
+    // Ground Floor Panoramic Windows
+    const frontWindow = new THREE.Mesh(new THREE.BoxGeometry(16, 3.2, 0.2), glassMat);
+    frontWindow.position.set(cx + 4, 2.6, cz + 2.05);
+
+    // Second Floor (Penthouse Floor with charcoal slate accent)
+    const upperFloor = new THREE.Mesh(new THREE.BoxGeometry(22, 4.4, 16), slateMat);
+    upperFloor.position.set(cx, 7.4, cz - 8);
+    upperFloor.castShadow = true;
+    upperFloor.receiveShadow = true;
+
+    // Balcony Glass Railing
+    const balconyGlass = new THREE.Mesh(new THREE.BoxGeometry(22.4, 1.0, 16.4), glassMat);
+    balconyGlass.position.set(cx, 9.8, cz - 8);
+
+    // Rooftop Helipad Circle & "H" Marking
+    const heliMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
+    const heliPad = new THREE.Mesh(new THREE.CylinderGeometry(5.0, 5.0, 0.15, 24), heliMat);
+    heliPad.position.set(cx, 9.7, cz - 8);
+
+    const hRingMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+    const hRing = new THREE.Mesh(new THREE.RingGeometry(4.4, 4.8, 24), hRingMat);
+    hRing.rotation.x = -Math.PI / 2;
+    hRing.position.set(cx, 9.8, cz - 8);
+
+    const hBar1 = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.1, 4.2), hRingMat);
+    hBar1.position.set(cx - 1.4, 9.8, cz - 8);
+    const hBar2 = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.1, 4.2), hRingMat);
+    hBar2.position.set(cx + 1.4, 9.8, cz - 8);
+    const hBarCross = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.1, 0.6), hRingMat);
+    hBarCross.position.set(cx, 9.8, cz - 8);
+
+    // Helipad Corner Warning Lights
+    const beaconMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+    const b1 = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), beaconMat);
+    b1.position.set(cx - 4.5, 9.9, cz - 12.5);
+    const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), beaconMat);
+    b2.position.set(cx + 4.5, 9.9, cz - 12.5);
+    const b3 = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), beaconMat);
+    b3.position.set(cx - 4.5, 9.9, cz - 1.5);
+    const b4 = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), beaconMat);
+    b4.position.set(cx + 4.5, 9.9, cz - 1.5);
+
+    // Front Canopy / Portico Over Entrance Door
+    const portico = new THREE.Mesh(new THREE.BoxGeometry(8.0, 0.4, 4.0), slateMat);
+    portico.position.set(cx, 4.6, cz + 3.8);
+
+    const porticoSign = new THREE.Mesh(
+      new THREE.BoxGeometry(7.2, 0.7, 0.2),
+      new THREE.MeshStandardMaterial({
+        color: 0xca8a04,
+        emissive: 0xf59e0b,
+        emissiveIntensity: 0.5,
+      }),
+    );
+    porticoSign.position.set(cx, 5.2, cz + 4.2);
+
+    this.group.add(
+      groundFloor,
+      frontWindow,
+      upperFloor,
+      balconyGlass,
+      heliPad,
+      hRing,
+      hBar1,
+      hBar2,
+      hBarCross,
+      b1,
+      b2,
+      b3,
+      b4,
+      portico,
+      porticoSign,
+    );
+
+    // Villa physical collision boundary
+    this.buildingBounds.push({
+      minX: cx - 13.5,
+      maxX: cx + 13.5,
+      minZ: cz - 18.5,
+      maxZ: cz + 2.5,
+      height: 10.0,
+    });
+
+    // 5. Eastern Luxury Swimming Pool & Sundeck
+    const poolDeckX = cx + 18;
+    const poolDeckZ = cz + 8;
+    const deckMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.4 });
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(13.0, 0.35, 18.0), deckMat);
+    deck.position.set(poolDeckX, 0.18, poolDeckZ);
+
+    const poolWaterMat = new THREE.MeshStandardMaterial({
+      color: 0x06b6d4,
+      roughness: 0.05,
+      metalness: 0.85,
+      transparent: true,
+      opacity: 0.85,
+    });
+    const poolWater = new THREE.Mesh(new THREE.BoxGeometry(10.0, 0.3, 15.0), poolWaterMat);
+    poolWater.position.set(poolDeckX, 0.24, poolDeckZ);
+
+    // Sun Loungers / Deckchairs
+    const loungerMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    const lounger1 = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.4, 2.8), loungerMat);
+    lounger1.position.set(poolDeckX - 3.5, 0.4, poolDeckZ - 4.5);
+    const lounger2 = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.4, 2.8), loungerMat);
+    lounger2.position.set(poolDeckX - 1.5, 0.4, poolDeckZ - 4.5);
+
+    // Parasol / Umbrella
+    const poleMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8 });
+    const umbrellaPole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 3.0, 8), poleMat);
+    umbrellaPole.position.set(poolDeckX - 4.5, 1.5, poolDeckZ - 4.5);
+    const umbrellaMat = new THREE.MeshStandardMaterial({ color: 0x0284c7 });
+    const umbrellaCone = new THREE.Mesh(new THREE.ConeGeometry(2.0, 0.8, 12), umbrellaMat);
+    umbrellaCone.position.set(poolDeckX - 4.5, 2.9, poolDeckZ - 4.5);
+
+    this.group.add(deck, poolWater, lounger1, lounger2, umbrellaPole, umbrellaCone);
+
+    // 6. Royal Palm Trees at Villa Estate Corners
+    const palmPositions = [
+      { x: cx - 26, z: cz - 26 },
+      { x: cx + 26, z: cz - 26 },
+      { x: cx - 26, z: cz + 26 },
+      { x: cx + 26, z: cz + 26 },
+    ];
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 });
+    const frondMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.6 });
+
+    palmPositions.forEach((pos) => {
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.45, 7.5, 8), trunkMat);
+      trunk.position.set(pos.x, 3.75, pos.z);
+      trunk.rotation.z = (Math.random() - 0.5) * 0.15;
+
+      const fronds = new THREE.Mesh(new THREE.ConeGeometry(3.6, 2.2, 8), frondMat);
+      fronds.position.set(pos.x, 7.8, pos.z);
+
+      this.group.add(trunk, fronds);
+    });
   }
 }

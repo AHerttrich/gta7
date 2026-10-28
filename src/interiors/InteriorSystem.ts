@@ -65,6 +65,7 @@ export class InteriorSystem {
   private danceFloorTiles: THREE.Mesh[] = [];
   private djBars: THREE.Mesh[] = [];
   private hackerLeds: THREE.PointLight[] = [];
+  private houseOutfitIndex: number = 0;
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -310,6 +311,32 @@ export class InteriorSystem {
 
         const blockCenterX = -halfSize + i * step + step / 2;
         const blockCenterZ = -halfSize + j * step + step / 2;
+
+        if (i === 1 && j === 1) {
+          // Player's Own Luxury Villa Estate ("Dein Eigenes Haus") at Block [1, 1]
+          const villaDoorGroup = this.createDoorGroup(-176, -172, 0, 0xf59e0b);
+          this.doors.push({
+            id: 'player_villa',
+            name: '👑 Dein Eigenes Haus (Villa de GTA 7)',
+            subtitle: 'Luxus-Villa, Safe, Kleiderschrank & Cyber-Hund Bolt',
+            icon: '👑',
+            exteriorX: -176,
+            exteriorZ: -172,
+            exteriorHeading: 0,
+            doorGroup: villaDoorGroup,
+            archetypeId: 'player_house',
+            interiorSpawn: { x: 5600, y: 100.0, z: 3992, heading: 0 },
+            bounds: {
+              minX: 5580,
+              maxX: 5620,
+              minZ: 3980,
+              maxZ: 4020,
+              floorY: 100.0,
+              ceilingY: 106.0,
+            },
+          });
+          continue;
+        }
 
         if (i === 5 && j === 3) {
           // Airport Terminal Door
@@ -591,6 +618,7 @@ export class InteriorSystem {
     this.buildLighthouseCabin();
     this.buildAirportLounge();
     this.buildStadiumLounge();
+    this.buildPlayerHouse();
   }
 
   private buildPenthouse(): void {
@@ -1489,6 +1517,424 @@ export class InteriorSystem {
           economy.addCash(300);
           sound.playFanfare();
           hud.showNotification('🏆 STADION-VIP: Stunt-Legende! +300$ Ruhmes-Prämie!');
+        },
+      },
+    ]);
+  }
+
+  private buildPlayerHouse(): void {
+    const cx = 5600;
+    const cy = 100.0;
+    const cz = 4000;
+    const houseGroup = new THREE.Group();
+
+    // 1. Luxury Architectural Room Shell (36m x 32m x 5.2m)
+    // Black polished marble floor with gold metallic reflections
+    const floor = new THREE.Mesh(
+      new THREE.BoxGeometry(36, 0.3, 32),
+      new THREE.MeshStandardMaterial({ color: 0x0a0a12, roughness: 0.15, metalness: 0.75 }),
+    );
+    floor.position.set(cx, cy - 0.15, cz);
+
+    // Modern acoustic coffered ceiling
+    const ceiling = new THREE.Mesh(
+      new THREE.BoxGeometry(36, 0.3, 32),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.85 }),
+    );
+    ceiling.position.set(cx, cy + 5.2, cz);
+    houseGroup.add(floor, ceiling);
+
+    // Luxury Slate and Walnut Acoustic Walls
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.65 });
+    const wallN = new THREE.Mesh(new THREE.BoxGeometry(36, 5.2, 0.4), wallMat);
+    wallN.position.set(cx, cy + 2.6, cz - 16);
+    const wallS = new THREE.Mesh(new THREE.BoxGeometry(36, 5.2, 0.4), wallMat);
+    wallS.position.set(cx, cy + 2.6, cz + 16);
+    const wallE = new THREE.Mesh(new THREE.BoxGeometry(0.4, 5.2, 32), wallMat);
+    wallE.position.set(cx + 18, cy + 2.6, cz);
+    const wallW = new THREE.Mesh(new THREE.BoxGeometry(0.4, 5.2, 32), wallMat);
+    wallW.position.set(cx - 18, cy + 2.6, cz);
+    houseGroup.add(wallN, wallS, wallE, wallW);
+
+    // Front Exit Door
+    const exitDoor = new THREE.Mesh(
+      new THREE.BoxGeometry(2.4, 3.2, 0.2),
+      new THREE.MeshStandardMaterial({
+        color: 0xf59e0b,
+        emissive: 0xd97706,
+        emissiveIntensity: 0.4,
+      }),
+    );
+    exitDoor.position.set(cx, cy + 1.6, cz - 15.8);
+    houseGroup.add(exitDoor);
+
+    // Central Warm Crystal Chandelier
+    const chandelier = new THREE.PointLight(0xfef08a, 3.5, 32);
+    chandelier.position.set(cx, cy + 4.8, cz);
+    houseGroup.add(chandelier);
+
+    // 2. Master Bedroom Suite (cx + 10, cz + 8)
+    const bedFrame = new THREE.Mesh(
+      new THREE.BoxGeometry(5.2, 0.7, 6.2),
+      new THREE.MeshStandardMaterial({ color: 0x1e1b18, roughness: 0.5 }),
+    );
+    bedFrame.position.set(cx + 10, cy + 0.35, cz + 8);
+
+    const mattress = new THREE.Mesh(
+      new THREE.BoxGeometry(4.8, 0.5, 5.8),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 }),
+    );
+    mattress.position.set(cx + 10, cy + 0.8, cz + 8);
+
+    const headboard = new THREE.Mesh(
+      new THREE.BoxGeometry(5.4, 2.6, 0.4),
+      new THREE.MeshStandardMaterial({
+        color: 0xca8a04,
+        emissive: 0x78350f,
+        emissiveIntensity: 0.3,
+      }),
+    );
+    headboard.position.set(cx + 10, cy + 1.5, cz + 11.0);
+
+    const pillowL = new THREE.Mesh(
+      new THREE.BoxGeometry(1.6, 0.25, 1.0),
+      new THREE.MeshStandardMaterial({ color: 0xf8fafc }),
+    );
+    pillowL.position.set(cx + 8.5, cy + 1.15, cz + 10.0);
+    const pillowR = new THREE.Mesh(
+      new THREE.BoxGeometry(1.6, 0.25, 1.0),
+      new THREE.MeshStandardMaterial({ color: 0xf8fafc }),
+    );
+    pillowR.position.set(cx + 11.5, cy + 1.15, cz + 10.0);
+
+    houseGroup.add(bedFrame, mattress, headboard, pillowL, pillowR);
+
+    // 3. Walk-in Wardrobe & Dressing Mirror (cx + 12, cz - 6)
+    const wardrobe = new THREE.Mesh(
+      new THREE.BoxGeometry(4.2, 3.6, 1.2),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4 }),
+    );
+    wardrobe.position.set(cx + 12, cy + 1.8, cz - 6);
+
+    const mirror = new THREE.Mesh(
+      new THREE.BoxGeometry(1.6, 2.8, 0.08),
+      new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.05, metalness: 0.95 }),
+    );
+    mirror.position.set(cx + 12, cy + 1.8, cz - 5.35);
+
+    houseGroup.add(wardrobe, mirror);
+
+    // 4. Personal Armory & Ammo Bench (cx + 10, cz + 1)
+    const armoryRack = new THREE.Mesh(
+      new THREE.BoxGeometry(4.4, 3.0, 0.8),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5, metalness: 0.8 }),
+    );
+    armoryRack.position.set(cx + 10, cy + 1.5, cz + 1);
+
+    const gunMat1 = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+    const gunMat2 = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+    const g1 = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.35, 0.15), gunMat1);
+    g1.position.set(cx + 9.2, cy + 1.8, cz + 1.45);
+    const g2 = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.35, 0.15), gunMat2);
+    g2.position.set(cx + 10.8, cy + 1.8, cz + 1.45);
+    houseGroup.add(armoryRack, g1, g2);
+
+    // 5. Kitchen & Gourmet Minibar (cx - 10, cz - 6)
+    const kitchenIsland = new THREE.Mesh(
+      new THREE.BoxGeometry(5.2, 1.1, 2.2),
+      new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.2 }),
+    );
+    kitchenIsland.position.set(cx - 10, cy + 0.55, cz - 6);
+
+    const stool1 = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.35, 0.35, 0.75, 12),
+      new THREE.MeshStandardMaterial({ color: 0xca8a04 }),
+    );
+    stool1.position.set(cx - 10, cy + 0.38, cz - 4.5);
+    const stool2 = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.35, 0.35, 0.75, 12),
+      new THREE.MeshStandardMaterial({ color: 0xca8a04 }),
+    );
+    stool2.position.set(cx - 8.5, cy + 0.38, cz - 4.5);
+
+    const pizzaBox = new THREE.Mesh(
+      new THREE.BoxGeometry(0.8, 0.1, 0.8),
+      new THREE.MeshStandardMaterial({ color: 0xd97706 }),
+    );
+    pizzaBox.position.set(cx - 10, cy + 1.15, cz - 6);
+
+    houseGroup.add(kitchenIsland, stool1, stool2, pizzaBox);
+
+    // 6. High-Security Crypto Vault & Mining Rack (cx - 12, cz + 8)
+    const vaultDoor = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.7, 1.7, 0.35, 24),
+      new THREE.MeshStandardMaterial({ color: 0xca8a04, metalness: 0.95, roughness: 0.2 }),
+    );
+    vaultDoor.rotation.x = Math.PI / 2;
+    vaultDoor.position.set(cx - 12, cy + 1.7, cz + 8);
+
+    const vaultServer = new THREE.Mesh(
+      new THREE.BoxGeometry(2.4, 3.6, 1.2),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6 }),
+    );
+    vaultServer.position.set(cx - 15, cy + 1.8, cz + 8);
+
+    const miningLed = new THREE.PointLight(0x00f0ff, 2.0, 6);
+    miningLed.position.set(cx - 14.5, cy + 2.5, cz + 8);
+
+    houseGroup.add(vaultDoor, vaultServer, miningLed);
+
+    // 7. Cyber-Dog Pet "Bolt" (cx, cz + 4)
+    const dogBed = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.4, 1.5, 0.22, 16),
+      new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.8 }),
+    );
+    dogBed.position.set(cx, cy + 0.11, cz + 4);
+
+    const dogGroup = new THREE.Group();
+    const dogMat = new THREE.MeshStandardMaterial({
+      color: 0x0284c7,
+      metalness: 0.85,
+      roughness: 0.25,
+    });
+    const dogEyeMat = new THREE.MeshBasicMaterial({ color: 0x22c55e });
+
+    const dogTorso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.85), dogMat);
+    dogTorso.position.y = 0.55;
+
+    const dogHead = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.3, 0.4), dogMat);
+    dogHead.position.set(0, 0.85, 0.45);
+
+    const dogVisor = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.08, 0.05), dogEyeMat);
+    dogVisor.position.set(0, 0.88, 0.66);
+
+    const earL = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.2, 4), dogMat);
+    earL.position.set(-0.12, 1.05, 0.45);
+    const earR = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.2, 4), dogMat);
+    earR.position.set(0.12, 1.05, 0.45);
+
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.9 });
+    const legFL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.35, 0.1), legMat);
+    legFL.position.set(-0.2, 0.2, 0.3);
+    const legFR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.35, 0.1), legMat);
+    legFR.position.set(0.2, 0.2, 0.3);
+    const legBL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.35, 0.1), legMat);
+    legBL.position.set(-0.2, 0.2, -0.3);
+    const legBR = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.35, 0.1), legMat);
+    legBR.position.set(0.2, 0.2, -0.3);
+
+    const tail = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.03, 0.03, 0.45, 6),
+      new THREE.MeshBasicMaterial({ color: 0xfacc15 }),
+    );
+    tail.rotation.x = Math.PI / 4;
+    tail.position.set(0, 0.7, -0.5);
+
+    dogGroup.add(dogTorso, dogHead, dogVisor, earL, earR, legFL, legFR, legBL, legBR, tail);
+    dogGroup.position.set(cx, cy, cz + 4);
+
+    houseGroup.add(dogBed, dogGroup);
+
+    // 8. Home Theater & HiFi Radio (cx - 4, cz + 10)
+    const tvScreen = new THREE.Mesh(
+      new THREE.BoxGeometry(4.8, 2.6, 0.12),
+      new THREE.MeshStandardMaterial({
+        color: 0x06b6d4,
+        emissive: 0x0891b2,
+        emissiveIntensity: 0.35,
+      }),
+    );
+    tvScreen.position.set(cx - 4, cy + 2.2, cz + 15.6);
+
+    const sofa = new THREE.Mesh(
+      new THREE.BoxGeometry(4.2, 0.6, 1.8),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 }),
+    );
+    sofa.position.set(cx - 4, cy + 0.3, cz + 11.5);
+
+    houseGroup.add(tvScreen, sofa);
+
+    // 9. Smart Home Upgrade Terminal (cx - 4, cz - 12)
+    const terminalPillar = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.35, 0.45, 1.2, 8),
+      new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8 }),
+    );
+    terminalPillar.position.set(cx - 4, cy + 0.6, cz - 12);
+
+    const terminalHolo = new THREE.Mesh(
+      new THREE.RingGeometry(0.3, 0.6, 16),
+      new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.DoubleSide }),
+    );
+    terminalHolo.rotation.x = -Math.PI / 3;
+    terminalHolo.position.set(cx - 4, cy + 1.3, cz - 12);
+
+    houseGroup.add(terminalPillar, terminalHolo);
+
+    this.group.add(houseGroup);
+
+    // Register All 8 Interior Interactables for 'player_house'
+    this.interactables.set('player_house', [
+      {
+        id: 'house_bed',
+        name: '👑 King-Size Luxusbett',
+        prompt: 'Drücke [E] zum Schlafen & Erholen (100% HP & 0 Fahndungssterne) 🛏️',
+        x: cx + 10,
+        y: cy,
+        z: cz + 8,
+        radius: 3.2,
+        onInteract: ({ player, police, hud, sound }): void => {
+          player.health = 100;
+          police.setWantedLevel(0);
+          sound.playCheckpointChime();
+          hud.showNotification(
+            '🛏️ Ausgeruht! Gesundheit auf 100% wiederhergestellt & alle Fahndungssterne gelöscht!',
+          );
+        },
+      },
+      {
+        id: 'house_wardrobe',
+        name: '👔 Begehbarer Kleiderschrank & Cyber-Outfits',
+        prompt: 'Drücke [E] um dein Outfit & Style zu wechseln 👔',
+        x: cx + 12,
+        y: cy,
+        z: cz - 6,
+        radius: 2.8,
+        onInteract: ({ player, hud, sound }): void => {
+          const outfits = [
+            {
+              name: 'Standard Cyber-Streetwear',
+              torso: 0x1f2937,
+              legs: 0x1e3a8a,
+              desc: 'Klassische Lederjacke',
+            },
+            {
+              name: 'Cyber-Ninja Stealth',
+              torso: 0x111827,
+              legs: 0x06b6d4,
+              desc: 'Mattschwarzer Nanosuit',
+            },
+            {
+              name: 'Vice Neon Deluxe',
+              torso: 0xec4899,
+              legs: 0x06b6d4,
+              desc: 'Magenta Seidenhemd',
+            },
+            {
+              name: 'Gold Syndikat Boss',
+              torso: 0xf59e0b,
+              legs: 0x0f172a,
+              desc: 'Goldbrokat & Obsidian-Hose',
+            },
+            {
+              name: 'Midnight Street Racer',
+              torso: 0xdc2626,
+              legs: 0x1e3a8a,
+              desc: 'Rennsport-Leder',
+            },
+          ];
+          this.houseOutfitIndex = ((this.houseOutfitIndex || 0) + 1) % outfits.length;
+          const o = outfits[this.houseOutfitIndex];
+          player.setOutfit(o.torso, o.legs);
+          sound.playHoverEngage();
+          hud.showNotification(`👔 Kleiderschrank: Outfit gewechselt zu "${o.name}"! (${o.desc})`);
+        },
+      },
+      {
+        id: 'house_armory',
+        name: '🛡️ Private Waffenkammer & Ausrüstung',
+        prompt: 'Drücke [E] für kostenlose Vollmunition & Maximale Panzerung 🛡️',
+        x: cx + 10,
+        y: cy,
+        z: cz + 1,
+        radius: 2.8,
+        onInteract: ({ economy, player, hud, sound }): void => {
+          economy.weapons.forEach((w) => {
+            w.unlocked = true;
+            w.ammo = w.maxAmmo;
+          });
+          player.health = 100;
+          sound.playGunshot();
+          hud.showNotification(
+            '🛡️ Private Waffenkammer: Alle Waffen ausgerüstet, maximale Munition & volle Gesundheit!',
+          );
+        },
+      },
+      {
+        id: 'house_kitchen',
+        name: '🍕 Gourmet-Küche & Cyber-Energy Bar',
+        prompt: 'Drücke [E] um frische Pizza & Cyber-Energy zu genießen (+40 HP) 🍕⚡',
+        x: cx - 10,
+        y: cy,
+        z: cz - 6,
+        radius: 2.8,
+        onInteract: ({ player, hud, sound }): void => {
+          player.health = Math.min(100, player.health + 40);
+          sound.playHoverEngage();
+          hud.showNotification(
+            '🍕 Lecker! Frische Steinofenpizza & Cyber-Energy Drink (+40 HP Vitalität)!',
+          );
+        },
+      },
+      {
+        id: 'house_vault',
+        name: '💰 Villa-Tresor & Krypto-Mining Node',
+        prompt: 'Drücke [E] um passives Einkommen aus dem Tresor abzuholen (+$1.500) 💰',
+        x: cx - 12,
+        y: cy,
+        z: cz + 8,
+        radius: 2.8,
+        onInteract: ({ economy, hud, sound }): void => {
+          economy.addCash(1500);
+          sound.playFanfare();
+          hud.showNotification(
+            '💰 Tresor geöffnet! +$1.500 passives Einkommen aus deinem Krypto-Mining-Node eingesammelt!',
+          );
+        },
+      },
+      {
+        id: 'house_pet',
+        name: '🐕 Cyber-Hund "Bolt"',
+        prompt: 'Drücke [E] um deinen Hund Bolt zu streicheln (+25% Speed Boost) 🐕✨',
+        x: cx,
+        y: cy,
+        z: cz + 4,
+        radius: 2.6,
+        onInteract: ({ player, hud, sound }): void => {
+          player.speedMultiplier = 1.25;
+          sound.playBlowOffValve();
+          hud.showNotification(
+            '🐕 Bolt freut sich und bellt: "Wuff!" Er wedelt mit der Antenne (+25% Speed Boost)!',
+          );
+        },
+      },
+      {
+        id: 'house_tv',
+        name: '📺 85" Holographisches Heimkino & HiFi Radio',
+        prompt: 'Drücke [E] um Fernseher & HiFi-Radio einzuschalten 📺🎶',
+        x: cx - 4,
+        y: cy,
+        z: cz + 10,
+        radius: 2.8,
+        onInteract: ({ hud, sound }): void => {
+          sound.playFanfare();
+          hud.showNotification(
+            '📺 85" OLED TV: GTA 7 Action-Kanal & Vice Radio laufen in bestem Dolby Atmos!',
+          );
+        },
+      },
+      {
+        id: 'house_terminal',
+        name: '🖥️ Smart-Home Steuerkonsole',
+        prompt: 'Drücke [E] um den Status deines Hauses abzurufen 🖥️👑',
+        x: cx - 4,
+        y: cy,
+        z: cz - 12,
+        radius: 2.5,
+        onInteract: ({ hud, sound }): void => {
+          sound.playHoverEngage();
+          hud.showNotification(
+            '👑 Villa de GTA 7: Status PERFEKT | Schutzschilde AKTIV | Helipad BEREIT | Auto-Reparatur ONLINE!',
+          );
         },
       },
     ]);
