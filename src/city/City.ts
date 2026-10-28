@@ -235,6 +235,9 @@ export class City {
     if (x >= 3800 && z >= 3800 && x <= 4800 && z <= 4800) {
       return 100.0; // Interior floor elevation
     }
+    if (Math.hypot(x - 2500, z - 2500) < 600) {
+      return 400.0; // Lunar surface base elevation in Other World
+    }
     let maxH = 0;
     for (const b of this.buildingBounds) {
       // Check upper tier first if available

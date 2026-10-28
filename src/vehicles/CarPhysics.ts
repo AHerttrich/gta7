@@ -46,6 +46,7 @@ export class CarPhysics {
   public wheelRotation: number = 0;
   public rpm: number = 0.2;
   public gear: number | string = 1;
+  public gravityMultiplier: number = 1.0;
 
   // Stunt jump flight tracking
   public airtime: number = 0;
@@ -332,7 +333,7 @@ export class CarPhysics {
     } else if (this.isAirborne || this.y > this.groundY + 0.05) {
       this.isAirborne = true;
       this.airtime += dt;
-      this.vy -= 22.0 * dt; // Gravity
+      this.vy -= 22.0 * this.gravityMultiplier * dt; // Gravity (reduced on the Moon!)
       this.y += this.vy * dt;
 
       // Land on ground or rooftop surface

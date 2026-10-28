@@ -430,6 +430,43 @@ export class SoundManager {
     });
   }
 
+  public playMoonLanding(): void {
+    if (!this.ctx || this.isMuted || this.sfxVolume <= 0) return;
+
+    // Cosmic chord (C major 9th / ambient ethereal chime)
+    const freqs = [261.63, 329.63, 392.0, 493.88, 587.33];
+    freqs.forEach((freq, idx) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+
+      const startTime = this.ctx!.currentTime + idx * 0.06;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, startTime);
+
+      gain.gain.setValueAtTime(0.08 * this.sfxVolume, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + 1.2);
+
+      osc.connect(gain);
+      gain.connect(this.sfxGain || this.ctx!.destination);
+
+      osc.start(startTime);
+      osc.stop(startTime + 1.2);
+    });
+
+    // Apollo Quindar radio beep (2525 Hz)
+    const beepOsc = this.ctx.createOscillator();
+    const beepGain = this.ctx.createGain();
+    const beepStart = this.ctx.currentTime + 0.6;
+    beepOsc.type = 'sine';
+    beepOsc.frequency.setValueAtTime(2525, beepStart);
+    beepGain.gain.setValueAtTime(0.06 * this.sfxVolume, beepStart);
+    beepGain.gain.exponentialRampToValueAtTime(0.001, beepStart + 0.12);
+    beepOsc.connect(beepGain);
+    beepGain.connect(this.sfxGain || this.ctx.destination);
+    beepOsc.start(beepStart);
+    beepOsc.stop(beepStart + 0.12);
+  }
+
   public playCrash(_intensity: number = 10): void {
     if (!this.ctx || this.isMuted || this.isSuspended || this.sfxVolume <= 0) return;
 

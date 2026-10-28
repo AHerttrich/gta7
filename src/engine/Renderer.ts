@@ -504,14 +504,14 @@ export class Renderer {
 
   public setDimension(dim: 'NORMAL_WORLD' | 'OTHER_WORLD'): void {
     if (dim === 'OTHER_WORLD') {
-      this.scene.background = new THREE.Color(0x19082e); // Cosmic deep violet
-      this.scene.fog = new THREE.FogExp2(0x2d1052, 0.0016);
-      this.hemiLight.color.setHex(0xd8b4fe);
-      this.hemiLight.groundColor.setHex(0x581c87);
-      this.sunLight.color.setHex(0xfbbf24);
-      this.sunLight.intensity = 3.2;
-      this.ambientLight.color.setHex(0xc084fc);
-      this.ambientLight.intensity = 0.95;
+      this.scene.background = new THREE.Color(0x020208); // Deep space cosmic black
+      this.scene.fog = new THREE.FogExp2(0x050510, 0.00012); // Subtle vacuum star dust
+      this.hemiLight.color.setHex(0xe2e8f0); // Crisp lunar silver light
+      this.hemiLight.groundColor.setHex(0x1e293b); // Basalt regolith shadows
+      this.sunLight.color.setHex(0xffffff); // Harsh unfiltered space sunlight
+      this.sunLight.intensity = 3.6;
+      this.ambientLight.color.setHex(0x38bdf8); // Cool blue Earthshine reflections
+      this.ambientLight.intensity = 0.55;
     } else {
       this.scene.background = new THREE.Color(0x76b6f0);
       this.scene.fog = new THREE.FogExp2(0xb0d5f8, 0.0022);

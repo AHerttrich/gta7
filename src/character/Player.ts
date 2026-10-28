@@ -20,6 +20,7 @@ export class Player {
   public isJetpacking: boolean = false;
   public jetpackFuel: number = 100;
   public vy: number = 0;
+  public lowGravity: boolean = false;
 
   private leftLeg!: THREE.Mesh;
   private rightLeg!: THREE.Mesh;
@@ -263,15 +264,15 @@ export class Player {
     if (this.hasJetpack) {
       if (input.jump && this.jetpackFuel > 0) {
         this.isJetpacking = true;
-        this.vy = Math.min(22.0, this.vy + 34.0 * dt);
-        this.jetpackFuel = Math.max(0, this.jetpackFuel - 20.0 * dt);
+        this.vy = Math.min(22.0, this.vy + (this.lowGravity ? 24.0 : 34.0) * dt);
+        this.jetpackFuel = Math.max(0, this.jetpackFuel - (this.lowGravity ? 7.0 : 20.0) * dt);
         (this.jetpackFlameL.material as THREE.MeshBasicMaterial).opacity = 0.95;
         (this.jetpackFlameR.material as THREE.MeshBasicMaterial).opacity = 0.95;
       } else {
         this.isJetpacking = false;
         (this.jetpackFlameL.material as THREE.MeshBasicMaterial).opacity = 0.0;
         (this.jetpackFlameR.material as THREE.MeshBasicMaterial).opacity = 0.0;
-        this.vy -= 16.0 * dt;
+        this.vy -= (this.lowGravity ? 5.0 : 16.0) * dt;
       }
 
       this.y += this.vy * dt;
@@ -281,19 +282,19 @@ export class Player {
         this.jetpackFuel = Math.min(100, this.jetpackFuel + 30.0 * dt);
       }
     } else {
-      // Ground jump trigger (Space key or Gamepad A)
+      // Ground jump trigger (Space key or Gamepad A) - higher & floaty jump in moon gravity!
       if (input.jump && this.y <= groundLevel + 0.02 && this.vy <= 0.05) {
-        this.vy = PLAYER_CONFIG.JUMP_VELOCITY;
+        this.vy = PLAYER_CONFIG.JUMP_VELOCITY * (this.lowGravity ? 1.5 : 1.0);
       }
 
       if (this.y > groundLevel || this.vy > 0) {
-        // Airborne jump or descent
-        const maxGlideFall = -5.0;
+        // Airborne jump or descent (1/6g lunar physics floating descent)
+        const maxGlideFall = this.lowGravity ? -2.5 : -5.0;
         // High fall has cyber parachute glide
         if (this.y > 15.0 && this.vy < 0) {
-          this.vy = Math.max(maxGlideFall, this.vy - 16.0 * dt);
+          this.vy = Math.max(maxGlideFall, this.vy - (this.lowGravity ? 5.5 : 16.0) * dt);
         } else {
-          this.vy -= 22.0 * dt;
+          this.vy -= (this.lowGravity ? 6.5 : 22.0) * dt;
         }
 
         this.y += this.vy * dt;

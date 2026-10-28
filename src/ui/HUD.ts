@@ -1513,123 +1513,234 @@ export class HUD {
     ctx.save();
     ctx.translate(center, center);
 
-    // City grid roads (expanded 7x7 grid)
-    const maxRoad = 308;
-    ctx.strokeStyle = '#334155';
-    ctx.lineWidth = 5;
-    for (let x = -maxRoad; x <= maxRoad; x += 88) {
+    const isMoon = Math.hypot(playerX - 2500, playerZ - 2500) < 600;
+
+    if (isMoon) {
+      // Lunar surface background (Mare Tranquillitatis Gray Regolith)
+      const ox = (2500 - playerX) * scale;
+      const oz = (2500 - playerZ) * scale;
+      ctx.fillStyle = '#475569';
       ctx.beginPath();
-      ctx.moveTo((x - playerX) * scale, (-maxRoad - playerZ) * scale);
-      ctx.lineTo((x - playerX) * scale, (maxRoad - playerZ) * scale);
-      ctx.stroke();
-    }
-    for (let z = -maxRoad; z <= maxRoad; z += 88) {
-      ctx.beginPath();
-      ctx.moveTo((-maxRoad - playerX) * scale, (z - playerZ) * scale);
-      ctx.lineTo((maxRoad - playerX) * scale, (z - playerZ) * scale);
-      ctx.stroke();
-    }
-
-    // Grand Central Cyber Park (Emerald Green 🌳)
-    const cpx = (0 - playerX) * scale;
-    const cpz = (0 - playerZ) * scale;
-    ctx.fillStyle = '#10b981';
-    ctx.fillRect(cpx - 5, cpz - 5, 10, 10);
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '9px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🌳', cpx, cpz);
-
-    // GTA 7 Airport (Sky Blue ✈️)
-    const apx = (176 - playerX) * scale;
-    const apz = (0 - playerZ) * scale;
-    ctx.fillStyle = '#0284c7';
-    ctx.fillRect(apx - 6, apz - 6, 12, 12);
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '9px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('✈️', apx, apz);
-
-    // Stunt Mega Stadium (Amber 🛹)
-    const ssx = (-88 - playerX) * scale;
-    const ssz = (176 - playerZ) * scale;
-    ctx.fillStyle = '#f59e0b';
-    ctx.fillRect(ssx - 5, ssz - 5, 10, 10);
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '9px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🛹', ssx, ssz);
-
-    // Lighthouse Island in Western Ocean (Crimson 🗼)
-    const lhx = (-350 - playerX) * scale;
-    const lhz = (0 - playerZ) * scale;
-    ctx.fillStyle = '#e11d48';
-    ctx.beginPath();
-    ctx.arc(lhx, lhz, 6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '9px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🗼', lhx, lhz);
-
-    // Pay 'n' Spray Garage Icon (Green Square 🟩)
-    const gx = (CITY_CONFIG.GARAGE_X - playerX) * scale;
-    const gz = (CITY_CONFIG.GARAGE_Z - playerZ) * scale;
-    ctx.fillStyle = '#22c55e';
-    ctx.fillRect(gx - 4, gz - 4, 8, 8);
-
-    // Street Race Start Line (Cyan Diamond 🔷)
-    const rx = (CITY_CONFIG.RACE_START_X - playerX) * scale;
-    const rz = (CITY_CONFIG.RACE_START_Z - playerZ) * scale;
-    ctx.fillStyle = '#00e5ff';
-    ctx.beginPath();
-    ctx.moveTo(rx, rz - 6);
-    ctx.lineTo(rx + 6, rz);
-    ctx.lineTo(rx, rz + 6);
-    ctx.lineTo(rx - 6, rz);
-    ctx.closePath();
-    ctx.fill();
-
-    // Dimensional Portal Icon (Pulsing Violet Ring with Cyan Core 🌀)
-    const px = (-185 - playerX) * scale;
-    const pz = (132 - playerZ) * scale;
-    ctx.fillStyle = '#a855f7';
-    ctx.beginPath();
-    ctx.arc(px, pz, 6.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#00f0ff';
-    ctx.lineWidth = 2.5;
-    ctx.stroke();
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(px, pz, 2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Enterable Buildings Icons (Safehouse, Gun Store, Club, Hacker Loft, Bank)
-    const enterableBuildings = [
-      { x: -88, z: -56, icon: '🏠', bg: '#facc15' }, // Penthouse Safehouse
-      { x: 56, z: -88, icon: '🔫', bg: '#ef4444' }, // Ammu-Nation Waffenladen
-      { x: 88, z: 56, icon: '🍸', bg: '#ec4899' }, // Club Neon Dreams
-      { x: -144, z: 0, icon: '💻', bg: '#00f0ff' }, // Hacker Syndikat Loft
-      { x: 0, z: 56, icon: '🏦', bg: '#eab308' }, // Cyber City Bank
-    ];
-    enterableBuildings.forEach((b) => {
-      const bx = (b.x - playerX) * scale;
-      const bz = (b.z - playerZ) * scale;
-      ctx.fillStyle = b.bg;
-      ctx.beginPath();
-      ctx.arc(bx, bz, 4.5, 0, Math.PI * 2);
+      ctx.arc(ox, oz, 280 * scale, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // Tycho Crater (South Mega Stunt Crater)
+      const tcx = (2500 - playerX) * scale;
+      const tcz = (2680 - playerZ) * scale;
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(tcx, tcz, 48 * scale, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#334155';
+      ctx.fill();
+
+      // Copernicus Crater (West Impact Crater)
+      const ccx = (2360 - playerX) * scale;
+      const ccz = (2500 - playerZ) * scale;
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(ccx, ccz, 36 * scale, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#334155';
+      ctx.fill();
+
+      // Lunar Rover Highway (Snake Way)
+      const swx = (2500 - playerX) * scale;
+      const swz1 = (2550 - playerZ) * scale;
+      const swz2 = (2670 - playerZ) * scale;
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(swx, swz1);
+      ctx.lineTo(swx, swz2);
+      ctx.stroke();
+
+      // Apollo 11 Lunar Module Site (Eagle 🚀)
+      const ax = (2420 - playerX) * scale;
+      const az = (2430 - playerZ) * scale;
+      ctx.fillStyle = '#facc15';
+      ctx.beginPath();
+      ctx.arc(ax, az, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = '8px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🚀', ax, az);
+
+      // Moon Base Alpha Bio-Dome (🌐)
+      const bdx = (2500 - playerX) * scale;
+      const bdz = (2440 - playerZ) * scale;
+      ctx.fillStyle = '#06b6d4';
+      ctx.beginPath();
+      ctx.arc(bdx, bdz, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = '8px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🌐', bdx, bdz);
+
+      // Deep Space Earth Communications Dish (📡)
+      const dsx = (2565 - playerX) * scale;
+      const dsz = (2480 - playerZ) * scale;
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(dsx, dsz, 5, 0, Math.PI * 2);
+      ctx.fill();
       ctx.font = '7px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(b.icon, bx, bz);
-    });
+      ctx.fillText('📡', dsx, dsz);
+
+      // Alien Monolith (⬛)
+      const mx = (2620 - playerX) * scale;
+      const mz = (2380 - playerZ) * scale;
+      ctx.fillStyle = '#a855f7';
+      ctx.fillRect(mx - 4, mz - 4, 8, 8);
+      ctx.font = '7px sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('⬛', mx, mz);
+
+      // Return Stargate Portal (🌀)
+      const rpx = (2500 - playerX) * scale;
+      const rpz = (2500 - playerZ) * scale;
+      ctx.fillStyle = '#f59e0b';
+      ctx.beginPath();
+      ctx.arc(rpx, rpz, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#00f0ff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '8px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🌀', rpx, rpz);
+    } else {
+      // City grid roads (expanded 7x7 grid)
+      const maxRoad = 308;
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 5;
+      for (let x = -maxRoad; x <= maxRoad; x += 88) {
+        ctx.beginPath();
+        ctx.moveTo((x - playerX) * scale, (-maxRoad - playerZ) * scale);
+        ctx.lineTo((x - playerX) * scale, (maxRoad - playerZ) * scale);
+        ctx.stroke();
+      }
+      for (let z = -maxRoad; z <= maxRoad; z += 88) {
+        ctx.beginPath();
+        ctx.moveTo((-maxRoad - playerX) * scale, (z - playerZ) * scale);
+        ctx.lineTo((maxRoad - playerX) * scale, (z - playerZ) * scale);
+        ctx.stroke();
+      }
+
+      // Grand Central Cyber Park (Emerald Green 🌳)
+      const cpx = (0 - playerX) * scale;
+      const cpz = (0 - playerZ) * scale;
+      ctx.fillStyle = '#10b981';
+      ctx.fillRect(cpx - 5, cpz - 5, 10, 10);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🌳', cpx, cpz);
+
+      // GTA 7 Airport (Sky Blue ✈️)
+      const apx = (176 - playerX) * scale;
+      const apz = (0 - playerZ) * scale;
+      ctx.fillStyle = '#0284c7';
+      ctx.fillRect(apx - 6, apz - 6, 12, 12);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('✈️', apx, apz);
+
+      // Stunt Mega Stadium (Amber 🛹)
+      const ssx = (-88 - playerX) * scale;
+      const ssz = (176 - playerZ) * scale;
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(ssx - 5, ssz - 5, 10, 10);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🛹', ssx, ssz);
+
+      // Lighthouse Island in Western Ocean (Crimson 🗼)
+      const lhx = (-350 - playerX) * scale;
+      const lhz = (0 - playerZ) * scale;
+      ctx.fillStyle = '#e11d48';
+      ctx.beginPath();
+      ctx.arc(lhx, lhz, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🗼', lhx, lhz);
+
+      // Pay 'n' Spray Garage Icon (Green Square 🟩)
+      const gx = (CITY_CONFIG.GARAGE_X - playerX) * scale;
+      const gz = (CITY_CONFIG.GARAGE_Z - playerZ) * scale;
+      ctx.fillStyle = '#22c55e';
+      ctx.fillRect(gx - 4, gz - 4, 8, 8);
+
+      // Street Race Start Line (Cyan Diamond 🔷)
+      const rx = (CITY_CONFIG.RACE_START_X - playerX) * scale;
+      const rz = (CITY_CONFIG.RACE_START_Z - playerZ) * scale;
+      ctx.fillStyle = '#00e5ff';
+      ctx.beginPath();
+      ctx.moveTo(rx, rz - 6);
+      ctx.lineTo(rx + 6, rz);
+      ctx.lineTo(rx, rz + 6);
+      ctx.lineTo(rx - 6, rz);
+      ctx.closePath();
+      ctx.fill();
+
+      // Dimensional Portal Icon (Pulsing Violet Ring with Cyan Core 🌀)
+      const px = (-185 - playerX) * scale;
+      const pz = (132 - playerZ) * scale;
+      ctx.fillStyle = '#a855f7';
+      ctx.beginPath();
+      ctx.arc(px, pz, 6.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#00f0ff';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(px, pz, 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Enterable Buildings Icons (Safehouse, Gun Store, Club, Hacker Loft, Bank)
+      const enterableBuildings = [
+        { x: -88, z: -56, icon: '🏠', bg: '#facc15' }, // Penthouse Safehouse
+        { x: 56, z: -88, icon: '🔫', bg: '#ef4444' }, // Ammu-Nation Waffenladen
+        { x: 88, z: 56, icon: '🍸', bg: '#ec4899' }, // Club Neon Dreams
+        { x: -144, z: 0, icon: '💻', bg: '#00f0ff' }, // Hacker Syndikat Loft
+        { x: 0, z: 56, icon: '🏦', bg: '#eab308' }, // Cyber City Bank
+      ];
+      enterableBuildings.forEach((b) => {
+        const bx = (b.x - playerX) * scale;
+        const bz = (b.z - playerZ) * scale;
+        ctx.fillStyle = b.bg;
+        ctx.beginPath();
+        ctx.arc(bx, bz, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '7px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(b.icon, bx, bz);
+      });
+    }
 
     // Active Mission Target
     if (activeTarget) {

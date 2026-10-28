@@ -1040,7 +1040,7 @@ export class Game {
           this.car.physics.y = 402;
           this.car.physics.groundY = 400.5;
           this.car.physics.speed = 0;
-          this.hud.showNotification('🌌 Vom kosmischen Portal gerettet!');
+          this.hud.showNotification('🌌 Vom Mond-Gravitationsfeld gerettet!');
         }
       } else if (
         this.car.physics.y < -8.0 ||
@@ -1304,7 +1304,7 @@ export class Game {
         ) {
           this.player.setPosition(2500, 401.5, 2500);
           this.player.vy = 0;
-          this.hud.showNotification('🌌 Vom kosmischen Portal gerettet!');
+          this.hud.showNotification('🌌 Vom Mond-Gravitationsfeld gerettet!');
         }
       } else if (this.interiors.currentInteriorId !== null) {
         // Player is inside interior: bounds clamped by InteriorSystem
@@ -1496,10 +1496,19 @@ export class Game {
       this.renderer.setDimension(warpCheck.targetDimension);
 
       if (warpCheck.targetDimension === 'OTHER_WORLD') {
-        this.hud.showNotification('🌌 DIMENSIONSSPRUNG: Willkommen in der Anderen Welt!');
-        this.hud.setPrompt('🌀 Sammle die 7 Dragon Balls & rase über den Schlangenpfad!');
+        this.sound.playMoonLanding();
+        this.player.lowGravity = true;
+        this.car.physics.gravityMultiplier = 0.28;
+        this.hud.showNotification(
+          '🌕 DIMENSIONSSPRUNG: Willkommen auf dem Mond! (Mondbasis Alpha)',
+        );
+        this.hud.setPrompt(
+          '👨‍🚀 1/6g Mond-Schwerkraft aktiv! Erkunde Apollo 11, Mondkrater & die Erde am Himmel!',
+        );
       } else {
-        this.hud.showNotification('🏙️ Rückkehr in die GTA 7 Cyber City!');
+        this.player.lowGravity = false;
+        this.car.physics.gravityMultiplier = 1.0;
+        this.hud.showNotification('🌍 DIMENSIONSSPRUNG: Rückkehr zur Erde (GTA 7 Cyber City)!');
       }
     }
 
