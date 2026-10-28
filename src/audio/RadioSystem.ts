@@ -49,6 +49,7 @@ export class RadioSystem {
   private masterGain: GainNode | null = null;
   private isMuted: boolean = false;
   public musicVolume: number = 0.8;
+  public playOnFoot: boolean = true;
 
   constructor(sound: SoundManager) {
     this.sound = sound;

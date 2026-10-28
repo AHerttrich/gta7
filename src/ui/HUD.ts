@@ -549,7 +549,7 @@ export class HUD {
         <div><kbd>E</kbd>: Einsteigen | <kbd>Tab</kbd>: Stunt-Editor 🏗️ | <kbd>C</kbd>: Cockpit 🥽</div>
         <div><kbd>Esc</kbd>: Optionen & Pause ⚙️ | Controller (Gamepad) unterstützt 🎮</div>
         <div><kbd>L</kbd>: Tag/Nacht ☀️🌙 | <kbd>K</kbd>: Wetter 🌧️⚡</div>
-        <div><kbd>B</kbd>: Radio 📻 | <kbd>M</kbd>: Stumm 🔇 | <kbd>N</kbd>: Nitro 🔥 | <kbd>F</kbd>: Schießen 💥</div>
+        <div><kbd>B</kbd>: Radio / Kopfhörer 📻🎧 | <kbd>M</kbd>: Stumm 🔇 | <kbd>N</kbd>: Nitro 🔥 | <kbd>F</kbd>: Schießen 💥</div>
       </div>
 
       <div class="hud-top-right">

@@ -455,14 +455,16 @@ export class Game {
     }
     if (this.input.cycleRadio) {
       const station = this.radio.cycleStation();
-      this.hud.showRadioStation(station.name, station.genre);
+      const onFootHint = this.mode === 'ON_FOOT' ? ' 🎧 (Kopfhörer)' : '';
+      this.hud.showRadioStation(station.name + onFootHint, station.genre);
     }
     const inVehicle =
       this.mode === 'IN_CAR' ||
       this.mode === 'IN_HELI' ||
       this.mode === 'IN_TANK' ||
       this.mode === 'IN_BOAT';
-    this.radio.update(dt, inVehicle);
+    const isRadioActive = inVehicle || this.radio.playOnFoot;
+    this.radio.update(dt, isRadioActive);
     if (this.input.horn) {
       this.sound.playHorn();
       const pX = this.mode === 'IN_CAR' ? this.car.physics.x : this.player.x;
