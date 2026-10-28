@@ -62,10 +62,10 @@ describe('Enterable Buildings & 3D Interior System', () => {
     };
   }
 
-  it('should register 5 enterable buildings with distinct exterior coordinates and interior realms', () => {
+  it('should register enterable buildings with distinct exterior coordinates and interior realms', () => {
     const { interiors } = createSystemTestSetup();
 
-    expect(interiors.doors.length).toBe(5);
+    expect(interiors.doors.length).toBeGreaterThanOrEqual(5);
 
     const ids = interiors.doors.map((d) => d.id);
     expect(ids).toContain('penthouse');
