@@ -430,6 +430,7 @@ export class Game {
         this.mode === 'IN_CAR' && this.car.physics.isBoosting,
         this.mode === 'IN_CAR' && this.car.physics.isHoverMode,
       );
+      this.renderer.adaptResolution(rawDt);
       this.renderer.render();
     } catch (err) {
       // eslint-disable-next-line no-console

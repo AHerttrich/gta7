@@ -30,6 +30,23 @@ export class Renderer {
   public currentDimension: 'NORMAL_WORLD' | 'OTHER_WORLD' = 'NORMAL_WORLD';
   private shadowsEnabled: boolean = true;
 
+  // --- Frame-time governor (adaptive resolution) ---
+  /** Highest pixel ratio allowed by the selected graphics preset / display. */
+  private maxPixelRatio: number = 1;
+  /** Pixel ratio currently applied to the canvas. */
+  private currentPixelRatio: number = 1;
+  private static readonly MIN_PIXEL_RATIO = 0.6;
+  private frameTimeEma: number = 1 / 60;
+  private slowFrames: number = 0;
+  private fastFrames: number = 0;
+  private governorCooldown: number = 0;
+
+  // --- Shadow-pass cadence ---
+  /** True when the sun currently contributes visible shadows (daytime, shadows enabled). */
+  private shadowsActive: boolean = true;
+  private wasShadowsActive: boolean = true;
+  private shadowFrame: number = 0;
+
   private static readonly FOG_SUNSET = new THREE.Color(0xfb923c);
   private static readonly FOG_DAY = new THREE.Color(0xb0d5f8);
 
@@ -77,6 +94,7 @@ export class Renderer {
     if (typeof window !== 'undefined') {
       this.renderer.setSize(window.innerWidth, window.innerHeight);
       this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      this.maxPixelRatio = this.currentPixelRatio = Math.min(window.devicePixelRatio, 2);
     }
 
     this.renderer.shadowMap.enabled = true;
@@ -348,7 +366,7 @@ export class Renderer {
       // always rendered without sun shadows, so fade them out and skip the shadow pass.
       this.sunLight.castShadow = this.shadowsEnabled;
       this.sunLight.shadow.intensity = 0.0;
-      this.renderer.shadowMap.autoUpdate = false;
+      this.shadowsActive = false;
 
       // Post-Processing & Speed Streaks update
       this.postProcessing.update(dt, 0.0, 'clear', carSpeed, isBoosting);
@@ -522,7 +540,7 @@ export class Renderer {
     const shadowFade = THREE.MathUtils.clamp((sunY - 2) / 20, 0, 1);
     this.sunLight.shadow.intensity = shadowFade;
     // Skip the shadow-map pass entirely while shadows are fully faded out (night).
-    this.renderer.shadowMap.autoUpdate = this.shadowsEnabled && shadowFade > 0;
+    this.shadowsActive = this.shadowsEnabled && shadowFade > 0;
 
     // Cinematic Post-Processing Update (Dynamic Bloom & Hyperspace Speed Warp)
     this.postProcessing.update(dt, this.timeOfDay, this.weather, carSpeed, isBoosting);
@@ -655,6 +673,7 @@ export class Renderer {
   public render(): void {
     // Map virtual gameplay lights onto the fixed proxy pool right before drawing.
     this.lightRig.update(this.camera);
+    this.scheduleShadowPass();
     try {
       if (this.postProcessing && this.postProcessing.isEnabled) {
         this.postProcessing.render();
@@ -665,6 +684,75 @@ export class Renderer {
       // Bulletproof failsafe: Always render direct scene if post-processing fails
       this.renderer.render(this.scene, this.camera);
     }
+  }
+
+  /**
+   * The city is static and the sun moves very slowly, so the shadow map is refreshed every
+   * second frame (30 Hz at 60 fps) instead of every frame, roughly halving the cost of the
+   * most expensive pass. It is skipped completely while shadows are faded out (night/Moon).
+   */
+  private scheduleShadowPass(): void {
+    const sm = this.renderer.shadowMap;
+    sm.autoUpdate = false;
+    if (!this.shadowsActive) {
+      this.wasShadowsActive = false;
+      return;
+    }
+    this.shadowFrame++;
+    // Refresh immediately when shadows come back (sunrise, leaving the Moon) to avoid a pop.
+    if (!this.wasShadowsActive || this.shadowFrame % 2 === 0) {
+      sm.needsUpdate = true;
+    }
+    this.wasShadowsActive = true;
+  }
+
+  /**
+   * Frame-time governor: if the GPU cannot hold ~50 fps (typical on integrated GPUs and
+   * high-DPI screens when hovering high above the city or when daytime shadows kick in),
+   * the render resolution is lowered in small steps; it is raised again once there is
+   * sustained headroom. The preset's pixel ratio is the ceiling.
+   * @param dt raw frame time in seconds
+   */
+  public adaptResolution(dt: number): void {
+    if (!Number.isFinite(dt) || dt <= 0 || dt > 0.25) return; // ignore tab-switch / stall outliers
+    this.frameTimeEma += (dt - this.frameTimeEma) * 0.08;
+    if (this.governorCooldown > 0) {
+      this.governorCooldown -= dt;
+      return;
+    }
+
+    if (this.frameTimeEma > 0.021) {
+      this.slowFrames++;
+      this.fastFrames = 0;
+    } else if (this.frameTimeEma < 0.0155) {
+      this.fastFrames++;
+      this.slowFrames = 0;
+    } else {
+      this.slowFrames = 0;
+      this.fastFrames = 0;
+    }
+
+    if (this.slowFrames >= 30 && this.currentPixelRatio > Renderer.MIN_PIXEL_RATIO) {
+      this.applyPixelRatio(Math.max(Renderer.MIN_PIXEL_RATIO, this.currentPixelRatio - 0.2));
+    } else if (this.fastFrames >= 240 && this.currentPixelRatio < this.maxPixelRatio) {
+      this.applyPixelRatio(Math.min(this.maxPixelRatio, this.currentPixelRatio + 0.1));
+    }
+  }
+
+  private applyPixelRatio(ratio: number): void {
+    this.currentPixelRatio = ratio;
+    this.slowFrames = 0;
+    this.fastFrames = 0;
+    this.governorCooldown = 1.0; // let the frame-time average settle after the change
+    this.renderer.setPixelRatio(ratio);
+    if (this.postProcessing && typeof window !== 'undefined') {
+      this.postProcessing.setSize(window.innerWidth, window.innerHeight);
+    }
+  }
+
+  /** Current internal render scale (for diagnostics). */
+  public get renderScale(): number {
+    return this.currentPixelRatio;
   }
 
   /**
@@ -679,6 +767,26 @@ export class Renderer {
     } catch {
       // Non-fatal: shaders will simply compile lazily on first use.
     }
+    this.warmPostProcessing();
+  }
+
+  /**
+   * Post-processing renders the scene into an HDR target, which uses different shader
+   * variants than the canvas, plus the bloom/warp passes. Compile them now (the player is in
+   * the settings menu) so switching to MED/ULTRA doesn't freeze the first seconds of play.
+   */
+  private warmPostProcessing(): void {
+    const pp = this.postProcessing;
+    if (!pp || !pp.isEnabled || !pp.composer || typeof window === 'undefined') return;
+    try {
+      const warp = pp.warpPass;
+      const wasEnabled = warp ? warp.enabled : false;
+      if (warp) warp.enabled = true;
+      pp.composer.render();
+      if (warp) warp.enabled = wasEnabled;
+    } catch {
+      // Non-fatal: passes will compile lazily.
+    }
   }
 
   public setGraphicsQuality(preset: 'low' | 'med' | 'ultra'): void {
@@ -687,20 +795,30 @@ export class Renderer {
     }
     if (preset === 'low') {
       this.shadowsEnabled = false;
-      this.renderer.setPixelRatio(0.85);
+      this.maxPixelRatio = 0.85;
       this.renderer.shadowMap.enabled = false;
     } else if (preset === 'med') {
       this.shadowsEnabled = true;
-      this.renderer.setPixelRatio(1.0);
+      this.maxPixelRatio = 1.0;
       this.renderer.shadowMap.enabled = true;
       this.renderer.shadowMap.type = THREE.BasicShadowMap;
     } else {
       this.shadowsEnabled = true;
-      const dpr = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio, 2.0) : 1.5;
-      this.renderer.setPixelRatio(dpr);
+      this.maxPixelRatio =
+        typeof window !== 'undefined' ? Math.min(window.devicePixelRatio, 2.0) : 1.5;
       this.renderer.shadowMap.enabled = true;
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     }
+    this.currentPixelRatio = this.maxPixelRatio;
+    this.renderer.setPixelRatio(this.maxPixelRatio);
+    this.frameTimeEma = 1 / 60;
+    this.slowFrames = 0;
+    this.fastFrames = 0;
+    this.governorCooldown = 0;
+    if (this.postProcessing && typeof window !== 'undefined') {
+      this.postProcessing.setSize(window.innerWidth, window.innerHeight);
+    }
+    this.wasShadowsActive = false; // force an immediate shadow refresh
     this.renderer.shadowMap.needsUpdate = true;
     // The shadow configuration changed, so re-warm every program now (while the player is in
     // the settings menu) instead of stalling later when new areas come into view.

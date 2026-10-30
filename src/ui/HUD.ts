@@ -533,28 +533,209 @@ export class HUD {
           -webkit-user-select: text;
           pointer-events: auto;
         }
+
+        /* ===== Command Center (menu) & adaptive input ===== */
+        .hud-mobile-quickbar {
+          left: 14px !important;
+          top: 12px !important;
+          transform: none !important;
+          align-items: center;
+        }
+        .hud-quick-btn {
+          min-height: 38px;
+          min-width: 44px;
+          backdrop-filter: blur(6px);
+          transition: transform 0.12s ease, background 0.12s ease;
+        }
+        .hud-quick-btn:hover { background: rgba(30, 41, 59, 0.95); }
+        .hud-quick-btn:active { transform: scale(0.94); }
+        .hud-menu-toggle {
+          border-color: #00f0ff !important;
+          color: #00f0ff !important;
+          box-shadow: 0 0 14px rgba(0, 240, 255, 0.35);
+          letter-spacing: 1px;
+        }
+        .hud-menu {
+          position: absolute;
+          top: 58px;
+          left: 14px;
+          width: min(460px, calc(100vw - 28px));
+          max-height: calc(100vh - 150px);
+          overflow-y: auto;
+          background: rgba(10, 14, 28, 0.94);
+          backdrop-filter: blur(14px);
+          border: 1px solid rgba(0, 240, 255, 0.55);
+          border-radius: 16px;
+          padding: 12px 14px 14px;
+          box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6), 0 0 28px rgba(0, 240, 255, 0.2);
+          pointer-events: auto;
+          z-index: 60;
+          display: none;
+          overscroll-behavior: contain;
+          -webkit-overflow-scrolling: touch;
+        }
+        .hud-menu.open { display: block; animation: menuIn 0.16s ease-out; }
+        @keyframes menuIn {
+          from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+          to { opacity: 1; transform: none; }
+        }
+        .hud-menu-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-weight: 900;
+          letter-spacing: 3px;
+          font-size: 12px;
+          color: #00f0ff;
+          margin-bottom: 4px;
+        }
+        .hud-menu-close {
+          background: transparent;
+          border: 1px solid rgba(255,255,255,0.25);
+          color: #fff;
+          border-radius: 8px;
+          width: 36px;
+          height: 36px;
+          font-size: 16px;
+          cursor: pointer;
+        }
+        .hud-menu-sec {
+          font-size: 10px;
+          font-weight: 800;
+          letter-spacing: 2px;
+          color: #64748b;
+          margin: 10px 0 6px;
+        }
+        .hud-menu-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 8px;
+        }
+        .hud-tile {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 3px;
+          min-height: 64px;
+          padding: 6px 2px;
+          background: rgba(30, 41, 59, 0.8);
+          border: 1px solid rgba(255,255,255,0.14);
+          border-radius: 12px;
+          color: #e2e8f0;
+          font-size: 10.5px;
+          font-weight: 700;
+          cursor: pointer;
+          touch-action: manipulation;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .hud-tile .ti { font-size: 22px; line-height: 1; }
+        .hud-tile:hover { background: rgba(51, 65, 85, 0.95); border-color: rgba(0,240,255,0.6); }
+        .hud-tile:active { transform: scale(0.94); background: rgba(0, 212, 255, 0.35); }
+        .hud-tile kbd {
+          font-size: 9px;
+          color: #94a3b8;
+          font-family: monospace;
+          font-weight: 700;
+        }
+        .is-touch .hud-tile kbd { display: none; }
+        @media (max-width: 420px) {
+          .hud-menu-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        /* Help (hotkey) panel: hidden until requested */
+        .hud-controls-helper { display: none; top: 60px !important; }
+        .hud-controls-helper.show { display: block; }
+
+        /* Touch controls only on touch devices (or when forced on) */
+        .hud-touch-controls { display: none !important; }
+        .is-touch .hud-touch-controls, .touch-on .hud-touch-controls { display: flex !important; }
+        .touch-off .hud-touch-controls { display: none !important; }
+        .hud-touch-row {
+          display: flex;
+          gap: 8px;
+          justify-content: flex-end;
+          align-items: flex-end;
+        }
+        .hud-touch-right {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          align-items: flex-end;
+          pointer-events: auto;
+        }
+        .hud-touch-btn.small {
+          width: 46px;
+          height: 46px;
+          font-size: 17px;
+        }
+
+        /* On touch screens the speedometer moves up and shrinks so it never overlaps controls */
+        .is-touch .hud-bottom-right, .touch-on .hud-bottom-right {
+          bottom: auto;
+          top: 168px;
+          right: 14px;
+          min-width: 104px;
+          padding: 6px 10px;
+        }
+        .is-touch .hud-speed-val, .touch-on .hud-speed-val { font-size: 30px; }
+        .is-touch .hud-health-label, .touch-on .hud-health-label { display: none; }
+        .touch-off .hud-bottom-right { bottom: 24px; top: auto; right: 28px; min-width: 160px; }
+        .touch-off .hud-speed-val { font-size: 42px; }
       </style>
 
       <div class="hud-crosshair"></div>
 
-      <!-- Quick Buttons on Top -->
+      <!-- Top bar: always-visible essentials -->
       <div class="hud-mobile-quickbar">
-        <button class="hud-quick-btn" id="m-btn-mute" style="border-color:#ef4444;color:#ef4444;">🔊 TON</button>
-        <button class="hud-quick-btn" id="m-btn-radio" style="border-color:#a855f7;color:#a855f7;">📻 RADIO</button>
-        <button class="hud-quick-btn" id="m-btn-hover" style="border-color:#06b6d4;color:#06b6d4;">🚀 HOVER</button>
-        <button class="hud-quick-btn" id="m-btn-jetpack" style="border-color:#38bdf8;color:#38bdf8;">🚀 JETPACK</button>
-        <button class="hud-quick-btn" id="m-btn-house" style="border-color:#f59e0b;color:#f59e0b;">👑 HAUS</button>
-        <button class="hud-quick-btn" id="m-btn-casino" style="border-color:#facc15;color:#facc15;">🎰 CASINO</button>
-        <button class="hud-quick-btn" id="m-btn-build" style="border-color:#f97316;color:#f97316;">🏗️ BAUEN</button>
-        <button class="hud-quick-btn" id="m-btn-time" style="border-color:#f59e0b;color:#f59e0b;">☀️ ZEIT</button>
-        <button class="hud-quick-btn" id="m-btn-weather" style="border-color:#38bdf8;color:#38bdf8;">🌧️ WETTER</button>
-        <button class="hud-quick-btn" id="m-btn-multi">🌐 MULTI</button>
-        <button class="hud-quick-btn" id="m-btn-shop">🛒 SHOP</button>
-        <button class="hud-quick-btn" id="m-btn-cam">🎥 CAM</button>
-        <button class="hud-quick-btn" id="m-btn-vr" style="border-color:#10b981;color:#10b981;">🥽 VR</button>
-        <button class="hud-quick-btn" id="m-btn-settings" style="border-color:#38bdf8;color:#38bdf8;">⚙️ OPTION</button>
-        <button class="hud-quick-btn" id="m-btn-fullscreen" style="border-color:#eab308;color:#eab308;">⛶ VOLL</button>
-        <button class="hud-quick-btn" id="m-btn-reset">🔄 RESET</button>
+        <button class="hud-quick-btn hud-menu-toggle" id="m-btn-menu" aria-expanded="false" aria-controls="hud-menu">☰ MENÜ</button>
+        <button class="hud-quick-btn" id="q-btn-radio" aria-label="Radio">📻</button>
+        <button class="hud-quick-btn" id="q-btn-cam" aria-label="Kamera">🎥</button>
+        <button class="hud-quick-btn" id="q-btn-help" aria-label="Steuerung">❓</button>
+      </div>
+
+      <!-- Command Center: every function, big touch targets -->
+      <div class="hud-menu" id="hud-menu" role="dialog" aria-label="Menü">
+        <div class="hud-menu-head"><span>KOMMANDOZENTRALE</span><button class="hud-menu-close" id="hud-menu-close" aria-label="Schließen">✕</button></div>
+        <div class="hud-menu-sec">FAHRZEUG &amp; BEWEGUNG</div>
+        <div class="hud-menu-grid">
+          <button class="hud-tile" id="m-btn-hover"><span class="ti">🚀</span><span>Hover</span><kbd>V</kbd></button>
+          <button class="hud-tile" id="m-btn-jetpack"><span class="ti">🎒</span><span>Jetpack</span><kbd>J</kbd></button>
+          <button class="hud-tile" id="m-btn-lights"><span class="ti">💡</span><span>Licht</span><kbd>L</kbd></button>
+          <button class="hud-tile" id="m-btn-horn-menu"><span class="ti">📢</span><span>Hupe</span><kbd>T</kbd></button>
+          <button class="hud-tile" id="m-btn-cam"><span class="ti">🎥</span><span>Kamera</span><kbd>C</kbd></button>
+          <button class="hud-tile" id="m-btn-reset"><span class="ti">🔄</span><span>Aufrichten</span><kbd>R</kbd></button>
+          <button class="hud-tile" id="m-btn-taxi"><span class="ti">🚕</span><span>Taxi-Job</span><kbd>O</kbd></button>
+          <button class="hud-tile" id="m-btn-radar"><span class="ti">🗺️</span><span>Radar</span><kbd>Z</kbd></button>
+
+        </div>
+        <div class="hud-menu-sec">WELT</div>
+        <div class="hud-menu-grid">
+          <button class="hud-tile" id="m-btn-time"><span class="ti">☀️</span><span>Zeit</span><kbd>I</kbd></button>
+          <button class="hud-tile" id="m-btn-weather"><span class="ti">🌧️</span><span>Wetter</span><kbd>K</kbd></button>
+          <button class="hud-tile" id="m-btn-radio"><span class="ti">📻</span><span>Radio</span><kbd>B</kbd></button>
+          <button class="hud-tile" id="m-btn-mute"><span class="ti">🔊</span><span>Ton</span><kbd>M</kbd></button>
+
+        </div>
+        <div class="hud-menu-sec">SPIELEN</div>
+        <div class="hud-menu-grid">
+          <button class="hud-tile" id="m-btn-weapon"><span class="ti">🔫</span><span>Waffe</span><kbd>1-4</kbd></button>
+          <button class="hud-tile" id="m-btn-shop"><span class="ti">🛒</span><span>Shop</span><kbd>G</kbd></button>
+          <button class="hud-tile" id="m-btn-casino"><span class="ti">🎰</span><span>Casino</span></button>
+          <button class="hud-tile" id="m-btn-house"><span class="ti">👑</span><span>Haus</span><kbd>H</kbd></button>
+          <button class="hud-tile" id="m-btn-build"><span class="ti">🏗️</span><span>Bauen</span><kbd>Tab</kbd></button>
+          <button class="hud-tile" id="m-btn-multi"><span class="ti">🌐</span><span>Multi</span><kbd>P</kbd></button>
+
+        </div>
+        <div class="hud-menu-sec">SYSTEM</div>
+        <div class="hud-menu-grid">
+          <button class="hud-tile" id="m-btn-settings"><span class="ti">⚙️</span><span>Optionen</span><kbd>Esc</kbd></button>
+          <button class="hud-tile" id="m-btn-fullscreen"><span class="ti">⛶</span><span>Vollbild</span></button>
+          <button class="hud-tile" id="m-btn-vr"><span class="ti">🥽</span><span>VR</span></button>
+          <button class="hud-tile" id="m-btn-touch"><span class="ti">👆</span><span>Touch an/aus</span></button>
+          <button class="hud-tile" id="m-btn-help"><span class="ti">❓</span><span>Steuerung</span><kbd>F1</kbd></button>
+
+        </div>
       </div>
 
       <div class="hud-controls-helper">
@@ -627,13 +808,21 @@ export class HUD {
           <button class="hud-touch-btn" id="t-btn-horn" style="width:48px;height:48px;font-size:16px;">📢</button>
         </div>
 
-        <div class="hud-touch-cluster" style="align-items:flex-end;flex-wrap:wrap;justify-content:flex-end;max-width:230px;">
-          <button class="hud-touch-btn hud-touch-nitro" id="t-btn-nitro">🔥</button>
-          <button class="hud-touch-btn" id="t-btn-hover" style="font-size:16px;background:rgba(6,182,212,0.45);border-color:#06b6d4;">🚀</button>
-          <button class="hud-touch-btn hud-touch-fire" id="t-btn-fire">💥</button>
-          <button class="hud-touch-btn" id="t-btn-action" style="font-size:16px;">🚗</button>
-          <button class="hud-touch-btn hud-touch-brake" id="t-btn-brake">▼</button>
-          <button class="hud-touch-btn hud-touch-gas" id="t-btn-gas">▲</button>
+        <div class="hud-touch-right">
+          <div class="hud-touch-row">
+            <button class="hud-touch-btn small" id="t-btn-hover" style="background:rgba(6,182,212,0.45);border-color:#06b6d4;" aria-label="Hover">🚀</button>
+            <button class="hud-touch-btn small" id="t-btn-weapon" aria-label="Waffe wechseln">🔫</button>
+            <button class="hud-touch-btn small" id="t-btn-jump" aria-label="Springen / Steigen">⤒</button>
+            <button class="hud-touch-btn small" id="t-btn-descend" aria-label="Sinken">⤓</button>
+            <button class="hud-touch-btn small" id="t-btn-drift" aria-label="Handbremse">🅿</button>
+          </div>
+          <div class="hud-touch-row">
+            <button class="hud-touch-btn hud-touch-nitro" id="t-btn-nitro" aria-label="Nitro">🔥</button>
+            <button class="hud-touch-btn hud-touch-fire" id="t-btn-fire" aria-label="Schuss">💥</button>
+            <button class="hud-touch-btn" id="t-btn-action" style="font-size:16px;" aria-label="Einsteigen / Interagieren">🚗</button>
+            <button class="hud-touch-btn hud-touch-brake" id="t-btn-brake" aria-label="Bremse">▼</button>
+            <button class="hud-touch-btn hud-touch-gas" id="t-btn-gas" aria-label="Gas">▲</button>
+          </div>
         </div>
       </div>
 
@@ -850,6 +1039,13 @@ export class HUD {
     bindTouch('t-btn-hover', 'hoverToggle', true);
     bindTouch('t-btn-action', 'actionInteract', true);
     bindTouch('t-btn-fire', 'fire', true);
+    bindTouch('t-btn-jump', 'ascend');
+    bindTouch('t-btn-descend', 'descend');
+    bindTouch('t-btn-drift', 'handbrake');
+    // Jump button also acts as handbrake-free jump on foot; ascend drives jump/flight
+    document.getElementById('t-btn-weapon')?.addEventListener('click', () => this.cycleWeapon());
+
+    this.setupCommandCenter();
 
     // Mobile Top Quickbar Hooks
     const muteBtn = document.getElementById('m-btn-mute');
@@ -932,6 +1128,7 @@ export class HUD {
               !target.closest('.hud-touch-btn') &&
               !target.closest('.hud-shop-modal') &&
               !target.closest('.hud-multi-modal') &&
+              !target.closest('.hud-menu') &&
               !target.closest('button') &&
               !target.closest('input')
             ) {
@@ -1017,6 +1214,135 @@ export class HUD {
 
       window.addEventListener('touchend', endTouch, { passive: true });
       window.addEventListener('touchcancel', endTouch, { passive: true });
+    }
+  }
+
+  /** Cycle to the next unlocked weapon (touch / menu replacement for keys 1-4). */
+  private cycleWeapon(): void {
+    const owned = this.economy.weapons.filter((w) => w.unlocked);
+    if (owned.length === 0) return;
+    const current = this.economy.getSelectedWeapon();
+    const idx = owned.findIndex((w) => w.id === current.id);
+    const next = owned[(idx + 1) % owned.length];
+    this.economy.equipWeapon(next.id);
+    this.showNotification(`Waffe: ${next.name}`);
+  }
+
+  private pressKey(key: string): void {
+    if (!this.input) return;
+    this.input.justPressed[key] = true;
+  }
+
+  public toggleMenu(force?: boolean): void {
+    const menu = document.getElementById('hud-menu');
+    const toggle = document.getElementById('m-btn-menu');
+    if (!menu) return;
+    const open = force ?? !menu.classList.contains('open');
+    menu.classList.toggle('open', open);
+    toggle?.setAttribute('aria-expanded', String(open));
+  }
+
+  public toggleHelp(force?: boolean): void {
+    const help = this.overlay.querySelector('.hud-controls-helper');
+    if (!help) return;
+    help.classList.toggle('show', force ?? !help.classList.contains('show'));
+  }
+
+  /** Command Center menu, adaptive touch/desktop mode and keyboard shortcuts. */
+  private setupCommandCenter(): void {
+    const isTouch =
+      typeof window !== 'undefined' &&
+      ('ontouchstart' in window ||
+        (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0) ||
+        (typeof window.matchMedia === 'function' &&
+          window.matchMedia('(pointer: coarse)').matches));
+    this.overlay.classList.toggle('is-touch', isTouch);
+    try {
+      const pref = localStorage.getItem('gta7_touch_pref');
+      if (pref === 'on') this.overlay.classList.add('touch-on');
+      if (pref === 'off') this.overlay.classList.add('touch-off');
+    } catch {
+      /* storage unavailable */
+    }
+
+    const click = (id: string, fn: () => void, closeMenu = true): void => {
+      document.getElementById(id)?.addEventListener('click', () => {
+        fn();
+        if (closeMenu) this.toggleMenu(false);
+      });
+    };
+
+    document.getElementById('m-btn-menu')?.addEventListener('click', () => this.toggleMenu());
+    document
+      .getElementById('hud-menu-close')
+      ?.addEventListener('click', () => this.toggleMenu(false));
+
+    // Always-visible essentials
+    document.getElementById('q-btn-radio')?.addEventListener('click', () => this.pressKey('b'));
+    document.getElementById('q-btn-cam')?.addEventListener('click', () => this.pressKey('c'));
+    document.getElementById('q-btn-help')?.addEventListener('click', () => this.toggleHelp());
+
+    // New menu tiles (all keyboard-only functions are now reachable by tap/click)
+    click('m-btn-lights', () => this.pressKey('l'));
+    click('m-btn-horn-menu', () => this.pressKey('t'));
+    click('m-btn-taxi', () => this.pressKey('o'));
+    click('m-btn-radar', () => this.pressKey('z'));
+    click('m-btn-weapon', () => this.cycleWeapon(), false);
+    click('m-btn-help', () => this.toggleHelp());
+    click('m-btn-touch', () => {
+      const wasShown =
+        this.overlay.classList.contains('touch-on') ||
+        (this.overlay.classList.contains('is-touch') &&
+          !this.overlay.classList.contains('touch-off'));
+      this.overlay.classList.remove('touch-on', 'touch-off');
+      this.overlay.classList.add(wasShown ? 'touch-off' : 'touch-on');
+      try {
+        localStorage.setItem('gta7_touch_pref', wasShown ? 'off' : 'on');
+      } catch {
+        /* storage unavailable */
+      }
+      this.showNotification(wasShown ? 'Touch-Steuerung aus' : 'Touch-Steuerung an');
+    });
+
+    // Close the menu after one-shot actions (toggles like radio/time/weather stay handy)
+    [
+      'm-btn-hover',
+      'm-btn-jetpack',
+      'm-btn-shop',
+      'm-btn-casino',
+      'm-btn-house',
+      'm-btn-build',
+      'm-btn-multi',
+      'm-btn-settings',
+      'm-btn-vr',
+      'm-btn-cam',
+      'm-btn-reset',
+    ].forEach((id) =>
+      document.getElementById(id)?.addEventListener('click', () => this.toggleMenu(false)),
+    );
+
+    // Keyboard shortcuts: Y = menu, F1 / ? = help
+    window.addEventListener('keydown', (e) => {
+      if (Input.isTextInputFocused(e) || e.repeat) return;
+      const k = e.key.toLowerCase();
+      if (k === 'y') this.toggleMenu();
+      else if (k === 'f1' || e.key === '?') {
+        e.preventDefault();
+        this.toggleHelp();
+      } else if (k === 'escape') this.toggleMenu(false);
+    });
+
+    // First launch on desktop: show the hotkey cheat-sheet briefly
+    if (!isTouch) {
+      try {
+        if (!localStorage.getItem('gta7_help_seen')) {
+          localStorage.setItem('gta7_help_seen', '1');
+          this.toggleHelp(true);
+          window.setTimeout(() => this.toggleHelp(false), 10000);
+        }
+      } catch {
+        /* storage unavailable */
+      }
     }
   }
 

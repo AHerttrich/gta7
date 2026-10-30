@@ -87,7 +87,7 @@ export class Input {
     if (
       target &&
       (target.closest(
-        'button, input, select, textarea, a, .hud-shop-modal, .hud-multi-modal, #hud-settings-modal, #hud-casino-modal, .hud-mobile-quickbar',
+        'button, input, select, textarea, a, .hud-shop-modal, .hud-multi-modal, #hud-settings-modal, #hud-casino-modal, .hud-mobile-quickbar, .hud-menu, .hud-controls-helper',
       ) ||
         target.tagName === 'BUTTON')
     ) {
