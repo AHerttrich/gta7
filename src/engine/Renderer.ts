@@ -1,12 +1,15 @@
 import * as THREE from 'three';
 import { CAMERA_CONFIG } from '../utils/Constants';
 import { PostProcessingManager } from './PostProcessing';
+import { LightRig } from './LightRig';
 
 export class Renderer {
   public scene: THREE.Scene;
   public camera: THREE.PerspectiveCamera;
   public renderer: THREE.WebGLRenderer;
   public postProcessing!: PostProcessingManager;
+  /** Fixed light pool that prevents runtime shader recompiles (see LightRig). */
+  public lightRig!: LightRig;
   private canvas: HTMLCanvasElement;
 
   private skyMesh: THREE.Mesh | null = null;
@@ -19,7 +22,9 @@ export class Renderer {
   public sunLight!: THREE.DirectionalLight;
   public hemiLight!: THREE.HemisphereLight;
   public ambientLight!: THREE.AmbientLight;
-  public timeOfDay: number = 0.35; // 0.0=midnight, 0.25=sunrise, 0.5=noon, 0.75=sunset
+  // Sun elevation follows sin(timeOfDay * 2π): 0.0 = sunrise horizon, 0.25 = noon (zenith),
+  // 0.5 = sunset horizon, 0.75 = midnight.
+  public timeOfDay: number = 0.35;
   public timeSpeed: number = 0.006;
   public isTimePaused: boolean = false;
   public currentDimension: 'NORMAL_WORLD' | 'OTHER_WORLD' = 'NORMAL_WORLD';
@@ -85,6 +90,9 @@ export class Renderer {
     this.initAtmosphericParticles();
     this.initWeather();
     this.initSpeedStreaks();
+
+    // Constant real-light configuration: all other lights become virtual and are pooled.
+    this.lightRig = new LightRig(this.scene, [this.hemiLight, this.sunLight, this.ambientLight]);
 
     // Cinematic Post-Processing Pipeline (Unreal Bloom & Hyperspace Speed Warp - disabled by default for 100% universal stability)
     this.postProcessing = new PostProcessingManager(this.renderer, this.scene, this.camera, false);
@@ -336,7 +344,11 @@ export class Renderer {
         this.starfield.position.copy(camPos);
         this.starfield.visible = true;
       }
-      this.sunLight.castShadow = false;
+      // Keep castShadow constant (toggling it recompiles every lit shader). The Moon has
+      // always rendered without sun shadows, so fade them out and skip the shadow pass.
+      this.sunLight.castShadow = this.shadowsEnabled;
+      this.sunLight.shadow.intensity = 0.0;
+      this.renderer.shadowMap.autoUpdate = false;
 
       // Post-Processing & Speed Streaks update
       this.postProcessing.update(dt, 0.0, 'clear', carSpeed, isBoosting);
@@ -504,8 +516,13 @@ export class Renderer {
     const snappedZ = Math.round(camPos.z / shadowSnap) * shadowSnap;
     this.sunLight.target.position.set(snappedX, 0, snappedZ);
     this.sunLight.target.updateMatrixWorld();
-    this.sunLight.castShadow =
-      this.shadowsEnabled && sunY > 2 && this.currentDimension === 'NORMAL_WORLD';
+    // Fade shadows out at night via a uniform instead of toggling castShadow (which would
+    // change the shadow count and recompile every lit shader at every sunrise/sunset).
+    this.sunLight.castShadow = this.shadowsEnabled;
+    const shadowFade = THREE.MathUtils.clamp((sunY - 2) / 20, 0, 1);
+    this.sunLight.shadow.intensity = shadowFade;
+    // Skip the shadow-map pass entirely while shadows are fully faded out (night).
+    this.renderer.shadowMap.autoUpdate = this.shadowsEnabled && shadowFade > 0;
 
     // Cinematic Post-Processing Update (Dynamic Bloom & Hyperspace Speed Warp)
     this.postProcessing.update(dt, this.timeOfDay, this.weather, carSpeed, isBoosting);
@@ -561,15 +578,18 @@ export class Renderer {
   }
 
   public cycleTimePreset(): string {
+    // Values match the sun model above (0.25 = zenith, 0.75 = midnight).
     const presets = [
-      { name: '☀️ Tag (High Noon)', time: 0.5 },
-      { name: '🌅 Sonnenuntergang (Golden Hour)', time: 0.78 },
-      { name: '🌙 Cyber-Nacht (Neon Glow)', time: 0.0 },
-      { name: '🌄 Sonnenaufgang (Dawn)', time: 0.25 },
+      { name: '☀️ Tag (High Noon)', time: 0.25 },
+      { name: '🌅 Sonnenuntergang (Golden Hour)', time: 0.47 },
+      { name: '🌙 Cyber-Nacht (Neon Glow)', time: 0.75 },
+      { name: '🌄 Sonnenaufgang (Dawn)', time: 0.03 },
     ];
     let nextIdx = 0;
     for (let i = 0; i < presets.length; i++) {
-      if (Math.abs(this.timeOfDay - presets[i].time) < 0.12) {
+      const diff = Math.abs(this.timeOfDay - presets[i].time);
+      const circularDiff = Math.min(diff, 1 - diff);
+      if (circularDiff < 0.1) {
         nextIdx = (i + 1) % presets.length;
         break;
       }
@@ -633,6 +653,8 @@ export class Renderer {
   }
 
   public render(): void {
+    // Map virtual gameplay lights onto the fixed proxy pool right before drawing.
+    this.lightRig.update(this.camera);
     try {
       if (this.postProcessing && this.postProcessing.isEnabled) {
         this.postProcessing.render();
@@ -642,6 +664,20 @@ export class Renderer {
     } catch {
       // Bulletproof failsafe: Always render direct scene if post-processing fails
       this.renderer.render(this.scene, this.camera);
+    }
+  }
+
+  /**
+   * Compile every shader program the scene can need (including currently hidden interiors and
+   * the Moon) up front, so the first visit to an area never stalls the game.
+   * Call once after all world content has been built.
+   */
+  public precompileShaders(): void {
+    this.lightRig.virtualizeAll();
+    try {
+      this.renderer.compile(this.scene, this.camera);
+    } catch {
+      // Non-fatal: shaders will simply compile lazily on first use.
     }
   }
 
@@ -666,5 +702,9 @@ export class Renderer {
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     }
     this.renderer.shadowMap.needsUpdate = true;
+    // The shadow configuration changed, so re-warm every program now (while the player is in
+    // the settings menu) instead of stalling later when new areas come into view.
+    this.sunLight.castShadow = this.shadowsEnabled;
+    this.precompileShaders();
   }
 }

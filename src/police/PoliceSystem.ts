@@ -108,7 +108,7 @@ export class PoliceSystem {
       cop.health = 120;
       cop.maxHealth = 120;
     }
-    cop.health -= amount;
+    cop.health = Math.max(0, cop.health - amount);
     if (cop.health <= 0) {
       cop.isWrecked = true;
       cop.speed = 0;
@@ -136,7 +136,7 @@ export class PoliceSystem {
       this.policeHeli.health = 250;
       this.policeHeli.maxHealth = 250;
     }
-    this.policeHeli.health -= amount;
+    this.policeHeli.health = Math.max(0, this.policeHeli.health - amount);
     if (this.policeHeli.health <= 0) {
       this.despawnPoliceHelicopter();
     }

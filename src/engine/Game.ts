@@ -17,7 +17,8 @@ import { HUD } from '../ui/HUD';
 import { NetworkManager } from '../network/NetworkManager';
 import { RemotePlayer } from '../network/RemotePlayer';
 import { NetMsgKind, PlayerSyncMsg } from '../network/NetProtocol';
-import { PLAYER_CONFIG, RACE_CIRCUIT, EVENTS } from '../utils/Constants';
+import { PLAYER_CONFIG, RACE_CIRCUIT, EVENTS, CITY_CONFIG } from '../utils/Constants';
+import { batchStaticMeshes } from '../utils/StaticBatcher';
 import { RadioSystem } from '../audio/RadioSystem';
 import { Helicopter } from '../vehicles/Helicopter';
 import { Tank } from '../vehicles/Tank';
@@ -103,6 +104,13 @@ export class Game {
 
     // City & Garage
     this.city = new City();
+    // The city is static after generation: merge equivalent-material meshes per 2x2-block
+    // cell to cut ~75% of the city's draw calls. The ground keeps its own mesh because
+    // weather mutates its material at runtime.
+    batchStaticMeshes(this.city.group, {
+      cellSize: (CITY_CONFIG.BLOCK_SIZE + CITY_CONFIG.ROAD_WIDTH) * 2,
+      exclude: (mesh) => mesh.material === this.city.groundMat,
+    });
     this.renderer.scene.add(this.city.group);
 
     this.garage = new Garage();
@@ -369,6 +377,10 @@ export class Game {
     this.hud.showNotification(
       'Willkommen in GTA 7! Gas: [W] | Nitro: [N] | DeLorean Flugmodus: [V]/[X] | Multiplayer: [P]!',
     );
+
+    // Compile all shader programs (city, interiors, Moon) before the first frame so that
+    // entering new areas later never freezes the game.
+    this.renderer.precompileShaders();
 
     // Immediate first render to ensure canvas is never black on initial load
     try {

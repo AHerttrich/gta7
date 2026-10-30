@@ -40,22 +40,33 @@ describe('Round 4: Dynamic Day/Night Cycle & Cyber Weather FX', () => {
   });
 
   it('cycles time of day presets correctly through Tag, Sonnenuntergang, Cyber-Nacht, Sonnenaufgang', () => {
-    renderer.setTimeOfDay(0.5); // Tag
+    // Preset times follow the sun model: 0.25 = zenith (noon), 0.75 = midnight.
+    renderer.setTimeOfDay(0.25); // Tag
     const next1 = renderer.cycleTimePreset();
     expect(next1).toContain('Sonnenuntergang');
-    expect(renderer.timeOfDay).toBeCloseTo(0.78);
+    expect(renderer.timeOfDay).toBeCloseTo(0.47);
 
     const next2 = renderer.cycleTimePreset();
     expect(next2).toContain('Nacht');
-    expect(renderer.timeOfDay).toBe(0.0);
+    expect(renderer.timeOfDay).toBeCloseTo(0.75);
 
     const next3 = renderer.cycleTimePreset();
     expect(next3).toContain('Sonnenaufgang');
-    expect(renderer.timeOfDay).toBeCloseTo(0.25);
+    expect(renderer.timeOfDay).toBeCloseTo(0.03);
 
     const next4 = renderer.cycleTimePreset();
     expect(next4).toContain('Tag');
-    expect(renderer.timeOfDay).toBeCloseTo(0.5);
+    expect(renderer.timeOfDay).toBeCloseTo(0.25);
+  });
+
+  it('time presets produce matching lighting (day is bright, night is dark)', () => {
+    renderer.setTimeOfDay(0.25);
+    renderer.updateAtmosphere(0.016, new THREE.Vector3(), 0, false, false);
+    expect(renderer.sunLight.intensity).toBeGreaterThan(2.0);
+
+    renderer.setTimeOfDay(0.75);
+    renderer.updateAtmosphere(0.016, new THREE.Vector3(), 0, false, false);
+    expect(renderer.sunLight.intensity).toBeLessThanOrEqual(0.1);
   });
 
   it('cycles weather modes between clear, rain, and thunder', () => {

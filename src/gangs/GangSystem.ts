@@ -297,6 +297,7 @@ export class GangSystem {
       if (this.bossRespawnTimer > 0) {
         this.bossRespawnTimer -= dt;
         if (this.bossRespawnTimer <= 0) {
+          this.bossRespawnTimer = 0;
           this.spawnBountyBoss();
           eventBus.emit(EVENTS.NOTIFICATION, {
             text: '⚠️ KOPFGELD-ZIEL RESPAWNT! Schwerer Konvoi wieder aufgetaucht!',

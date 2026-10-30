@@ -10,9 +10,21 @@ export class GameCamera {
 
   private currentTargetPos: THREE.Vector3 = new THREE.Vector3();
   private currentCameraPos: THREE.Vector3 = new THREE.Vector3();
+  // Per-frame scratch vectors (avoid allocating in the render loop)
+  private readonly desiredCamPos = new THREE.Vector3();
+  private readonly desiredLookTarget = new THREE.Vector3();
 
   constructor(camera: THREE.PerspectiveCamera) {
     this.camera = camera;
+  }
+
+  /**
+   * Frame-rate independent smoothing factor: applies `perFrame60` blending per 1/60 s,
+   * so camera feel is identical at 30, 60 or 144 Hz.
+   */
+  private static smoothing(perFrame60: number, dt: number): number {
+    if (perFrame60 >= 1) return 1;
+    return 1 - Math.pow(1 - perFrame60, 60 * dt);
   }
 
   public reset(targetPos: THREE.Vector3, heading: number = 0): void {
@@ -62,7 +74,11 @@ export class GameCamera {
     // Dynamic FOV speed zoom effect
     const speedRatio = Math.min(1.0, Math.abs(speed) / 45.0);
     const baseFov = this.mode === 'COCKPIT' ? 75 : 65;
-    this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, baseFov + speedRatio * 15, 0.1);
+    this.camera.fov = THREE.MathUtils.lerp(
+      this.camera.fov,
+      baseFov + speedRatio * 15,
+      GameCamera.smoothing(0.1, dt),
+    );
     this.camera.updateProjectionMatrix();
 
     // Calculate ideal camera position behind the car
@@ -106,8 +122,9 @@ export class GameCamera {
 
     // Smooth interpolation with delta time (hard attach in COCKPIT mode to eliminate visual jitter)
     const lerpFactor =
-      this.mode === 'COCKPIT' ? 1.0 : Math.min(1.0, CAMERA_CONFIG.SMOOTH_FACTOR * 60 * dt);
-    this.currentCameraPos.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), lerpFactor);
+      this.mode === 'COCKPIT' ? 1.0 : GameCamera.smoothing(CAMERA_CONFIG.SMOOTH_FACTOR, dt);
+    this.desiredCamPos.set(targetCamX, targetCamY, targetCamZ);
+    this.currentCameraPos.lerp(this.desiredCamPos, lerpFactor);
     this.camera.position.copy(this.currentCameraPos);
 
     // Look slightly ahead of the car
@@ -117,7 +134,7 @@ export class GameCamera {
         : this.mode === 'COCKPIT'
           ? 12.0
           : CAMERA_CONFIG.LOOK_AHEAD_DISTANCE;
-    const lookTarget = new THREE.Vector3(
+    const lookTarget = this.desiredLookTarget.set(
       carPos.x + forwardX * lookAheadDist - (this.mode === 'COCKPIT' ? rightX * 0.35 : 0),
       carPos.y + (this.mode === 'COCKPIT' ? 1.05 : 1.2),
       carPos.z + forwardZ * lookAheadDist - (this.mode === 'COCKPIT' ? rightZ * 0.35 : 0),
@@ -137,7 +154,7 @@ export class GameCamera {
     const height = CAMERA_CONFIG.FOOT_HEIGHT;
 
     // Reset FOV towards 60 on foot
-    this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, 60.0, 0.1);
+    this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, 60.0, GameCamera.smoothing(0.1, dt));
     this.camera.updateProjectionMatrix();
 
     const forwardX = Math.sin(playerRotationY);
@@ -181,11 +198,12 @@ export class GameCamera {
       targetCamZ = playerPos.z;
     }
 
-    const lerpFactor = Math.min(1.0, 0.15 * 60 * dt);
-    this.currentCameraPos.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), lerpFactor);
+    const lerpFactor = GameCamera.smoothing(0.15, dt);
+    this.desiredCamPos.set(targetCamX, targetCamY, targetCamZ);
+    this.currentCameraPos.lerp(this.desiredCamPos, lerpFactor);
     this.camera.position.copy(this.currentCameraPos);
 
-    const lookTarget = new THREE.Vector3(playerPos.x, playerPos.y + 1.5, playerPos.z);
+    const lookTarget = this.desiredLookTarget.set(playerPos.x, playerPos.y + 1.5, playerPos.z);
     this.currentTargetPos.lerp(lookTarget, lerpFactor);
     this.camera.lookAt(this.currentTargetPos);
   }

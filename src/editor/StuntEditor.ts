@@ -53,7 +53,16 @@ export class StuntEditor {
     return this.isBuildMode;
   }
 
-  public placeProp(type: StuntPropType, x: number, z: number, heading: number = 0): StuntProp {
+  public placeProp(
+    type: StuntPropType,
+    x: number,
+    z: number,
+    heading: number = 0,
+    ignoreCooldown: boolean = false,
+  ): StuntProp {
+    if (!ignoreCooldown && this.placeCooldown > 0 && this.placedProps.length > 0) {
+      return this.placedProps[this.placedProps.length - 1];
+    }
     const propGroup = new THREE.Group();
 
     if (type === 'rampe') {
@@ -204,7 +213,7 @@ export class StuntEditor {
       );
       if (validItems.length === 0 && data.length > 0) return false;
       this.clearAllProps();
-      validItems.forEach((d) => this.placeProp(d.type, d.x, d.z, d.heading));
+      validItems.forEach((d) => this.placeProp(d.type, d.x, d.z, d.heading, true));
       return true;
     } catch {
       return false;

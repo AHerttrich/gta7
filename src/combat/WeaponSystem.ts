@@ -125,23 +125,27 @@ export class WeaponSystem {
       const targetZ = originZ + Math.cos(heading) * strikeDist;
 
       // Hit traffic cars
-      for (const car of this.traffic.cars) {
-        if (Math.hypot(car.x - targetX, car.z - targetZ) < 2.5) {
-          this.traffic.damageCar(car, weapon.damage);
-          this.police.addCrimeSeverity(15);
+      if (this.traffic?.cars) {
+        for (const car of this.traffic.cars) {
+          if (Math.hypot(car.x - targetX, car.z - targetZ) < 2.5) {
+            this.traffic.damageCar(car, weapon.damage);
+            this.police?.addCrimeSeverity(15);
+          }
         }
       }
 
       // Hit pedestrians
-      for (const ped of this.pedestrians.pedestrians) {
-        if (Math.hypot(ped.x - targetX, ped.z - targetZ) < 2.0) {
-          this.pedestrians.launchRagdoll(
-            ped,
-            Math.sin(heading) * 8.0,
-            4.0,
-            Math.cos(heading) * 8.0,
-          );
-          this.police.addCrimeSeverity(20);
+      if (this.pedestrians?.pedestrians) {
+        for (const ped of this.pedestrians.pedestrians) {
+          if (Math.hypot(ped.x - targetX, ped.z - targetZ) < 2.0) {
+            this.pedestrians.launchRagdoll(
+              ped,
+              Math.sin(heading) * 8.0,
+              4.0,
+              Math.cos(heading) * 8.0,
+            );
+            this.police?.addCrimeSeverity(20);
+          }
         }
       }
 
@@ -190,7 +194,7 @@ export class WeaponSystem {
     });
 
     // Alert police if firing guns in the city!
-    this.police.addCrimeSeverity(isRocket ? 30 : 10);
+    this.police?.addCrimeSeverity(isRocket ? 30 : 10);
     return true;
   }
 
@@ -289,7 +293,7 @@ export class WeaponSystem {
       }
 
       // Hit traffic cars
-      if (!hasHit) {
+      if (!hasHit && this.traffic?.cars) {
         for (const car of this.traffic.cars) {
           if (!car.isWrecked && Math.hypot(car.x - p.x, car.z - p.z) < 2.3) {
             hasHit = true;
@@ -300,7 +304,7 @@ export class WeaponSystem {
       }
 
       // Hit cop cars
-      if (!hasHit) {
+      if (!hasHit && this.police?.copCars) {
         for (const cop of this.police.copCars) {
           if (Math.hypot(cop.x - p.x, cop.z - p.z) < 2.5) {
             hasHit = true;
@@ -312,7 +316,7 @@ export class WeaponSystem {
       }
 
       // Hit police helicopter
-      if (!hasHit && this.police.policeHeli) {
+      if (!hasHit && this.police?.policeHeli) {
         const heli = this.police.policeHeli;
         if (Math.hypot(heli.x - p.x, heli.y - p.y, heli.z - p.z) < 3.5) {
           hasHit = true;
@@ -322,12 +326,12 @@ export class WeaponSystem {
       }
 
       // Hit pedestrians
-      if (!hasHit) {
+      if (!hasHit && this.pedestrians?.pedestrians) {
         for (const ped of this.pedestrians.pedestrians) {
           if (Math.hypot(ped.x - p.x, ped.z - p.z) < 1.4) {
             hasHit = true;
             this.pedestrians.launchRagdoll(ped, p.vx * 0.15, 6.0, p.vz * 0.15);
-            this.police.addCrimeSeverity(25);
+            this.police?.addCrimeSeverity(25);
             break;
           }
         }
