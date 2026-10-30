@@ -1,4 +1,4 @@
-import { eventBus } from '../utils/EventBus';
+﻿import { eventBus } from '../utils/EventBus';
 import { EVENTS, WeaponData, CITY_CONFIG } from '../utils/Constants';
 import { EconomySystem } from '../economy/EconomySystem';
 import { NetworkManager } from '../network/NetworkManager';
@@ -85,6 +85,7 @@ export class HUD {
     this.sound = sound;
     this.radio = radio;
     if (renderer) this.rendererRef = renderer;
+    if (renderer) this.syncGraphicsButtons(renderer.graphicsQuality);
   }
 
   private createHudElements(): void {
@@ -679,7 +680,15 @@ export class HUD {
           padding: 6px 10px;
         }
         .is-touch .hud-speed-val, .touch-on .hud-speed-val { font-size: 30px; }
-        .is-touch .hud-health-label, .touch-on .hud-health-label { display: none; }
+        .is-touch .hud-health-label, .touch-on .hud-health-label,
+        .is-touch .hud-gear, .touch-on .hud-gear,
+        .is-touch .hud-rpm-bar, .touch-on .hud-rpm-bar,
+        .is-touch .hud-health-bar, .touch-on .hud-health-bar { display: none; }
+        @media (max-height: 500px) {
+          .hud-menu { max-height: calc(100vh - 70px); width: min(660px, calc(100vw - 28px)); }
+          .hud-menu-grid { grid-template-columns: repeat(6, 1fr); }
+          .hud-tile { min-height: 46px; padding: 3px 2px; } .hud-tile .ti { font-size: 17px; } .hud-menu-sec { margin: 6px 0 4px; }
+        }
         .touch-off .hud-bottom-right { bottom: 24px; top: auto; right: 28px; min-width: 160px; }
         .touch-off .hud-speed-val { font-size: 42px; }
       </style>
@@ -1215,6 +1224,17 @@ export class HUD {
       window.addEventListener('touchend', endTouch, { passive: true });
       window.addEventListener('touchcancel', endTouch, { passive: true });
     }
+  }
+
+  /** Highlight the settings button matching the renderer's real preset. */
+  private syncGraphicsButtons(quality: 'low' | 'med' | 'ultra'): void {
+    const ids = { low: 'btn-gfx-low', med: 'btn-gfx-med', ultra: 'btn-gfx-ultra' } as const;
+    (Object.keys(ids) as Array<keyof typeof ids>).forEach((k) => {
+      const b = document.getElementById(ids[k]);
+      if (!b) return;
+      b.style.background = k === quality ? '#00f0ff' : '#0f172a';
+      b.style.color = k === quality ? '#000' : '#fff';
+    });
   }
 
   /** Cycle to the next unlocked weapon (touch / menu replacement for keys 1-4). */

@@ -29,6 +29,8 @@ export class Renderer {
   public isTimePaused: boolean = false;
   public currentDimension: 'NORMAL_WORLD' | 'OTHER_WORLD' = 'NORMAL_WORLD';
   private shadowsEnabled: boolean = true;
+  /** Currently selected graphics preset (kept in sync with the settings menu). */
+  public graphicsQuality: 'low' | 'med' | 'ultra' = 'low';
 
   // --- Frame-time governor (adaptive resolution) ---
   /** Highest pixel ratio allowed by the selected graphics preset / display. */
@@ -115,6 +117,16 @@ export class Renderer {
     // Cinematic Post-Processing Pipeline (Unreal Bloom & Hyperspace Speed Warp - disabled by default for 100% universal stability)
     this.postProcessing = new PostProcessingManager(this.renderer, this.scene, this.camera, false);
 
+    // Procedural image-based lighting: gives metals, glass and water something to reflect.
+    this.setupEnvironment();
+
+    // Desktop-class devices get the cinematic bloom pipeline by default; touch devices stay on
+    // the cheapest path (the user can still opt in from the settings menu).
+    if (typeof window !== 'undefined' && !Renderer.isTouchDevice()) {
+      this.postProcessing.setQuality('ultra');
+      this.graphicsQuality = 'ultra';
+    }
+
     // Register WebGL Context Lost & Restored handlers (Prevents permanent black screen)
     if (this.canvas && typeof this.canvas.addEventListener === 'function') {
       this.canvas.addEventListener('webglcontextlost', (event) => {
@@ -136,9 +148,88 @@ export class Renderer {
     }
   }
 
+  private static isTouchDevice(): boolean {
+    if (typeof window === 'undefined') return false;
+    return (
+      'ontouchstart' in window ||
+      (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0) ||
+      (typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches)
+    );
+  }
+
+  /**
+   * Build a small synthwave sky (gradient dome + neon light panels), bake it with PMREM and use
+   * it as scene.environment. Skipped silently where WebGL/DOM are unavailable (tests, SSR).
+   */
+  private setupEnvironment(): void {
+    if (typeof document === 'undefined') return;
+    try {
+      const envScene = new THREE.Scene();
+
+      const domeGeo = new THREE.SphereGeometry(50, 32, 16);
+      const pos = domeGeo.attributes.position;
+      const colors = new Float32Array(pos.count * 3);
+      const zenith = new THREE.Color(0x4f86d9);
+      const horizon = new THREE.Color(0xffc9a0);
+      const ground = new THREE.Color(0x2a1f45);
+      const c = new THREE.Color();
+      for (let i = 0; i < pos.count; i++) {
+        const h = pos.getY(i) / 50; // -1 (down) .. 1 (up)
+        if (h >= 0) c.copy(horizon).lerp(zenith, Math.pow(h, 0.6));
+        else c.copy(horizon).lerp(ground, Math.min(1, -h * 3));
+        colors[i * 3] = c.r;
+        colors[i * 3 + 1] = c.g;
+        colors[i * 3 + 2] = c.b;
+      }
+      domeGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      const dome = new THREE.Mesh(
+        domeGeo,
+        new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide }),
+      );
+      envScene.add(dome);
+
+      // Bright HDR neon panels so chrome / glass pick up magenta + cyan streaks.
+      const panelGeo = new THREE.PlaneGeometry(26, 7);
+      const neon = [
+        { color: 0xff2a6d, angle: 0.4 },
+        { color: 0x05d9e8, angle: 2.1 },
+        { color: 0xff9e3d, angle: 3.6 },
+        { color: 0xb86bff, angle: 5.1 },
+      ];
+      for (const n of neon) {
+        const mat = new THREE.MeshBasicMaterial({
+          color: new THREE.Color(n.color).multiplyScalar(6),
+          side: THREE.DoubleSide,
+        });
+        const panel = new THREE.Mesh(panelGeo, mat);
+        panel.position.set(Math.cos(n.angle) * 38, 9, Math.sin(n.angle) * 38);
+        panel.lookAt(0, 0, 0);
+        envScene.add(panel);
+      }
+      // Warm sun-like hotspot
+      const sun = new THREE.Mesh(
+        new THREE.CircleGeometry(6, 16),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color(0xfff1d6).multiplyScalar(10) }),
+      );
+      sun.position.set(30, 30, 20);
+      sun.lookAt(0, 0, 0);
+      envScene.add(sun);
+
+      const pmrem = new THREE.PMREMGenerator(this.renderer);
+      const target = pmrem.fromScene(envScene, 0.02);
+      this.scene.environment = target.texture;
+      this.scene.environmentIntensity = 0.55;
+      pmrem.dispose();
+      domeGeo.dispose();
+      panelGeo.dispose();
+    } catch {
+      // Non-fatal: the scene simply renders without image-based lighting.
+    }
+  }
+
   private setupLighting(): void {
     // Crisp daylight hemisphere (Sky rich azure, Ground warm asphalt tone)
-    this.hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x334155, 1.45);
+    this.hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x3b2f66, 1.0);
     this.scene.add(this.hemiLight);
 
     // Warm Golden Sun Directional Light with deep soft shadows
@@ -158,7 +249,7 @@ export class Renderer {
     this.scene.add(this.sunLight.target);
 
     // Ambient light fill for clear visibility across all districts
-    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     this.scene.add(this.ambientLight);
 
     // Dynamic lightning point light for thunderstorms
@@ -415,7 +506,8 @@ export class Renderer {
       // Daytime to Sunset
       const sunRatio = sunY / 220;
       this.sunLight.intensity = THREE.MathUtils.clamp(sunRatio * 2.8, 0.25, 2.5);
-      this.ambientLight.intensity = THREE.MathUtils.lerp(0.55, 0.85, sunRatio);
+      this.ambientLight.intensity = THREE.MathUtils.lerp(0.35, 0.5, sunRatio);
+      this.scene.environmentIntensity = THREE.MathUtils.lerp(0.3, 0.6, sunRatio);
       this.ambientLight.color.setHex(0xffffff);
       if (this.scene.fog instanceof THREE.FogExp2) {
         this.scene.fog.color.lerpColors(Renderer.FOG_SUNSET, Renderer.FOG_DAY, sunRatio);
@@ -423,7 +515,8 @@ export class Renderer {
     } else {
       // Cyber Night Mode: Vibrant neon moonlight & ambient glow - never pitch black!
       this.sunLight.intensity = 0.08;
-      this.ambientLight.intensity = 0.68;
+      this.ambientLight.intensity = 0.45;
+      this.scene.environmentIntensity = 0.2;
       this.ambientLight.color.setHex(0x38bdf8);
       if (this.scene.fog instanceof THREE.FogExp2) {
         this.scene.fog.color.setHex(0x0f172a);
@@ -630,17 +723,19 @@ export class Renderer {
       this.sunLight.intensity = 3.6;
       this.ambientLight.color.setHex(0x38bdf8); // Cool blue Earthshine reflections
       this.ambientLight.intensity = 0.55;
+      this.scene.environmentIntensity = 0.25;
       if (this.moonLight) this.moonLight.visible = false;
       if (this.lightningLight) this.lightningLight.visible = false;
     } else {
       this.scene.background = new THREE.Color(0x76b6f0);
       this.scene.fog = new THREE.FogExp2(0xb0d5f8, 0.0022);
       this.hemiLight.color.setHex(0xe0f2fe);
-      this.hemiLight.groundColor.setHex(0x334155);
+      this.hemiLight.groundColor.setHex(0x3b2f66);
       this.sunLight.color.setHex(0xfffaed);
       this.sunLight.intensity = 2.5;
       this.ambientLight.color.setHex(0xffffff);
-      this.ambientLight.intensity = 0.85;
+      this.ambientLight.intensity = 0.5;
+      this.scene.environmentIntensity = 0.55;
     }
   }
 
@@ -790,6 +885,7 @@ export class Renderer {
   }
 
   public setGraphicsQuality(preset: 'low' | 'med' | 'ultra'): void {
+    this.graphicsQuality = preset;
     if (this.postProcessing) {
       this.postProcessing.setQuality(preset);
     }
