@@ -7,6 +7,11 @@ export interface BuildingBox {
   maxZ: number;
   height: number;
   baseHeight?: number;
+  isSlope?: boolean;
+  slopeStartZ?: number;
+  slopeEndZ?: number;
+  slopeStartHeight?: number;
+  slopeEndHeight?: number;
   tier?: {
     minX: number;
     maxX: number;
@@ -24,10 +29,33 @@ export type BuildingStyle =
   | 'CLASSIC_BRICK_LOFT'
   | 'ROUND_TOWER'
   | 'PAGODA_NEON_TOWER'
-  | 'TWIN_TOWERS';
+  | 'TWIN_TOWERS'
+  | 'SUBURBAN_HOUSE';
 
 export class Building {
   private static textureCache: Map<string, THREE.CanvasTexture> = new Map();
+  private static repeatedTextureCache: Map<string, THREE.Texture> = new Map();
+  private static billboardCache: Map<string, THREE.CanvasTexture> = new Map();
+
+  private static getRepeatedTexture(
+    baseTex: THREE.Texture | null,
+    cacheKey: string,
+    repeatX: number,
+    repeatY: number,
+  ): THREE.Texture | null {
+    if (!baseTex) return null;
+    const fullKey = `${cacheKey}_${repeatX}_${repeatY}`;
+    let tex = this.repeatedTextureCache.get(fullKey);
+    if (!tex) {
+      tex = baseTex.clone();
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(repeatX, repeatY);
+      tex.needsUpdate = true;
+      this.repeatedTextureCache.set(fullKey, tex);
+    }
+    return tex;
+  }
 
   // 1. Standard Cyberspace Office Window Texture
   public static getWindowTexture(): THREE.CanvasTexture | null {
@@ -371,6 +399,8 @@ export class Building {
         return this.createPagodaTower(x, z, width, depth, height, accentColor, billboardText);
       case 'TWIN_TOWERS':
         return this.createTwinTowers(x, z, width, depth, height, accentColor, billboardText);
+      case 'SUBURBAN_HOUSE':
+        return this.createSuburbanHouse(x, z, width, depth, height, accentColor, billboardText);
       case 'CYBER_TOWER':
       default:
         return this.createCyberTower(x, z, width, depth, height, accentColor, billboardText);
@@ -392,17 +422,9 @@ export class Building {
 
     // Main Skyscraper Tower
     const geo = new THREE.BoxGeometry(width, height, depth);
-    let towerTex: THREE.Texture | null = null;
-    if (winTex) {
-      towerTex = winTex.clone();
-      towerTex.wrapS = THREE.RepeatWrapping;
-      towerTex.wrapT = THREE.RepeatWrapping;
-      towerTex.repeat.set(
-        Math.max(2, Math.round(width / 12)),
-        Math.max(2, Math.round(height / 10)),
-      );
-      towerTex.needsUpdate = true;
-    }
+    const rx = Math.max(2, Math.round(width / 12));
+    const ry = Math.max(2, Math.round(height / 10));
+    const towerTex = this.getRepeatedTexture(winTex, 'office_cyan', rx, ry);
 
     const mat = new THREE.MeshStandardMaterial({
       color: towerTex ? 0xffffff : 0x334155,
@@ -425,17 +447,9 @@ export class Building {
       const tierDepth = depth * 0.72;
       const tierHeight = height * 0.28;
 
-      let tierTex: THREE.Texture | null = null;
-      if (winTex) {
-        tierTex = winTex.clone();
-        tierTex.wrapS = THREE.RepeatWrapping;
-        tierTex.wrapT = THREE.RepeatWrapping;
-        tierTex.repeat.set(
-          Math.max(1, Math.round(tierWidth / 12)),
-          Math.max(1, Math.round(tierHeight / 10)),
-        );
-        tierTex.needsUpdate = true;
-      }
+      const tierRx = Math.max(1, Math.round(tierWidth / 12));
+      const tierRy = Math.max(1, Math.round(tierHeight / 10));
+      const tierTex = this.getRepeatedTexture(winTex, 'office_cyan', tierRx, tierRy);
 
       const tierGeo = new THREE.BoxGeometry(tierWidth, tierHeight, tierDepth);
       const tierMat = new THREE.MeshStandardMaterial({
@@ -552,14 +566,9 @@ export class Building {
 
     // Main Grand Hotel Tower
     const geo = new THREE.BoxGeometry(width, height, depth);
-    let tex: THREE.Texture | null = null;
-    if (hotelTex) {
-      tex = hotelTex.clone();
-      tex.wrapS = THREE.RepeatWrapping;
-      tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(Math.max(2, Math.round(width / 14)), Math.max(2, Math.round(height / 10)));
-      tex.needsUpdate = true;
-    }
+    const rx = Math.max(2, Math.round(width / 14));
+    const ry = Math.max(2, Math.round(height / 10));
+    const tex = this.getRepeatedTexture(hotelTex, 'luxury_hotel', rx, ry);
 
     const mat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
@@ -680,14 +689,9 @@ export class Building {
 
     // Main Residential Building
     const geo = new THREE.BoxGeometry(width, height, depth);
-    let tex: THREE.Texture | null = null;
-    if (resTex) {
-      tex = resTex.clone();
-      tex.wrapS = THREE.RepeatWrapping;
-      tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(Math.max(2, Math.round(width / 12)), Math.max(2, Math.round(height / 8)));
-      tex.needsUpdate = true;
-    }
+    const rx = Math.max(2, Math.round(width / 12));
+    const ry = Math.max(2, Math.round(height / 8));
+    const tex = this.getRepeatedTexture(resTex, 'res_terracotta', rx, ry);
 
     const mat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
@@ -805,14 +809,9 @@ export class Building {
 
     // Main Corporate Tower
     const geo = new THREE.BoxGeometry(width, height, depth);
-    let tex: THREE.Texture | null = null;
-    if (ribbonTex) {
-      tex = ribbonTex.clone();
-      tex.wrapS = THREE.RepeatWrapping;
-      tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(Math.max(2, Math.round(width / 14)), Math.max(2, Math.round(height / 10)));
-      tex.needsUpdate = true;
-    }
+    const rx = Math.max(2, Math.round(width / 14));
+    const ry = Math.max(2, Math.round(height / 10));
+    const tex = this.getRepeatedTexture(ribbonTex, 'comm_ribbon', rx, ry);
 
     const mat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
@@ -923,14 +922,9 @@ export class Building {
 
     // Main Brick Warehouse Body
     const geo = new THREE.BoxGeometry(width, height, depth);
-    let tex: THREE.Texture | null = null;
-    if (brickTex) {
-      tex = brickTex.clone();
-      tex.wrapS = THREE.RepeatWrapping;
-      tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(Math.max(2, Math.round(width / 12)), Math.max(2, Math.round(height / 8)));
-      tex.needsUpdate = true;
-    }
+    const rx = Math.max(2, Math.round(width / 12));
+    const ry = Math.max(2, Math.round(height / 8));
+    const tex = this.getRepeatedTexture(brickTex, 'brick_warehouse', rx, ry);
 
     const mat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
@@ -1047,14 +1041,8 @@ export class Building {
 
     // Cylindrical Faceted Tower Geometry (24 radial segments)
     const geo = new THREE.CylinderGeometry(radius, radius, height, 24);
-    let tex: THREE.Texture | null = null;
-    if (ribbonTex) {
-      tex = ribbonTex.clone();
-      tex.wrapS = THREE.RepeatWrapping;
-      tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(4, Math.max(2, Math.round(height / 10)));
-      tex.needsUpdate = true;
-    }
+    const ry = Math.max(2, Math.round(height / 10));
+    const tex = this.getRepeatedTexture(ribbonTex, 'comm_ribbon_round', 4, ry);
 
     const mat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
@@ -1140,14 +1128,9 @@ export class Building {
 
     // Central Shaft Tower
     const geo = new THREE.BoxGeometry(width * 0.8, height, depth * 0.8);
-    let tex: THREE.Texture | null = null;
-    if (officeTex) {
-      tex = officeTex.clone();
-      tex.wrapS = THREE.RepeatWrapping;
-      tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(Math.max(2, Math.round(width / 12)), Math.max(2, Math.round(height / 10)));
-      tex.needsUpdate = true;
-    }
+    const rx = Math.max(2, Math.round(width / 12));
+    const ry = Math.max(2, Math.round(height / 10));
+    const tex = this.getRepeatedTexture(officeTex, 'office_purple', rx, ry);
 
     const mat = new THREE.MeshStandardMaterial({
       color: 0x1f2937,
@@ -1161,6 +1144,19 @@ export class Building {
     tower.castShadow = true;
     tower.receiveShadow = true;
     group.add(tower);
+
+    // Ground Lobby Podium Base
+    const podiumGeo = new THREE.BoxGeometry(width, 4.5, depth);
+    const podiumMat = new THREE.MeshStandardMaterial({
+      color: 0x111827,
+      roughness: 0.5,
+      metalness: 0.4,
+    });
+    const podium = new THREE.Mesh(podiumGeo, podiumMat);
+    podium.position.set(x, 2.25, z);
+    podium.castShadow = true;
+    podium.receiveShadow = true;
+    group.add(podium);
 
     // Multi-Tiered Flared Pagoda Roofs with Glowing Red / Gold Eaves
     const tierRatios = [0.45, 0.75, 1.0];
@@ -1268,14 +1264,9 @@ export class Building {
     const towerH = height - baseH;
     const offsetW = width * 0.28;
 
-    let tex: THREE.Texture | null = null;
-    if (officeTex) {
-      tex = officeTex.clone();
-      tex.wrapS = THREE.RepeatWrapping;
-      tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(Math.max(1, Math.round(towerW / 10)), Math.max(2, Math.round(towerH / 10)));
-      tex.needsUpdate = true;
-    }
+    const rx = Math.max(1, Math.round(towerW / 10));
+    const ry = Math.max(2, Math.round(towerH / 10));
+    const tex = this.getRepeatedTexture(officeTex, 'office_cyan', rx, ry);
 
     const towerMat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
@@ -1372,30 +1363,38 @@ export class Building {
   // Giant Neon Billboards
   public static createNeonBillboard(text: string, glowColor: number): THREE.Group {
     const signGroup = new THREE.Group();
+    if (typeof document === 'undefined') return signGroup;
 
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return signGroup;
+    const cacheKey = `billboard_${text}_${glowColor}`;
+    let tex = this.billboardCache.get(cacheKey);
 
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
-    ctx.fillRect(0, 0, 512, 128);
+    if (!tex) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return signGroup;
 
-    const hexStr = `#${glowColor.toString(16).padStart(6, '0')}`;
-    ctx.strokeStyle = hexStr;
-    ctx.lineWidth = 6;
-    ctx.strokeRect(4, 4, 504, 120);
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+      ctx.fillRect(0, 0, 512, 128);
 
-    ctx.font = '900 48px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = hexStr;
-    ctx.shadowColor = hexStr;
-    ctx.shadowBlur = 18;
-    ctx.fillText(text, 256, 64);
+      const hexStr = `#${glowColor.toString(16).padStart(6, '0')}`;
+      ctx.strokeStyle = hexStr;
+      ctx.lineWidth = 6;
+      ctx.strokeRect(4, 4, 504, 120);
 
-    const tex = new THREE.CanvasTexture(canvas);
+      ctx.font = '900 48px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = hexStr;
+      ctx.shadowColor = hexStr;
+      ctx.shadowBlur = 18;
+      ctx.fillText(text, 256, 64);
+
+      tex = new THREE.CanvasTexture(canvas);
+      this.billboardCache.set(cacheKey, tex);
+    }
+
     const signMat = new THREE.MeshBasicMaterial({
       map: tex,
       transparent: true,
@@ -1469,6 +1468,119 @@ export class Building {
         minZ: z - length,
         maxZ: z + length,
         height,
+      },
+    };
+  }
+
+  // 9. Suburban Residential House ("Wohnhaus" with Gabled Roof, Chimney & Porch)
+  public static createSuburbanHouse(
+    x: number,
+    z: number,
+    width: number,
+    depth: number,
+    height: number,
+    accentColor: number = 0x3b82f6,
+    _billboardText?: string,
+  ): { mesh: THREE.Group; bounds: BuildingBox } {
+    const group = new THREE.Group();
+
+    // House scale (2-story residential family home)
+    const houseW = Math.min(width * 0.75, 24);
+    const houseD = Math.min(depth * 0.75, 20);
+    const houseH = Math.max(height * 0.45, 9.5);
+
+    // 1. House Body (Warm wood / painted brick siding)
+    const houseMat = new THREE.MeshStandardMaterial({
+      color: 0xf8fafc, // Clean off-white clapboard
+      roughness: 0.6,
+      metalness: 0.1,
+    });
+    const houseMesh = new THREE.Mesh(new THREE.BoxGeometry(houseW, houseH, houseD), houseMat);
+    houseMesh.position.set(x, houseH / 2, z);
+    houseMesh.castShadow = true;
+    houseMesh.receiveShadow = true;
+    group.add(houseMesh);
+
+    // 2. Gabled Roof (Satteldach mit Ziegeln)
+    const roofH = 4.2;
+    const roofMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b, // Dark architectural slate tiles
+      roughness: 0.7,
+    });
+    const roofSlopeL = new THREE.Mesh(
+      new THREE.BoxGeometry(houseW * 0.58, 0.4, houseD + 1.2),
+      roofMat,
+    );
+    roofSlopeL.position.set(x - houseW * 0.25, houseH + roofH * 0.45, z);
+    roofSlopeL.rotation.z = Math.PI / 6;
+
+    const roofSlopeR = new THREE.Mesh(
+      new THREE.BoxGeometry(houseW * 0.58, 0.4, houseD + 1.2),
+      roofMat,
+    );
+    roofSlopeR.position.set(x + houseW * 0.25, houseH + roofH * 0.45, z);
+    roofSlopeR.rotation.z = -Math.PI / 6;
+    group.add(roofSlopeL, roofSlopeR);
+
+    // Triangular Gable End Walls
+    const gableGeo = new THREE.ConeGeometry(houseW * 0.5, roofH, 4);
+    gableGeo.rotateY(Math.PI / 4);
+    const gableMesh = new THREE.Mesh(gableGeo, houseMat);
+    gableMesh.scale.set(1, 1, (houseD * 0.8) / (houseW * 0.5));
+    gableMesh.position.set(x, houseH + roofH * 0.5, z);
+    group.add(gableMesh);
+
+    // 3. Brick Chimney with Top Flue
+    const chimneyMat = new THREE.MeshStandardMaterial({ color: 0x9a3412, roughness: 0.9 });
+    const chimney = new THREE.Mesh(new THREE.BoxGeometry(1.4, 4.2, 1.4), chimneyMat);
+    chimney.position.set(x + houseW * 0.28, houseH + roofH * 0.65, z + houseD * 0.2);
+    group.add(chimney);
+
+    // 4. Covered Front Porch
+    const porchMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7 });
+    const porchRoof = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.35, 3.2), roofMat);
+    porchRoof.position.set(x, 3.8, z + houseD / 2 + 1.6);
+
+    const pillarMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc });
+    const pillarL = new THREE.Mesh(new THREE.BoxGeometry(0.35, 3.6, 0.35), pillarMat);
+    pillarL.position.set(x - 2.8, 1.8, z + houseD / 2 + 2.8);
+    const pillarR = new THREE.Mesh(new THREE.BoxGeometry(0.35, 3.6, 0.35), pillarMat);
+    pillarR.position.set(x + 2.8, 1.8, z + houseD / 2 + 2.8);
+
+    const porchFloor = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.3, 3.4), porchMat);
+    porchFloor.position.set(x, 0.15, z + houseD / 2 + 1.7);
+    group.add(porchRoof, pillarL, pillarR, porchFloor);
+
+    // 5. Windows with Warm Glow
+    const windowMat = new THREE.MeshStandardMaterial({
+      color: 0xfef08a,
+      emissive: 0xfef08a,
+      emissiveIntensity: 0.7,
+      roughness: 0.2,
+    });
+    // Front windows (ground floor & 1st floor)
+    const win1 = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.0, 0.15), windowMat);
+    win1.position.set(x - houseW * 0.28, 2.2, z + houseD / 2 + 0.08);
+    const win2 = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.0, 0.15), windowMat);
+    win2.position.set(x - houseW * 0.28, 6.2, z + houseD / 2 + 0.08);
+    const win3 = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.0, 0.15), windowMat);
+    win3.position.set(x + houseW * 0.28, 6.2, z + houseD / 2 + 0.08);
+    group.add(win1, win2, win3);
+
+    // Front door
+    const doorMat = new THREE.MeshStandardMaterial({ color: accentColor, roughness: 0.5 });
+    const door = new THREE.Mesh(new THREE.BoxGeometry(1.8, 2.8, 0.15), doorMat);
+    door.position.set(x, 1.5, z + houseD / 2 + 0.08);
+    group.add(door);
+
+    return {
+      mesh: group,
+      bounds: {
+        minX: x - houseW / 2 - 0.5,
+        maxX: x + houseW / 2 + 0.5,
+        minZ: z - houseD / 2 - 0.5,
+        maxZ: z + houseD / 2 + 3.2,
+        height: Math.max(height, houseH + roofH),
       },
     };
   }

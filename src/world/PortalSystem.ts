@@ -20,6 +20,11 @@ export interface FloatingPlatform {
   maxZ: number;
   height: number;
   isBoostPad?: boolean;
+  isSlope?: boolean;
+  slopeStartHeight?: number;
+  slopeEndHeight?: number;
+  slopeStartZ?: number;
+  slopeEndZ?: number;
 }
 
 export class PortalSystem {
@@ -68,6 +73,7 @@ export class PortalSystem {
 
     this.group = new THREE.Group();
     this.otherWorldGroup = new THREE.Group();
+    this.otherWorldGroup.visible = false;
     this.scene.add(this.group, this.otherWorldGroup);
 
     this.buildCityPortal();
@@ -238,7 +244,21 @@ export class PortalSystem {
     this.createPlatform(ox - 8, ox + 8, oz + 50, oz + 170, 400.0, 0x0f172a, 0xfacc15, true);
 
     // 3. Tycho Mega Jump Ramp: Slanted launch ramp towards Tycho Ridge
-    this.createPlatform(ox - 9, ox + 9, oz + 170, oz + 205, 412.0, 0x3b82f6, 0x00f0ff, true);
+    this.createPlatform(
+      ox - 9,
+      ox + 9,
+      oz + 170,
+      oz + 205,
+      412.0,
+      0x3b82f6,
+      0x00f0ff,
+      true,
+      true,
+      400.0,
+      412.0,
+      oz + 170,
+      oz + 205,
+    );
 
     // 4. Tycho South Landing Ridge
     this.createPlatform(ox - 40, ox + 40, oz + 235, oz + 315, 420.0, 0x312e81, 0xec4899);
@@ -255,8 +275,8 @@ export class PortalSystem {
     this.createPlatform(ox - 100, ox - 50, oz - 6, oz + 6, 400.0, 0x0f172a, 0xf97316);
     this.createPlatform(ox - 180, ox - 100, oz - 35, oz + 35, 408.0, 0x431407, 0xf97316);
 
-    // 8. Northwest Alien Monolith Ridge
-    this.createPlatform(ox - 140, ox - 70, oz - 140, oz - 70, 415.0, 0x581c87, 0xc084fc);
+    // 8. Northeast Alien Monolith Ridge (moved clear of Apollo 11 Tranquility Base)
+    this.createPlatform(ox + 70, ox + 140, oz - 140, oz - 70, 415.0, 0x581c87, 0xc084fc);
 
     // 9. Vast Lunar Plain Ground Slab (560m x 560m Gray Regolith)
     const moonGroundGeo = new THREE.PlaneGeometry(560, 560);
@@ -695,6 +715,11 @@ export class PortalSystem {
     color: number,
     rimColor: number,
     isBoostPad: boolean = false,
+    isSlope: boolean = false,
+    slopeStartHeight?: number,
+    slopeEndHeight?: number,
+    slopeStartZ?: number,
+    slopeEndZ?: number,
   ): void {
     const width = maxX - minX;
     const depth = maxZ - minZ;
@@ -710,22 +735,46 @@ export class PortalSystem {
       metalness: 0.6,
     });
     const slab = new THREE.Mesh(slabGeo, slabMat);
-    slab.position.set(centerX, height - thickness / 2, centerZ);
-    slab.receiveShadow = true;
-    this.otherWorldGroup.add(slab);
 
-    // Glowing Neon Rim
     const rimGeo = new THREE.BoxGeometry(width + 0.6, 0.4, depth + 0.6);
     const rimMat = new THREE.MeshBasicMaterial({
       color: rimColor,
       wireframe: false,
     });
     const rim = new THREE.Mesh(rimGeo, rimMat);
-    rim.position.set(centerX, height + 0.1, centerZ);
+
+    if (isSlope) {
+      const startH = slopeStartHeight ?? 400.0;
+      const endH = slopeEndHeight ?? height;
+      const rise = endH - startH;
+      const slantAngle = Math.atan2(rise, depth);
+      slab.position.set(centerX, (startH + endH) / 2 - thickness / 2, centerZ);
+      slab.rotation.x = -slantAngle;
+      rim.position.set(centerX, (startH + endH) / 2 + 0.1, centerZ);
+      rim.rotation.x = -slantAngle;
+    } else {
+      slab.position.set(centerX, height - thickness / 2, centerZ);
+      rim.position.set(centerX, height + 0.1, centerZ);
+    }
+
+    slab.receiveShadow = true;
+    this.otherWorldGroup.add(slab);
     this.otherWorldGroup.add(rim);
 
     // Register platform collision box
-    this.platforms.push({ minX, maxX, minZ, maxZ, height, isBoostPad });
+    this.platforms.push({
+      minX,
+      maxX,
+      minZ,
+      maxZ,
+      height,
+      isBoostPad,
+      isSlope,
+      slopeStartHeight,
+      slopeEndHeight,
+      slopeStartZ,
+      slopeEndZ,
+    });
   }
 
   private buildCosmicDeco(ox: number, oy: number, oz: number): void {
@@ -842,6 +891,13 @@ export class PortalSystem {
   ): { onPlatform: boolean; height: number; isBoostPad?: boolean } {
     for (const p of this.platforms) {
       if (x >= p.minX && x <= p.maxX && z >= p.minZ && z <= p.maxZ) {
+        if (p.isSlope && p.slopeStartZ !== undefined && p.slopeEndZ !== undefined) {
+          const t = Math.max(0, Math.min(1, (z - p.slopeStartZ) / (p.slopeEndZ - p.slopeStartZ)));
+          const h =
+            (p.slopeStartHeight ?? 400.0) +
+            t * ((p.slopeEndHeight ?? p.height) - (p.slopeStartHeight ?? 400.0));
+          return { onPlatform: true, height: h, isBoostPad: p.isBoostPad };
+        }
         return { onPlatform: true, height: p.height, isBoostPad: p.isBoostPad };
       }
     }
@@ -923,6 +979,7 @@ export class PortalSystem {
         ball.isCollected = true;
         ball.group.visible = false;
         ball.light.intensity = 0;
+        ball.light.visible = false;
         this.collectedBallsCount++;
 
         const allCollected = this.collectedBallsCount === this.dragonBalls.length;

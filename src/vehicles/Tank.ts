@@ -24,6 +24,7 @@ export class Tank {
   public maxHealth: number = 800;
   public isDestroyed: boolean = false;
   public cannonCooldown: number = 0;
+  private recoilTimer: number = 0;
 
   private leftTreadWheels: THREE.Mesh[] = [];
   private rightTreadWheels: THREE.Mesh[] = [];
@@ -119,9 +120,9 @@ export class Tank {
     this.turretGroup.add(muzzle);
 
     // Coaxial Heavy Machine Gun
-    const co্যাxGeo = new THREE.CylinderGeometry(0.06, 0.06, 1.2, 8);
-    co্যাxGeo.rotateX(Math.PI / 2);
-    const coax = new THREE.Mesh(co্যাxGeo, barrelMat);
+    const coaxGeo = new THREE.CylinderGeometry(0.06, 0.06, 1.2, 8);
+    coaxGeo.rotateX(Math.PI / 2);
+    const coax = new THREE.Mesh(coaxGeo, barrelMat);
     coax.position.set(0.4, 0.7, 2.0);
     this.turretGroup.add(coax);
 
@@ -131,10 +132,20 @@ export class Tank {
     return barrel;
   }
 
-  public update(dt: number, input: TankInput): { firedCannon: boolean } {
+  public update(
+    dt: number,
+    input: TankInput,
+    city?: { getRoofHeightAt: (x: number, z: number, r?: number) => number },
+  ): { firedCannon: boolean } {
     if (this.isDestroyed) return { firedCannon: false };
 
     this.cannonCooldown = Math.max(0, this.cannonCooldown - dt);
+    if (this.recoilTimer > 0) {
+      this.recoilTimer -= dt;
+      if (this.recoilTimer <= 0) {
+        this.barrelMesh.position.z = 3.2;
+      }
+    }
 
     // 1. Dual Track Differential Steering
     const turnRate = 1.4; // rad/s
@@ -144,6 +155,7 @@ export class Tank {
     if (input.steerRight) {
       this.heading -= turnRate * dt;
     }
+    this.heading = THREE.MathUtils.euclideanModulo(this.heading + Math.PI, Math.PI * 2) - Math.PI;
 
     // 2. Throttle / Reverse
     const maxSpeed = 22.0; // ~80 km/h
@@ -166,6 +178,12 @@ export class Tank {
     // Move forward along hull heading
     this.x += Math.sin(this.heading) * this.speed * dt;
     this.z += Math.cos(this.heading) * this.speed * dt;
+
+    if (city) {
+      const roofH = city.getRoofHeightAt(this.x, this.z, 0);
+      this.y = roofH > 0 && this.y >= roofH - 0.8 ? roofH + 0.8 : 0.8;
+    }
+
     this.group.position.set(this.x, this.y, this.z);
     this.group.rotation.y = this.heading;
 
@@ -186,9 +204,7 @@ export class Tank {
       firedCannon = true;
       // Visual cannon recoil kickback
       this.barrelMesh.position.z = 2.7;
-      setTimeout(() => {
-        this.barrelMesh.position.z = 3.2;
-      }, 140);
+      this.recoilTimer = 0.14;
     }
 
     return { firedCannon };

@@ -3,6 +3,8 @@ import { RACE_CIRCUIT, CITY_CONFIG, EVENTS } from '../utils/Constants';
 import { eventBus } from '../utils/EventBus';
 import { SoundManager } from '../audio/SoundManager';
 import { EconomySystem } from '../economy/EconomySystem';
+import { City } from '../city/City';
+import { disposeObject3D } from '../utils/disposeObject';
 import { RivalRacer } from './RivalRacer';
 
 export interface RaceState {
@@ -30,6 +32,8 @@ export class MissionSystem {
   private scene: THREE.Scene;
   private sound: SoundManager;
   private economy: EconomySystem;
+  private city: City | null = null;
+  public raceCooldown: number = 0;
 
   // Race properties
   public race: RaceState = {
@@ -60,14 +64,19 @@ export class MissionSystem {
   };
   private dropoffBeam: THREE.Mesh | null = null;
 
-  constructor(scene: THREE.Scene, sound: SoundManager, economy: EconomySystem) {
+  constructor(scene: THREE.Scene, sound: SoundManager, economy: EconomySystem, city?: City) {
     this.scene = scene;
     this.sound = sound;
     this.economy = economy;
+    this.city = city || null;
     this.group = new THREE.Group();
     this.scene.add(this.group);
 
     this.buildRaceStartMarker();
+  }
+
+  public setCity(city: City): void {
+    this.city = city;
   }
 
   private buildRaceStartMarker(): void {
@@ -90,10 +99,6 @@ export class MissionSystem {
     const sign = new THREE.Mesh(signGeo, signMat);
     sign.position.y = 9.5;
     startGroup.add(sign);
-
-    const light = new THREE.PointLight(0x00d4ff, 4, 18);
-    light.position.y = 5.0;
-    startGroup.add(light);
 
     startGroup.position.set(CITY_CONFIG.RACE_START_X, 0, CITY_CONFIG.RACE_START_Z);
     this.group.add(startGroup);
@@ -180,20 +185,42 @@ export class MissionSystem {
     this.activeRingMesh = new THREE.Mesh(ringGeo, ringMat);
     this.activeRingMesh.position.set(pt.x, 4.0, pt.z);
 
-    this.activeRingLight = new THREE.PointLight(isFinish ? 0xffea00 : 0x00e5ff, 5, 22);
-    this.activeRingLight.position.set(pt.x, 4.0, pt.z);
-
-    this.group.add(this.activeRingMesh, this.activeRingLight);
+    this.group.add(this.activeRingMesh);
   }
 
   public startTaxiMission(): void {
-    // Generate random pickup on sidewalk
-    const pickupX = (Math.random() - 0.5) * 220;
-    const pickupZ = (Math.random() - 0.5) * 220;
+    if (this.taxiMission.passengerMesh) {
+      this.group.remove(this.taxiMission.passengerMesh);
+      disposeObject3D(this.taxiMission.passengerMesh);
+      this.taxiMission.passengerMesh = null;
+    }
+    if (this.dropoffBeam) {
+      this.group.remove(this.dropoffBeam);
+      disposeObject3D(this.dropoffBeam);
+      this.dropoffBeam = null;
+    }
 
-    // Generate random dropoff across town
-    const dropoffX = (Math.random() - 0.5) * 220;
-    const dropoffZ = (Math.random() - 0.5) * 220;
+    // Generate random pickup on sidewalk/street outside buildings
+    let pickupX = (Math.random() - 0.5) * 220;
+    let pickupZ = (Math.random() - 0.5) * 220;
+    if (this.city) {
+      const fixed = this.city.resolveBuildingIntersection(pickupX, pickupZ, 1.0, 1.0);
+      if (fixed.corrected) {
+        pickupX = fixed.x;
+        pickupZ = fixed.z;
+      }
+    }
+
+    // Generate random dropoff across town outside buildings
+    let dropoffX = (Math.random() - 0.5) * 220;
+    let dropoffZ = (Math.random() - 0.5) * 220;
+    if (this.city) {
+      const fixed = this.city.resolveBuildingIntersection(dropoffX, dropoffZ, 1.0, 1.0);
+      if (fixed.corrected) {
+        dropoffX = fixed.x;
+        dropoffZ = fixed.z;
+      }
+    }
 
     this.taxiMission = {
       isActive: true,
@@ -244,11 +271,13 @@ export class MissionSystem {
     return pGroup;
   }
 
-  public update(dt: number, carX: number, carZ: number, inCar: boolean): void {
+  public update(dt: number, carX: number, carZ: number, inCar: boolean, carY: number = 0): void {
+    this.raceCooldown = Math.max(0, this.raceCooldown - dt);
+
     // Check if player reaches Street Race Start Line (when not in active race)
-    if (!this.race.isActive && inCar) {
+    if (!this.race.isActive && inCar && this.raceCooldown <= 0) {
       const dToStart = Math.hypot(carX - CITY_CONFIG.RACE_START_X, carZ - CITY_CONFIG.RACE_START_Z);
-      if (dToStart < 6.0) {
+      if (dToStart < 6.0 && carY < 8.0) {
         this.startRace();
       }
     }
@@ -256,6 +285,26 @@ export class MissionSystem {
     // 1. Street Race Loop
     if (this.race.isActive) {
       this.race.elapsedTime += dt;
+
+      // Softlock prevention: 120s time limit
+      if (this.race.elapsedTime > this.race.timeLimit) {
+        this.race.isActive = false;
+        this.raceCooldown = 8.0;
+        if (this.activeRingMesh) {
+          this.group.remove(this.activeRingMesh);
+          disposeObject3D(this.activeRingMesh);
+          this.activeRingMesh = null;
+        }
+        if (this.activeRingLight) {
+          this.group.remove(this.activeRingLight);
+          this.activeRingLight = null;
+        }
+        this.cleanupRivals();
+        eventBus.emit(EVENTS.NOTIFICATION, {
+          text: '❌ Zeit abgelaufen (120s)! Straßenrennen abgebrochen.',
+        });
+        return;
+      }
 
       // Calculate player progress along the circuit
       const targetPt = RACE_CIRCUIT[this.race.currentCheckpointIndex];
@@ -314,7 +363,7 @@ export class MissionSystem {
         this.activeRingMesh.rotation.y += 1.8 * dt;
         const dist = Math.hypot(carX - targetPt.x, carZ - targetPt.z);
 
-        if (dist < 7.0) {
+        if (dist < 7.0 && inCar && carY < 12.0) {
           // Checkpoint cleared!
           this.sound.playCheckpointChime();
           this.race.currentCheckpointIndex += 1;
@@ -335,9 +384,17 @@ export class MissionSystem {
 
             this.economy.addCash(reward);
             this.race.isActive = false;
+            this.raceCooldown = 8.0;
 
-            if (this.activeRingMesh) this.group.remove(this.activeRingMesh);
-            if (this.activeRingLight) this.group.remove(this.activeRingLight);
+            if (this.activeRingMesh) {
+              this.group.remove(this.activeRingMesh);
+              disposeObject3D(this.activeRingMesh);
+              this.activeRingMesh = null;
+            }
+            if (this.activeRingLight) {
+              this.group.remove(this.activeRingLight);
+              this.activeRingLight = null;
+            }
 
             eventBus.emit(EVENTS.NOTIFICATION, {
               text: `🏆 ${badge} Zeit: ${this.race.elapsedTime.toFixed(1)}s | Prämie: +$${reward}!`,
@@ -367,12 +424,14 @@ export class MissionSystem {
       if (!this.taxiMission.hasPickedUp) {
         // Checking pickup
         const d = Math.hypot(carX - this.taxiMission.pickupX, carZ - this.taxiMission.pickupZ);
-        if (d < 5.0 && inCar) {
+        if (d < 5.0 && inCar && carY < 4.0) {
           this.taxiMission.hasPickedUp = true;
           this.sound.playCheckpointChime();
 
           if (this.taxiMission.passengerMesh) {
             this.group.remove(this.taxiMission.passengerMesh);
+            disposeObject3D(this.taxiMission.passengerMesh);
+            this.taxiMission.passengerMesh = null;
           }
 
           // Create destination beam
@@ -393,14 +452,20 @@ export class MissionSystem {
       } else {
         // Checking dropoff
         const d = Math.hypot(carX - this.taxiMission.dropoffX, carZ - this.taxiMission.dropoffZ);
-        if (d < 6.0 && inCar) {
+        if (d < 6.0 && inCar && carY < 4.0) {
           const reward = this.taxiMission.fare + Math.round(this.taxiMission.timeRemaining * 10);
           this.economy.addCash(reward);
           this.sound.playFanfare();
 
           if (this.dropoffBeam) {
             this.group.remove(this.dropoffBeam);
+            disposeObject3D(this.dropoffBeam);
             this.dropoffBeam = null;
+          }
+          if (this.taxiMission.passengerMesh) {
+            this.group.remove(this.taxiMission.passengerMesh);
+            disposeObject3D(this.taxiMission.passengerMesh);
+            this.taxiMission.passengerMesh = null;
           }
 
           this.taxiMission.isActive = false;
@@ -413,10 +478,13 @@ export class MissionSystem {
       if (this.taxiMission.timeRemaining <= 0) {
         if (this.dropoffBeam) {
           this.group.remove(this.dropoffBeam);
+          disposeObject3D(this.dropoffBeam);
           this.dropoffBeam = null;
         }
         if (this.taxiMission.passengerMesh) {
           this.group.remove(this.taxiMission.passengerMesh);
+          disposeObject3D(this.taxiMission.passengerMesh);
+          this.taxiMission.passengerMesh = null;
         }
         this.taxiMission.isActive = false;
         eventBus.emit(EVENTS.NOTIFICATION, {

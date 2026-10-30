@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { eventBus } from '../utils/EventBus';
 import { EVENTS } from '../utils/Constants';
 import { City } from '../city/City';
+import { disposeObject3D } from '../utils/disposeObject';
 
 export interface CopCar {
   group: THREE.Group;
@@ -10,6 +11,9 @@ export interface CopCar {
   z: number;
   speed: number;
   heading: number;
+  health?: number;
+  maxHealth?: number;
+  isWrecked?: boolean;
   sirenLightRed: THREE.PointLight;
   sirenLightBlue: THREE.PointLight;
   sirenMeshRed: THREE.Mesh;
@@ -21,6 +25,8 @@ export interface PoliceHeli {
   x: number;
   y: number;
   z: number;
+  health?: number;
+  maxHealth?: number;
   rotor: THREE.Group;
   tailRotor: THREE.Group;
   searchlight: THREE.SpotLight;
@@ -47,6 +53,8 @@ export interface SpikeStrip {
 
 export class PoliceSystem {
   public wantedLevel: number = 0; // 0 to 5 stars
+  public crimeScore: number = 0;
+  public isSuppressed: boolean = false;
   public copCars: CopCar[] = [];
   public policeHeli: PoliceHeli | null = null;
   public roadblocks: Roadblock[] = [];
@@ -69,24 +77,68 @@ export class PoliceSystem {
     const clamped = Math.max(0, Math.min(6, Math.floor(level)));
     if (this.wantedLevel !== clamped) {
       this.wantedLevel = clamped;
+      const thresholds = [0, 10, 25, 50, 80, 120, 180];
+      this.crimeScore = thresholds[this.wantedLevel] || 0;
       eventBus.emit(EVENTS.WANTED_CHANGE, { wantedLevel: this.wantedLevel });
       this.adjustCopPresence();
     }
   }
 
   public addCrimeSeverity(points: number): void {
-    if (this.wantedLevel === 0 && points >= 10) {
-      this.setWantedLevel(1);
-    } else if (this.wantedLevel === 1 && points >= 25) {
-      this.setWantedLevel(2);
-    } else if (this.wantedLevel === 2 && points >= 50) {
-      this.setWantedLevel(3);
-    } else if (this.wantedLevel === 3 && points >= 80) {
-      this.setWantedLevel(4);
-    } else if (this.wantedLevel === 4 && points >= 120) {
-      this.setWantedLevel(5);
-    } else if (this.wantedLevel === 5 && points >= 180) {
+    if (this.isSuppressed || points <= 0) return;
+    this.crimeScore += points;
+
+    if (this.crimeScore >= 180) {
       this.setWantedLevel(6);
+    } else if (this.crimeScore >= 120) {
+      this.setWantedLevel(5);
+    } else if (this.crimeScore >= 80) {
+      this.setWantedLevel(4);
+    } else if (this.crimeScore >= 50) {
+      this.setWantedLevel(3);
+    } else if (this.crimeScore >= 25) {
+      this.setWantedLevel(2);
+    } else if (this.crimeScore >= 10) {
+      this.setWantedLevel(1);
+    }
+  }
+
+  public damageCopCar(cop: CopCar, amount: number): void {
+    if (cop.health === undefined) {
+      cop.health = 120;
+      cop.maxHealth = 120;
+    }
+    cop.health -= amount;
+    if (cop.health <= 0) {
+      cop.isWrecked = true;
+      cop.speed = 0;
+      // Visually darken chassis
+      cop.group.traverse((obj) => {
+        if ((obj as THREE.Mesh).isMesh) {
+          const m = obj as THREE.Mesh;
+          if (m.material && (m.material as THREE.MeshStandardMaterial).color) {
+            (m.material as THREE.MeshStandardMaterial).color.setHex(0x1e293b);
+          }
+        }
+      });
+      const idx = this.copCars.indexOf(cop);
+      if (idx !== -1) {
+        this.copCars.splice(idx, 1);
+        this.group.remove(cop.group);
+        disposeObject3D(cop.group);
+      }
+    }
+  }
+
+  public damagePoliceHeli(amount: number): void {
+    if (!this.policeHeli) return;
+    if (this.policeHeli.health === undefined) {
+      this.policeHeli.health = 250;
+      this.policeHeli.maxHealth = 250;
+    }
+    this.policeHeli.health -= amount;
+    if (this.policeHeli.health <= 0) {
+      this.despawnPoliceHelicopter();
     }
   }
 
@@ -98,7 +150,10 @@ export class PoliceSystem {
     }
     while (this.copCars.length > targetCops) {
       const removed = this.copCars.pop();
-      if (removed) this.group.remove(removed.group);
+      if (removed) {
+        this.group.remove(removed.group);
+        disposeObject3D(removed.group);
+      }
     }
 
     // Police Helicopter at 4 & 5 stars
@@ -168,12 +223,21 @@ export class PoliceSystem {
     const sirenLightBlue = new THREE.PointLight(0x0066ff, 3, 20);
     sirenLightBlue.position.copy(sirenMeshBlue.position);
 
-    copGroup.add(sirenMeshRed, sirenMeshBlue, sirenLightRed, sirenLightBlue);
+    // Add only visible emissive siren meshes to copGroup (avoids dynamic PointLight budget overflow)
+    copGroup.add(sirenMeshRed, sirenMeshBlue);
 
     // Spawn 70m away
     const angle = Math.random() * Math.PI * 2;
-    const spawnX = Math.cos(angle) * 70;
-    const spawnZ = Math.sin(angle) * 70;
+    let spawnX = Math.cos(angle) * 70;
+    let spawnZ = Math.sin(angle) * 70;
+
+    if (this.city) {
+      const fixed = this.city.resolveBuildingIntersection(spawnX, spawnZ, 2.2, 1.2);
+      if (fixed.corrected) {
+        spawnX = fixed.x;
+        spawnZ = fixed.z;
+      }
+    }
 
     copGroup.position.set(spawnX, 0, spawnZ);
     this.group.add(copGroup);
@@ -185,6 +249,9 @@ export class PoliceSystem {
       z: spawnZ,
       speed: 0,
       heading: angle,
+      health: 120,
+      maxHealth: 120,
+      isWrecked: false,
       sirenLightRed,
       sirenLightBlue,
       sirenMeshRed,
@@ -244,18 +311,18 @@ export class PoliceSystem {
     // High Power Searchlight
     const searchlight = new THREE.SpotLight(0xfffaed, 5.5, 90, Math.PI / 5, 0.3);
     searchlight.position.set(0, 0.2, 1.6);
+    searchlight.visible = false;
     const searchlightTarget = new THREE.Object3D();
     searchlightTarget.position.set(0, -38, 0);
     heliGroup.add(searchlight);
     heliGroup.add(searchlightTarget);
     searchlight.target = searchlightTarget;
 
-    // Siren Lights
+    // Siren Lights kept on interface for intensity calculation without adding to scene
     const sirenLightRed = new THREE.PointLight(0xff0000, 3, 25);
     sirenLightRed.position.set(-0.6, 0.4, 0);
     const sirenLightBlue = new THREE.PointLight(0x0066ff, 3, 25);
     sirenLightBlue.position.set(0.6, 0.4, 0);
-    heliGroup.add(sirenLightRed, sirenLightBlue);
 
     heliGroup.position.set(0, 38, 0);
     this.group.add(heliGroup);
@@ -265,6 +332,8 @@ export class PoliceSystem {
       x: 0,
       y: 38,
       z: 0,
+      health: 250,
+      maxHealth: 250,
       rotor,
       tailRotor,
       searchlight,
@@ -277,6 +346,7 @@ export class PoliceSystem {
   private despawnPoliceHelicopter(): void {
     if (this.policeHeli) {
       this.group.remove(this.policeHeli.group);
+      disposeObject3D(this.policeHeli.group);
       this.policeHeli = null;
     }
   }
@@ -306,11 +376,8 @@ export class PoliceSystem {
       const barrierMesh = new THREE.Mesh(barGeo, barMat);
       barrierMesh.position.set(0, 0.6, 0);
 
-      // Warning Flasher
-      const flash = new THREE.PointLight(0xff0000, 3, 12);
-      flash.position.set(0, 1.2, 0);
-
-      rbGroup.add(car1, car2, barrierMesh, flash);
+      // Emissive roadblock cars and barrier (no dynamic point light needed)
+      rbGroup.add(car1, car2, barrierMesh);
       rbGroup.position.set(loc.x, 0, loc.z);
       this.group.add(rbGroup);
 
@@ -325,16 +392,19 @@ export class PoliceSystem {
   }
 
   private clearRoadblocks(): void {
-    this.roadblocks.forEach((rb) => this.group.remove(rb.group));
+    this.roadblocks.forEach((rb) => {
+      this.group.remove(rb.group);
+      disposeObject3D(rb.group);
+    });
     this.roadblocks = [];
   }
 
   private spawnSpikeStrips(): void {
     const locations = [
-      { x: 0, z: 44, rot: 0 },
-      { x: 44, z: 0, rot: Math.PI / 2 },
-      { x: -44, z: 88, rot: 0 },
-      { x: 88, z: -44, rot: Math.PI / 2 },
+      { x: 0, z: 44, rot: Math.PI / 2 },
+      { x: 44, z: 0, rot: 0 },
+      { x: -44, z: 88, rot: Math.PI / 2 },
+      { x: 88, z: -44, rot: 0 },
     ];
 
     locations.forEach((loc) => {
@@ -372,10 +442,9 @@ export class PoliceSystem {
         g.add(spike);
       }
 
-      // Blinking orange hazard light
+      // Blinking orange hazard light retained on interface without adding to scene
       const hazardLight = new THREE.PointLight(0xf97316, 2.5, 8);
       hazardLight.position.set(0, 0.4, 0);
-      g.add(hazardLight);
 
       g.position.set(loc.x, 0.03, loc.z);
       g.rotation.y = loc.rot;
@@ -392,7 +461,10 @@ export class PoliceSystem {
   }
 
   private clearSpikeStrips(): void {
-    this.spikeStrips.forEach((s) => this.group.remove(s.group));
+    this.spikeStrips.forEach((s) => {
+      this.group.remove(s.group);
+      disposeObject3D(s.group);
+    });
     this.spikeStrips = [];
   }
 
@@ -555,6 +627,7 @@ export class PoliceSystem {
 
       heli.sirenLightRed.intensity = flash ? 4 : 0;
       heli.sirenLightBlue.intensity = flash ? 0 : 4;
+      heli.searchlight.visible = this.wantedLevel >= 4;
 
       // Circle overhead
       const circleAngle = this.sirenTimer * 0.4;

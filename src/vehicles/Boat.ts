@@ -89,10 +89,12 @@ export class Boat {
   }
 
   public update(dt: number, input: BoatInput, waveTime: number): void {
-    // 1. Rudder Steering (Agile turning, sharper at speed)
-    const turnRate = this.isJetSki ? 3.2 : 2.2;
+    // 1. Rudder Steering (Agile turning, speed-scaled)
+    const speedFactor = Math.min(1.0, Math.max(0.15, Math.abs(this.speed) / 5.0));
+    const turnRate = (this.isJetSki ? 3.2 : 2.2) * speedFactor;
     if (input.steerLeft) this.heading += turnRate * dt;
     if (input.steerRight) this.heading -= turnRate * dt;
+    this.heading = THREE.MathUtils.euclideanModulo(this.heading + Math.PI, Math.PI * 2) - Math.PI;
 
     // 2. Twin Propeller Throttle & Reverse
     const maxSpeed = this.isJetSki ? 34.0 : 42.0; // ~150 km/h!
@@ -112,9 +114,37 @@ export class Boat {
       }
     }
 
-    // 3. Move along water heading
-    this.x += Math.sin(this.heading) * this.speed * dt;
-    this.z += Math.cos(this.heading) * this.speed * dt;
+    // 3. Move along water heading with boundary & island collision
+    let nextX = this.x + Math.sin(this.heading) * this.speed * dt;
+    let nextZ = this.z + Math.cos(this.heading) * this.speed * dt;
+
+    // Island collision check (radius 26 around -350, 0)
+    const distToIsland = Math.hypot(nextX - -350, nextZ - 0);
+    if (distToIsland < 26.0) {
+      this.speed = -this.speed * 0.3;
+      const angleFromIsland = Math.atan2(this.z - 0, this.x - -350);
+      nextX = -350 + Math.cos(angleFromIsland) * 26.1;
+      nextZ = 0 + Math.sin(angleFromIsland) * 26.1;
+    }
+
+    // Water boundaries clamp (Bay area: prevent driving onto city streets if in bay)
+    if (this.x <= -320 && nextX > -320) {
+      nextX = -320;
+      this.speed = Math.min(0, this.speed);
+    } else if (nextX < -660) {
+      nextX = -660;
+      this.speed = Math.max(0, this.speed);
+    }
+    if (nextZ > 380) {
+      nextZ = 380;
+      this.speed = 0;
+    } else if (nextZ < -380) {
+      nextZ = -380;
+      this.speed = 0;
+    }
+
+    this.x = nextX;
+    this.z = nextZ;
 
     // 4. Dynamic Wave Buoyancy & Roll
     const wave = Math.sin(waveTime * 2.5 + this.x * 0.08) * 0.35;

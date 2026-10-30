@@ -1,18 +1,17 @@
 import * as THREE from 'three';
 
-interface Skidmark {
-  meshL: THREE.Mesh;
-  meshR: THREE.Mesh;
-  opacity: number;
+interface SkidmarkPair {
   life: number;
   active: boolean;
 }
 
 export class SkidmarkSystem {
   public group: THREE.Group;
-  private skidmarks: Skidmark[] = [];
-  private maxSkidmarks: number = 60;
+  private instancedMesh: THREE.InstancedMesh;
+  private pairs: SkidmarkPair[] = [];
+  private maxPairs: number = 60;
   private currentIndex: number = 0;
+  private dummy: THREE.Object3D = new THREE.Object3D();
 
   private lastEmissionX: number = 0;
   private lastEmissionZ: number = 0;
@@ -30,32 +29,28 @@ export class SkidmarkSystem {
     const quadGeo = new THREE.PlaneGeometry(0.35, 1.2);
     quadGeo.rotateX(-Math.PI / 2);
 
-    for (let i = 0; i < this.maxSkidmarks; i++) {
-      const matL = new THREE.MeshBasicMaterial({
-        color: 0x111620,
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-      });
-      const matR = new THREE.MeshBasicMaterial({
-        color: 0x111620,
-        transparent: true,
-        opacity: 0,
-        depthWrite: false,
-      });
+    const sharedMat = new THREE.MeshBasicMaterial({
+      color: 0x111620,
+      transparent: true,
+      opacity: 0.65,
+      depthWrite: false,
+    });
 
-      const meshL = new THREE.Mesh(quadGeo, matL);
-      const meshR = new THREE.Mesh(quadGeo, matR);
-      meshL.visible = false;
-      meshR.visible = false;
+    this.instancedMesh = new THREE.InstancedMesh(quadGeo, sharedMat, this.maxPairs * 2);
+    this.instancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 
-      this.group.add(meshL);
-      this.group.add(meshR);
+    this.dummy.position.set(0, -999, 0);
+    this.dummy.scale.set(0, 0, 0);
+    this.dummy.updateMatrix();
 
-      this.skidmarks.push({
-        meshL,
-        meshR,
-        opacity: 0,
+    for (let i = 0; i < this.maxPairs * 2; i++) {
+      this.instancedMesh.setMatrixAt(i, this.dummy.matrix);
+    }
+    this.instancedMesh.instanceMatrix.needsUpdate = true;
+    this.group.add(this.instancedMesh);
+
+    for (let i = 0; i < this.maxPairs; i++) {
+      this.pairs.push({
         life: 0,
         active: false,
       });
@@ -90,18 +85,21 @@ export class SkidmarkSystem {
     isBurnout: boolean,
     isAirborne: boolean,
   ): void {
+    let matrixChanged = false;
+
     // 1. Age and fade existing skidmarks
-    for (const sm of this.skidmarks) {
-      if (!sm.active) continue;
-      sm.life -= dt;
-      if (sm.life <= 0) {
-        sm.active = false;
-        sm.meshL.visible = false;
-        sm.meshR.visible = false;
-      } else {
-        sm.opacity = Math.max(0, sm.life / 8.0) * 0.65;
-        (sm.meshL.material as THREE.MeshBasicMaterial).opacity = sm.opacity;
-        (sm.meshR.material as THREE.MeshBasicMaterial).opacity = sm.opacity;
+    for (let i = 0; i < this.maxPairs; i++) {
+      const pair = this.pairs[i];
+      if (!pair.active) continue;
+      pair.life -= dt;
+      if (pair.life <= 0) {
+        pair.active = false;
+        this.dummy.position.set(0, -999, 0);
+        this.dummy.scale.set(0, 0, 0);
+        this.dummy.updateMatrix();
+        this.instancedMesh.setMatrixAt(i * 2, this.dummy.matrix);
+        this.instancedMesh.setMatrixAt(i * 2 + 1, this.dummy.matrix);
+        matrixChanged = true;
       }
     }
 
@@ -129,22 +127,24 @@ export class SkidmarkSystem {
         const rightX = rearCenterX + normalX * trackHalfWidth;
         const rightZ = rearCenterZ + normalZ * trackHalfWidth;
 
-        const sm = this.skidmarks[this.currentIndex];
-        sm.active = true;
-        sm.life = 8.0;
-        sm.opacity = 0.65;
+        const pair = this.pairs[this.currentIndex];
+        pair.active = true;
+        pair.life = 8.0;
 
-        sm.meshL.position.set(leftX, 0.025, leftZ);
-        sm.meshL.rotation.y = heading;
-        sm.meshL.visible = true;
-        (sm.meshL.material as THREE.MeshBasicMaterial).opacity = 0.65;
+        this.dummy.position.set(leftX, 0.025, leftZ);
+        this.dummy.rotation.set(0, heading, 0);
+        this.dummy.scale.set(1, 1, 1);
+        this.dummy.updateMatrix();
+        this.instancedMesh.setMatrixAt(this.currentIndex * 2, this.dummy.matrix);
 
-        sm.meshR.position.set(rightX, 0.025, rightZ);
-        sm.meshR.rotation.y = heading;
-        sm.meshR.visible = true;
-        (sm.meshR.material as THREE.MeshBasicMaterial).opacity = 0.65;
+        this.dummy.position.set(rightX, 0.025, rightZ);
+        this.dummy.rotation.set(0, heading, 0);
+        this.dummy.scale.set(1, 1, 1);
+        this.dummy.updateMatrix();
+        this.instancedMesh.setMatrixAt(this.currentIndex * 2 + 1, this.dummy.matrix);
 
-        this.currentIndex = (this.currentIndex + 1) % this.maxSkidmarks;
+        matrixChanged = true;
+        this.currentIndex = (this.currentIndex + 1) % this.maxPairs;
       }
 
       // Tire smoke animation
@@ -165,13 +165,22 @@ export class SkidmarkSystem {
     } else {
       this.smokeMaterial.opacity = THREE.MathUtils.lerp(this.smokeMaterial.opacity, 0.0, 0.15);
     }
+
+    if (matrixChanged) {
+      this.instancedMesh.instanceMatrix.needsUpdate = true;
+    }
   }
 
   public clear(): void {
-    for (const sm of this.skidmarks) {
-      sm.active = false;
-      sm.meshL.visible = false;
-      sm.meshR.visible = false;
+    this.dummy.position.set(0, -999, 0);
+    this.dummy.scale.set(0, 0, 0);
+    this.dummy.updateMatrix();
+    for (let i = 0; i < this.maxPairs; i++) {
+      this.pairs[i].active = false;
+      this.pairs[i].life = 0;
+      this.instancedMesh.setMatrixAt(i * 2, this.dummy.matrix);
+      this.instancedMesh.setMatrixAt(i * 2 + 1, this.dummy.matrix);
     }
+    this.instancedMesh.instanceMatrix.needsUpdate = true;
   }
 }

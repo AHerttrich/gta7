@@ -107,10 +107,9 @@ export class RivalRacer {
     tlRight.position.set(0.7, 0.65, -2.12);
     group.add(tlLeft, tlRight);
 
-    // Underglow Neon Light
+    // Underglow Neon Light kept for reference without adding to scene graph
     const underglowLight = new THREE.PointLight(this.config.neonColor, 3, 6);
     underglowLight.position.set(0, 0.2, 0);
-    group.add(underglowLight);
 
     // 4 Wheels
     const wheelGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.32, 16);

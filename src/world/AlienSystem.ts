@@ -4,6 +4,8 @@ import { SoundManager } from '../audio/SoundManager';
 import { HUD } from '../ui/HUD';
 import { Player } from '../character/Player';
 import { Car } from '../vehicles/Car';
+import type { Tank } from '../vehicles/Tank';
+import type { PortalSystem } from './PortalSystem';
 
 export type AlienType = 'GRUNT' | 'UFO';
 export type AlienState = 'PATROL' | 'CHASE' | 'ATTACK' | 'LEAP';
@@ -469,6 +471,8 @@ export class AlienSystem {
     player: Player,
     car: Car,
     hud: HUD,
+    portal?: PortalSystem,
+    tank?: Tank,
   ): void {
     this.animTimer += dt;
 
@@ -527,6 +531,7 @@ export class AlienSystem {
           player,
           car,
           hud,
+          portal,
         );
       } else {
         this.updateUfoAI(dt, alien, playerX, playerY, playerZ, dist2D, dist3D);
@@ -538,10 +543,20 @@ export class AlienSystem {
     }
 
     // 2. Update Plasma Projectiles
-    this.updatePlasmaBolts(dt, playerX, playerY, playerZ, playerMode, player, car, hud);
+    this.updatePlasmaBolts(dt, playerX, playerY, playerZ, playerMode, player, car, hud, tank);
 
     // 3. Update Death Particle Effects
     this.updateParticles(dt);
+  }
+
+  public clearBolts(): void {
+    for (const bolt of this.plasmaBolts) {
+      this.group.remove(bolt.mesh);
+      if (bolt.light && bolt.light.parent) {
+        bolt.light.parent.remove(bolt.light);
+      }
+    }
+    this.plasmaBolts.length = 0;
   }
 
   /**
@@ -559,6 +574,7 @@ export class AlienSystem {
     player: Player,
     car: Car,
     hud: HUD,
+    portal?: PortalSystem,
   ): void {
     const dx = playerX - alien.x;
     const dz = playerZ - alien.z;
@@ -624,7 +640,13 @@ export class AlienSystem {
     alien.vy -= 6.5 * dt; // 1/6 g moon gravity
     alien.y += alien.vy * dt;
 
-    const groundLevel = 400.5;
+    let groundLevel = 400.5;
+    if (portal) {
+      const elev = portal.getOtherWorldElevation(alien.x, alien.z);
+      if (elev.onPlatform && elev.height > 0) {
+        groundLevel = elev.height + 0.5;
+      }
+    }
     if (alien.y <= groundLevel) {
       alien.y = groundLevel;
       alien.vy = 0;
@@ -725,9 +747,9 @@ export class AlienSystem {
     mesh.position.set(fromX, fromY, fromZ);
     this.group.add(mesh);
 
+    // Keep light object for interface compatibility without adding to scene (preserves light budget)
     const light = new THREE.PointLight(0x22c55e, 4.0, 10);
     light.position.set(fromX, fromY, fromZ);
-    this.group.add(light);
 
     this.sound.playPlasmaShot();
 
@@ -757,6 +779,7 @@ export class AlienSystem {
     player: Player,
     car: Car,
     hud: HUD,
+    tank?: Tank,
   ): void {
     for (let i = this.plasmaBolts.length - 1; i >= 0; i--) {
       const bolt = this.plasmaBolts[i];
@@ -767,23 +790,28 @@ export class AlienSystem {
       bolt.z += bolt.vz * dt;
 
       bolt.mesh.position.set(bolt.x, bolt.y, bolt.z);
-      bolt.light.position.set(bolt.x, bolt.y, bolt.z);
+      if (bolt.light) {
+        bolt.light.position.set(bolt.x, bolt.y, bolt.z);
+      }
 
       let hasHit = false;
 
-      // Check collision with Player or Car
+      // Check collision with Player or Car or Tank
       const hitDist = Math.hypot(bolt.x - playerX, bolt.y - (playerY + 0.8), bolt.z - playerZ);
 
-      if (hitDist < (playerMode === 'IN_CAR' ? 2.8 : 1.6)) {
+      if (hitDist < (playerMode === 'IN_CAR' || playerMode === 'IN_TANK' ? 2.8 : 1.6)) {
         hasHit = true;
         this.sound.playCrash(15);
 
         if (playerMode === 'IN_CAR') {
           car.takeDamage(bolt.damage);
-          hud.showNotification('⚡ ALIEN-PLASMA! DeLorean getroffen (-12 HP)!');
+          hud.showNotification(`⚡ ALIEN-PLASMA! DeLorean getroffen (-${bolt.damage} HP)!`);
+        } else if (playerMode === 'IN_TANK' && tank) {
+          tank.takeDamage(bolt.damage);
+          hud.showNotification(`⚡ ALIEN-PLASMA! Panzer getroffen (-${bolt.damage} HP)!`);
         } else {
           player.takeDamage(bolt.damage);
-          hud.showNotification('⚡ ALIEN-PLASMA! Direkttreffer (-14 HP)!');
+          hud.showNotification(`⚡ ALIEN-PLASMA! Direkttreffer (-${bolt.damage} HP)!`);
         }
 
         this.spawnBurst(bolt.x, bolt.y, bolt.z, 0x22c55e, 5);
@@ -791,7 +819,9 @@ export class AlienSystem {
 
       if (hasHit || bolt.life <= 0 || bolt.y < 400.0) {
         this.group.remove(bolt.mesh);
-        this.group.remove(bolt.light);
+        if (bolt.light && bolt.light.parent) {
+          bolt.light.parent.remove(bolt.light);
+        }
         this.plasmaBolts.splice(i, 1);
       }
     }

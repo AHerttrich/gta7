@@ -39,6 +39,7 @@ export class City {
     groundGeo.rotateX(-Math.PI / 2);
     this.groundMat = Road.createRoadMaterial();
     const groundMesh = new THREE.Mesh(groundGeo, this.groundMat);
+    groundMesh.position.x = 190;
     groundMesh.receiveShadow = true;
     this.group.add(groundMesh);
 
@@ -124,27 +125,35 @@ export class City {
       ],
     ];
 
+    const regularBlocks: { x: number; z: number }[] = [];
+
     for (let i = 0; i < GRID_SIZE; i++) {
       for (let j = 0; j < GRID_SIZE; j++) {
         const blockCenterX = -halfSize + i * step + step / 2;
         const blockCenterZ = -halfSize + j * step + step / 2;
 
-        // Sidewalk foundation under block
-        const sidewalkGeo = new THREE.BoxGeometry(
-          BLOCK_SIZE,
-          CITY_CONFIG.SIDEWALK_HEIGHT,
-          BLOCK_SIZE,
-        );
-        const sidewalkMat = Road.createSidewalkMaterial();
-        const sidewalkMesh = new THREE.Mesh(sidewalkGeo, sidewalkMat);
-        sidewalkMesh.position.set(blockCenterX, CITY_CONFIG.SIDEWALK_HEIGHT / 2, blockCenterZ);
-        sidewalkMesh.receiveShadow = true;
-        this.group.add(sidewalkMesh);
-
-        // Special Handcrafted Landmark POIs
+        // Special Handcrafted Landmark POIs (skip generic sidewalk to prevent Z-fighting)
         if (i === 1 && j === 1) {
           // Player's Own Luxury Villa Estate ("Dein Eigenes Haus") at Block [1, 1] (Center: x=-176, z=-176)
           this.createPlayerVillaEstate(blockCenterX, blockCenterZ, BLOCK_SIZE);
+          continue;
+        }
+
+        if (i === 0 && j === 1) {
+          // Oakwood Family Suburban Neighborhood ("Wohnhäuser-Siedlung") at Block [0, 1]
+          this.createSuburbanNeighborhood(blockCenterX, blockCenterZ, BLOCK_SIZE, 'family');
+          continue;
+        }
+
+        if (i === 1 && j === 0) {
+          // Sunny Hills Residential Estate ("Wohnhäuser mit Bungalow & Garten") at Block [1, 0]
+          this.createSuburbanNeighborhood(blockCenterX, blockCenterZ, BLOCK_SIZE, 'bungalow');
+          continue;
+        }
+
+        if (i === 0 && j === 3) {
+          // Campus Townhouses & Student WG ("Wohnhäuser") at Block [0, 3]
+          this.createSuburbanNeighborhood(blockCenterX, blockCenterZ, BLOCK_SIZE, 'townhouse');
           continue;
         }
 
@@ -165,6 +174,20 @@ export class City {
           this.createStuntStadium(blockCenterX, blockCenterZ, BLOCK_SIZE);
           continue;
         }
+
+        if (i === 5 && j === 5) {
+          // Area 77 Military Base at Block [5, 5] (Center: x=176, z=176) - open courtyard & hangar
+          this.buildingBounds.push({
+            minX: 150 - 16,
+            maxX: 150 + 16,
+            minZ: 150 - 16,
+            maxZ: 150 + 16,
+            height: 9.0,
+          });
+          continue;
+        }
+
+        regularBlocks.push({ x: blockCenterX, z: blockCenterZ });
 
         // Place buildings in this block with varied architecture
         const distFromCenter = Math.hypot(i - GRID_SIZE / 2, j - GRID_SIZE / 2);
@@ -212,10 +235,63 @@ export class City {
       }
     }
 
+    // Batch all standard city block sidewalks into 1 InstancedMesh (saves draw calls & eliminates Z-fighting on POIs)
+    if (regularBlocks.length > 0) {
+      const sidewalkGeo = new THREE.BoxGeometry(
+        BLOCK_SIZE,
+        CITY_CONFIG.SIDEWALK_HEIGHT,
+        BLOCK_SIZE,
+      );
+      const sidewalkMat = Road.createSidewalkMaterial();
+      const sidewalkInstanced = new THREE.InstancedMesh(
+        sidewalkGeo,
+        sidewalkMat,
+        regularBlocks.length,
+      );
+      sidewalkInstanced.receiveShadow = true;
+      const dummyBox = new THREE.Object3D();
+      regularBlocks.forEach((b, idx) => {
+        dummyBox.position.set(b.x, CITY_CONFIG.SIDEWALK_HEIGHT / 2, b.z);
+        dummyBox.updateMatrix();
+        sidewalkInstanced.setMatrixAt(idx, dummyBox.matrix);
+      });
+      sidewalkInstanced.instanceMatrix.needsUpdate = true;
+      this.group.add(sidewalkInstanced);
+    }
+
     // 3. Handcrafted Oceanic POI: Lighthouse Island in the Western Ocean Bay
     this.createLighthouseIsland();
 
-    // 3. Lane Dash Markings & Crosswalks along roads
+    // Landmark physical bounds for Heist Bank and Casino
+    this.buildingBounds.push({
+      minX: 44 - 13.5,
+      maxX: 44 + 13.5,
+      minZ: 245 - 14.5,
+      maxZ: 245 + 14.5,
+      height: 14.0,
+    });
+    this.buildingBounds.push({
+      minX: -44 - 15.5,
+      maxX: -44 + 15.5,
+      minZ: -245 - 16.5,
+      maxZ: -245 + 16.5,
+      height: 20.0,
+    });
+
+    // 4. Lane Dash Markings & Cyber Crosswalks along roads (batched into 1 InstancedMesh: 768 stripes -> 1 draw call)
+    const stripeGeo = new THREE.PlaneGeometry(0.8, 4.5);
+    stripeGeo.rotateX(-Math.PI / 2);
+    const stripeMat = new THREE.MeshBasicMaterial({
+      color: 0x00f0ff,
+      transparent: true,
+      opacity: 0.85,
+    });
+    const stripeCount = 6;
+    const totalStripes = (GRID_SIZE + 1) * (GRID_SIZE + 1) * 2 * stripeCount;
+    const crosswalkInstanced = new THREE.InstancedMesh(stripeGeo, stripeMat, totalStripes);
+    let cwIdx = 0;
+    const dummyCw = new THREE.Object3D();
+
     for (let i = 0; i <= GRID_SIZE; i++) {
       const roadCoord = -halfSize + i * step;
 
@@ -230,15 +306,32 @@ export class City {
       // Cyber Crosswalks at intersections
       for (let j = 0; j <= GRID_SIZE; j++) {
         const roadCoord2 = -halfSize + j * step;
-        const cw1 = Road.createCrosswalk(roadCoord2 + 10, roadCoord, true);
-        const cw2 = Road.createCrosswalk(roadCoord2, roadCoord + 10, false);
-        this.group.add(cw1, cw2);
+
+        // Horizontal crosswalk
+        for (let s = 0; s < stripeCount; s++) {
+          const offset = (s - (stripeCount - 1) / 2) * 1.8;
+          dummyCw.position.set(roadCoord2 + 10 + offset, 0.03, roadCoord);
+          dummyCw.rotation.set(0, 0, 0);
+          dummyCw.updateMatrix();
+          crosswalkInstanced.setMatrixAt(cwIdx++, dummyCw.matrix);
+        }
+
+        // Vertical crosswalk
+        for (let s = 0; s < stripeCount; s++) {
+          const offset = (s - (stripeCount - 1) / 2) * 1.8;
+          dummyCw.position.set(roadCoord2, 0.03, roadCoord + 10 + offset);
+          dummyCw.rotation.set(0, Math.PI / 2, 0);
+          dummyCw.updateMatrix();
+          crosswalkInstanced.setMatrixAt(cwIdx++, dummyCw.matrix);
+        }
       }
     }
+    crosswalkInstanced.instanceMatrix.needsUpdate = true;
+    this.group.add(crosswalkInstanced);
   }
 
   public getRoofHeightAt(x: number, z: number, radius: number = 0): number {
-    if (x >= 3800 && z >= 3800 && x <= 6000 && z <= 4800) {
+    if (x >= 3800 && z >= 3800 && x <= 6500 && z <= 4800) {
       return 100.0; // Interior floor elevation
     }
     if (Math.hypot(x - 2500, z - 2500) < 600) {
@@ -263,7 +356,13 @@ export class City {
         z + radius > b.minZ &&
         z - radius < b.maxZ
       ) {
-        const baseH = b.baseHeight ?? b.height;
+        let baseH = b.baseHeight ?? b.height;
+        if (b.isSlope && b.slopeStartZ !== undefined && b.slopeEndZ !== undefined) {
+          const t = Math.max(0, Math.min(1, (z - b.slopeStartZ) / (b.slopeEndZ - b.slopeStartZ)));
+          baseH =
+            (b.slopeStartHeight ?? 0.5) +
+            t * ((b.slopeEndHeight ?? b.height) - (b.slopeStartHeight ?? 0.5));
+        }
         if (baseH > maxH) {
           maxH = baseH;
         }
@@ -344,7 +443,7 @@ export class City {
     // If coordinates are in the Other World realm or Interior Realm, bypass city bounds
     if (
       Math.hypot(curX - 2500, curZ - 2500) < 600 ||
-      (curX >= 3800 && curZ >= 3800 && curX <= 6000 && curZ <= 4800)
+      (curX >= 3800 && curZ >= 3800 && curX <= 6500 && curZ <= 4800)
     ) {
       return { x: curX, z: curZ, corrected: wasCorrected, roofY: resolvedRoofY };
     }
@@ -405,7 +504,15 @@ export class City {
       }
 
       // Check base tower
-      if (y < baseH) {
+      let currentBaseH = baseH;
+      if (b.isSlope && b.slopeStartZ !== undefined && b.slopeEndZ !== undefined) {
+        const t = Math.max(0, Math.min(1, (z - b.slopeStartZ) / (b.slopeEndZ - b.slopeStartZ)));
+        currentBaseH =
+          (b.slopeStartHeight ?? 0.5) +
+          t * ((b.slopeEndHeight ?? b.height) - (b.slopeStartHeight ?? 0.5));
+      }
+
+      if (y < currentBaseH) {
         if (
           x + radius > b.minX &&
           x - radius < b.maxX &&
@@ -431,7 +538,7 @@ export class City {
     // If coordinates are in the Other World realm or Interior Realm, bypass city bounds
     if (
       Math.hypot(x - 2500, z - 2500) < 600 ||
-      (x >= 3800 && z >= 3800 && x <= 6000 && z <= 4800)
+      (x >= 3800 && z >= 3800 && x <= 6500 && z <= 4800)
     ) {
       return { collided: false, normalX: 0, normalZ: 0, depth: 0 };
     }
@@ -591,7 +698,7 @@ export class City {
       // If coordinates are in the Other World realm or Interior Realm, bypass city bounds
       if (
         Math.hypot(curX - 2500, curZ - 2500) < 600 ||
-        (curX >= 3800 && curZ >= 3800 && curX <= 6000 && curZ <= 4800)
+        (curX >= 3800 && curZ >= 3800 && curX <= 6500 && curZ <= 4800)
       ) {
         continue;
       }
@@ -933,6 +1040,11 @@ export class City {
       minZ: cz - 22.5,
       maxZ: cz - 5.5,
       height: 4.8,
+      isSlope: true,
+      slopeStartZ: cz - 5.5,
+      slopeEndZ: cz - 22.5,
+      slopeStartHeight: 0.5,
+      slopeEndHeight: 4.8,
     });
 
     // 3. Glowing Speed Booster Pad
@@ -1195,9 +1307,15 @@ export class City {
     upperFloor.castShadow = true;
     upperFloor.receiveShadow = true;
 
-    // Balcony Glass Railing
-    const balconyGlass = new THREE.Mesh(new THREE.BoxGeometry(22.4, 1.0, 16.4), glassMat);
-    balconyGlass.position.set(cx, 9.8, cz - 8);
+    // Balcony Glass Perimeter Railings (leaving roof helipad open!)
+    const railNorth = new THREE.Mesh(new THREE.BoxGeometry(22.4, 1.0, 0.3), glassMat);
+    railNorth.position.set(cx, 9.8, cz - 8 - 8.0);
+    const railSouth = new THREE.Mesh(new THREE.BoxGeometry(22.4, 1.0, 0.3), glassMat);
+    railSouth.position.set(cx, 9.8, cz - 8 + 8.0);
+    const railWest = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.0, 16.0), glassMat);
+    railWest.position.set(cx - 11.0, 9.8, cz - 8);
+    const railEast = new THREE.Mesh(new THREE.BoxGeometry(0.3, 1.0, 16.0), glassMat);
+    railEast.position.set(cx + 11.0, 9.8, cz - 8);
 
     // Rooftop Helipad Circle & "H" Marking
     const heliMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
@@ -1245,7 +1363,10 @@ export class City {
       groundFloor,
       frontWindow,
       upperFloor,
-      balconyGlass,
+      railNorth,
+      railSouth,
+      railWest,
+      railEast,
       heliPad,
       hRing,
       hBar1,
@@ -1321,6 +1442,215 @@ export class City {
       fronds.position.set(pos.x, 7.8, pos.z);
 
       this.group.add(trunk, fronds);
+    });
+  }
+
+  private createSuburbanNeighborhood(
+    cx: number,
+    cz: number,
+    blockSize: number,
+    type: 'family' | 'bungalow' | 'townhouse',
+  ): void {
+    // 1. Manicured Emerald Suburban Lawn
+    const lawnGeo = new THREE.BoxGeometry(blockSize - 1.0, 0.28, blockSize - 1.0);
+    const lawnMat = new THREE.MeshStandardMaterial({
+      color: 0x16a34a,
+      roughness: 0.85,
+    });
+    const lawn = new THREE.Mesh(lawnGeo, lawnMat);
+    lawn.position.set(cx, 0.14, cz);
+    lawn.receiveShadow = true;
+    this.group.add(lawn);
+
+    // 2. Paved Garden Walkways & Driveway
+    const driveGeo = new THREE.BoxGeometry(7.0, 0.32, 28.0);
+    const driveMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7 });
+    const driveway = new THREE.Mesh(driveGeo, driveMat);
+    driveway.position.set(cx - 18, 0.16, cz + 10);
+    driveway.receiveShadow = true;
+    this.group.add(driveway);
+
+    // 3. Parked Family Station Wagon on the Driveway
+    const carGroup = new THREE.Group();
+    const carBody = new THREE.Mesh(
+      new THREE.BoxGeometry(2.4, 1.2, 4.8),
+      new THREE.MeshStandardMaterial({
+        color: type === 'family' ? 0x0284c7 : 0xd97706,
+        roughness: 0.3,
+        metalness: 0.7,
+      }),
+    );
+    carBody.position.y = 0.8;
+    const carCabin = new THREE.Mesh(
+      new THREE.BoxGeometry(2.2, 0.9, 2.6),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.2 }),
+    );
+    carCabin.position.set(0, 1.6, -0.3);
+    carGroup.add(carBody, carCabin);
+    carGroup.position.set(cx - 18, 0.16, cz + 14);
+    this.group.add(carGroup);
+
+    // 4. Main Detached Residential House ("Wohnhaus")
+    const houseW = 18;
+    const houseD = 14;
+    const houseH = 7.5;
+    const houseX = cx - 4;
+    const houseZ = cz - 4;
+
+    const houseMat = new THREE.MeshStandardMaterial({
+      color: type === 'townhouse' ? 0xb91c1c : 0xf8fafc,
+      roughness: 0.6,
+      metalness: 0.1,
+    });
+    const houseBody = new THREE.Mesh(new THREE.BoxGeometry(houseW, houseH, houseD), houseMat);
+    houseBody.position.set(houseX, houseH / 2, houseZ);
+    houseBody.castShadow = true;
+    houseBody.receiveShadow = true;
+    this.group.add(houseBody);
+
+    // Gabled Pitched Roof (Satteldach mit Ziegeln)
+    const roofH = 4.2;
+    const roofMat = new THREE.MeshStandardMaterial({
+      color: type === 'bungalow' ? 0x9a3412 : 0x1e293b,
+      roughness: 0.7,
+    });
+    const roofSlopeL = new THREE.Mesh(
+      new THREE.BoxGeometry(houseW * 0.58, 0.4, houseD + 1.2),
+      roofMat,
+    );
+    roofSlopeL.position.set(houseX - houseW * 0.25, houseH + roofH * 0.45, houseZ);
+    roofSlopeL.rotation.z = Math.PI / 6;
+
+    const roofSlopeR = new THREE.Mesh(
+      new THREE.BoxGeometry(houseW * 0.58, 0.4, houseD + 1.2),
+      roofMat,
+    );
+    roofSlopeR.position.set(houseX + houseW * 0.25, houseH + roofH * 0.45, houseZ);
+    roofSlopeR.rotation.z = -Math.PI / 6;
+    this.group.add(roofSlopeL, roofSlopeR);
+
+    // Triangular Gable Wall
+    const gableGeo = new THREE.ConeGeometry(houseW * 0.5, roofH, 4);
+    gableGeo.rotateY(Math.PI / 4);
+    const gable = new THREE.Mesh(gableGeo, houseMat);
+    gable.scale.set(1, 1, (houseD * 0.8) / (houseW * 0.5));
+    gable.position.set(houseX, houseH + roofH * 0.5, houseZ);
+    this.group.add(gable);
+
+    // Brick Chimney
+    const chimney = new THREE.Mesh(
+      new THREE.BoxGeometry(1.4, 3.8, 1.4),
+      new THREE.MeshStandardMaterial({ color: 0x9a3412, roughness: 0.9 }),
+    );
+    chimney.position.set(houseX + 4.5, houseH + roofH * 0.7, houseZ + 2.5);
+    this.group.add(chimney);
+
+    // Front Porch & Welcome Lantern
+    const porchFloor = new THREE.Mesh(
+      new THREE.BoxGeometry(6.5, 0.3, 3.5),
+      new THREE.MeshStandardMaterial({ color: 0x475569 }),
+    );
+    porchFloor.position.set(houseX, 0.15, houseZ + houseD / 2 + 1.75);
+
+    const porchRoof = new THREE.Mesh(new THREE.BoxGeometry(6.0, 0.3, 3.2), roofMat);
+    porchRoof.position.set(houseX, 3.6, houseZ + houseD / 2 + 1.6);
+
+    const pillarMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc });
+    const p1 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 3.4, 0.3), pillarMat);
+    p1.position.set(houseX - 2.6, 1.7, houseZ + houseD / 2 + 2.8);
+    const p2 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 3.4, 0.3), pillarMat);
+    p2.position.set(houseX + 2.6, 1.7, houseZ + houseD / 2 + 2.8);
+
+    const lantern = new THREE.Mesh(
+      new THREE.SphereGeometry(0.35, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0xfacc15 }),
+    );
+    lantern.position.set(houseX, 3.2, houseZ + houseD / 2 + 1.8);
+
+    this.group.add(porchFloor, porchRoof, p1, p2, lantern);
+
+    // Windows with Warm Interior Glow
+    const winMat = new THREE.MeshStandardMaterial({
+      color: 0xfef08a,
+      emissive: 0xfef08a,
+      emissiveIntensity: 0.8,
+    });
+    const w1 = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.8, 0.15), winMat);
+    w1.position.set(houseX - 5.5, 2.0, houseZ + houseD / 2 + 0.08);
+    const w2 = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.8, 0.15), winMat);
+    w2.position.set(houseX + 5.5, 2.0, houseZ + houseD / 2 + 0.08);
+    const w3 = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.8, 0.15), winMat);
+    w3.position.set(houseX - 5.5, 5.5, houseZ + houseD / 2 + 0.08);
+    const w4 = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.8, 0.15), winMat);
+    w4.position.set(houseX + 5.5, 5.5, houseZ + houseD / 2 + 0.08);
+    this.group.add(w1, w2, w3, w4);
+
+    // House 1 Physical Collision Boundary
+    this.buildingBounds.push({
+      minX: houseX - houseW / 2 - 0.5,
+      maxX: houseX + houseW / 2 + 0.5,
+      minZ: houseZ - houseD / 2 - 0.5,
+      maxZ: houseZ + houseD / 2 + 3.2,
+      height: 11.5,
+    });
+
+    // 5. Second Residential House / Bungalow on the Estate
+    const b2W = 14;
+    const b2D = 12;
+    const b2H = 5.5;
+    const b2X = cx + 15;
+    const b2Z = cz + 6;
+
+    const b2Mat = new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.7 });
+    const b2Body = new THREE.Mesh(new THREE.BoxGeometry(b2W, b2H, b2D), b2Mat);
+    b2Body.position.set(b2X, b2H / 2, b2Z);
+    b2Body.castShadow = true;
+    b2Body.receiveShadow = true;
+
+    // Hipped Roof on House 2
+    const b2Roof = new THREE.Mesh(
+      new THREE.ConeGeometry(b2W * 0.65, 3.2, 4),
+      new THREE.MeshStandardMaterial({ color: 0x9a3412, roughness: 0.7 }),
+    );
+    b2Roof.rotation.y = Math.PI / 4;
+    b2Roof.position.set(b2X, b2H + 1.6, b2Z);
+    this.group.add(b2Body, b2Roof);
+
+    this.buildingBounds.push({
+      minX: b2X - b2W / 2 - 0.5,
+      maxX: b2X + b2W / 2 + 0.5,
+      minZ: b2Z - b2D / 2 - 0.5,
+      maxZ: b2Z + b2D / 2 + 0.5,
+      height: 8.5,
+    });
+
+    // 6. White Picket Garden Fence
+    const fenceMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.4 });
+    for (let fx = -22; fx <= 22; fx += 3.5) {
+      if (fx >= -20 && fx <= -14) continue; // Driveway opening
+      const fencePost = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.2, 0.18), fenceMat);
+      fencePost.position.set(cx + fx, 0.6, cz + 27);
+      this.group.add(fencePost);
+    }
+    const fenceRail = new THREE.Mesh(new THREE.BoxGeometry(38, 0.12, 0.12), fenceMat);
+    fenceRail.position.set(cx + 4, 0.8, cz + 27);
+    this.group.add(fenceRail);
+
+    // 7. Garden Trees with Lush Green Foliage
+    const treePositions = [
+      { x: cx + 5, z: cz + 20 },
+      { x: cx - 22, z: cz - 18 },
+      { x: cx + 24, z: cz - 18 },
+    ];
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 });
+    const leavesMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.6 });
+
+    treePositions.forEach((pos) => {
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.45, 4.0, 8), woodMat);
+      trunk.position.set(pos.x, 2.0, pos.z);
+      const leaves = new THREE.Mesh(new THREE.DodecahedronGeometry(2.4), leavesMat);
+      leaves.position.set(pos.x, 4.8, pos.z);
+      this.group.add(trunk, leaves);
     });
   }
 }

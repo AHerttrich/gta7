@@ -65,6 +65,7 @@ export class MilitarySystem {
       // Searchlight
       const spot = new THREE.SpotLight(0xfffaed, 8, 80, Math.PI / 6, 0.4, 1.5);
       spot.position.set(c.cx, 15.5, c.cz);
+      spot.visible = false;
       const target = new THREE.Object3D();
       target.position.set(c.cx, 0, c.cz);
       this.group.add(spot, target);
@@ -94,12 +95,20 @@ export class MilitarySystem {
   public update(dt: number, playerX: number, playerZ: number): { triggerArea77Alarm: boolean } {
     this.searchlightAngle += dt * 0.8;
 
-    // Sweep searchlights
-    for (let i = 0; i < this.searchlightTargets.length; i++) {
-      const offset = (i * Math.PI) / 2;
-      const target = this.searchlightTargets[i];
-      target.position.x = this.baseConfig.x + Math.sin(this.searchlightAngle + offset) * 35;
-      target.position.z = this.baseConfig.z + Math.cos(this.searchlightAngle + offset) * 35;
+    // Sweep searchlights only when player is within regional proximity
+    const distToBase = Math.hypot(playerX - this.baseConfig.x, playerZ - this.baseConfig.z);
+    const showLights = distToBase < 160;
+    for (const spot of this.watchtowerLights) {
+      spot.visible = showLights;
+    }
+
+    if (showLights) {
+      for (let i = 0; i < this.searchlightTargets.length; i++) {
+        const offset = (i * Math.PI) / 2;
+        const target = this.searchlightTargets[i];
+        target.position.x = this.baseConfig.x + Math.sin(this.searchlightAngle + offset) * 35;
+        target.position.z = this.baseConfig.z + Math.cos(this.searchlightAngle + offset) * 35;
+      }
     }
 
     // Check if player penetrates Area 77 perimeter

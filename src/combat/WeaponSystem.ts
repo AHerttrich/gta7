@@ -1,13 +1,14 @@
 import * as THREE from 'three';
-import { WeaponData } from '../utils/Constants';
+import { WeaponData, EVENTS } from '../utils/Constants';
 import { TrafficSystem } from '../traffic/TrafficSystem';
 import { PoliceSystem } from '../police/PoliceSystem';
 import { PedestrianSystem } from '../pedestrians/PedestrianSystem';
 import { SoundManager } from '../audio/SoundManager';
 import { GangSystem } from '../gangs/GangSystem';
 import { AlienSystem } from '../world/AlienSystem';
+import { City } from '../city/City';
 import { eventBus } from '../utils/EventBus';
-import { EVENTS } from '../utils/Constants';
+import { disposeObject3D } from '../utils/disposeObject';
 
 export interface Projectile {
   mesh: THREE.Mesh;
@@ -24,7 +25,7 @@ export interface Projectile {
 
 export interface Explosion {
   mesh: THREE.Mesh;
-  light: THREE.PointLight;
+  light?: THREE.PointLight;
   x: number;
   y: number;
   z: number;
@@ -34,6 +35,12 @@ export interface Explosion {
 }
 
 export class WeaponSystem {
+  private static readonly explosionGeo: THREE.SphereGeometry = ((): THREE.SphereGeometry => {
+    const geo = new THREE.SphereGeometry(1.0, 12, 12);
+    geo.userData.shared = true;
+    return geo;
+  })();
+
   public projectiles: Projectile[] = [];
   public explosions: Explosion[] = [];
   public group: THREE.Group;
@@ -45,6 +52,7 @@ export class WeaponSystem {
   private pedestrians: PedestrianSystem;
   private gangs: GangSystem | null = null;
   private aliens: AlienSystem | null = null;
+  private city: City | null = null;
 
   private bulletGeo: THREE.SphereGeometry;
   private bulletMat: THREE.MeshBasicMaterial;
@@ -58,22 +66,28 @@ export class WeaponSystem {
     traffic: TrafficSystem,
     police: PoliceSystem,
     pedestrians: PedestrianSystem,
+    city?: City,
   ) {
     this.scene = scene;
     this.sound = sound;
     this.traffic = traffic;
     this.police = police;
     this.pedestrians = pedestrians;
+    this.city = city || null;
 
     this.group = new THREE.Group();
     this.scene.add(this.group);
 
     this.bulletGeo = new THREE.SphereGeometry(0.12, 6, 6);
+    this.bulletGeo.userData.shared = true;
     this.bulletMat = new THREE.MeshBasicMaterial({ color: 0xffea00 });
+    this.bulletMat.userData.shared = true;
 
     this.rocketGeo = new THREE.CylinderGeometry(0.16, 0.16, 0.9, 8);
     this.rocketGeo.rotateX(Math.PI / 2);
+    this.rocketGeo.userData.shared = true;
     this.rocketMat = new THREE.MeshStandardMaterial({ color: 0x475569 });
+    this.rocketMat.userData.shared = true;
   }
 
   public setGangSystem(gangs: GangSystem): void {
@@ -82,6 +96,10 @@ export class WeaponSystem {
 
   public setAlienSystem(aliens: AlienSystem): void {
     this.aliens = aliens;
+  }
+
+  public setCity(city: City): void {
+    this.city = city;
   }
 
   public fire(
@@ -117,8 +135,12 @@ export class WeaponSystem {
       // Hit pedestrians
       for (const ped of this.pedestrians.pedestrians) {
         if (Math.hypot(ped.x - targetX, ped.z - targetZ) < 2.0) {
-          ped.isPanicking = true;
-          ped.panicTimer = 5;
+          this.pedestrians.launchRagdoll(
+            ped,
+            Math.sin(heading) * 8.0,
+            4.0,
+            Math.cos(heading) * 8.0,
+          );
           this.police.addCrimeSeverity(20);
         }
       }
@@ -173,19 +195,18 @@ export class WeaponSystem {
   }
 
   public createExplosion(x: number, y: number, z: number, maxRadius: number = 7.0): void {
-    const geo = new THREE.SphereGeometry(1.0, 12, 12);
     const mat = new THREE.MeshBasicMaterial({
       color: 0xff5500,
       transparent: true,
       opacity: 0.9,
     });
-    const mesh = new THREE.Mesh(geo, mat);
+    const mesh = new THREE.Mesh(WeaponSystem.explosionGeo, mat);
     mesh.position.set(x, y, z);
     this.group.add(mesh);
 
+    // Keep light object for interface compatibility without adding to scene
     const light = new THREE.PointLight(0xff7700, 8, 30);
     light.position.set(x, y + 1, z);
-    this.group.add(light);
 
     this.sound.playExplosion();
 
@@ -214,14 +235,26 @@ export class WeaponSystem {
       const d = Math.hypot(cop.x - x, cop.z - z);
       if (d < maxRadius) {
         cop.speed *= 0.2;
+        this.police.damageCopCar(cop, 80);
+      }
+    }
+
+    if (this.police.policeHeli) {
+      const dHeli = Math.hypot(
+        this.police.policeHeli.x - x,
+        this.police.policeHeli.y - y,
+        this.police.policeHeli.z - z,
+      );
+      if (dHeli < maxRadius + 3.0) {
+        this.police.damagePoliceHeli(120);
       }
     }
 
     for (const ped of this.pedestrians.pedestrians) {
       const d = Math.hypot(ped.x - x, ped.z - z);
       if (d < maxRadius) {
-        ped.isPanicking = true;
-        ped.panicTimer = 6;
+        const angle = Math.atan2(ped.x - x, ped.z - z);
+        this.pedestrians.launchRagdoll(ped, Math.sin(angle) * 12.0, 8.0, Math.cos(angle) * 12.0);
       }
     }
 
@@ -247,12 +280,22 @@ export class WeaponSystem {
 
       let hasHit = false;
 
-      // Hit traffic cars
-      for (const car of this.traffic.cars) {
-        if (!car.isWrecked && Math.hypot(car.x - p.x, car.z - p.z) < 2.3) {
+      // Check building collision (bullets/rockets don't pass through skyscrapers)
+      if (this.city) {
+        const col = this.city.checkCollision(p.x, p.z, 0.4);
+        if (col.collided && p.y < 30.0) {
           hasHit = true;
-          this.traffic.damageCar(car, p.damage);
-          break;
+        }
+      }
+
+      // Hit traffic cars
+      if (!hasHit) {
+        for (const car of this.traffic.cars) {
+          if (!car.isWrecked && Math.hypot(car.x - p.x, car.z - p.z) < 2.3) {
+            hasHit = true;
+            this.traffic.damageCar(car, p.damage);
+            break;
+          }
         }
       }
 
@@ -261,9 +304,20 @@ export class WeaponSystem {
         for (const cop of this.police.copCars) {
           if (Math.hypot(cop.x - p.x, cop.z - p.z) < 2.5) {
             hasHit = true;
+            this.police.damageCopCar(cop, p.damage);
             this.police.addCrimeSeverity(30);
             break;
           }
+        }
+      }
+
+      // Hit police helicopter
+      if (!hasHit && this.police.policeHeli) {
+        const heli = this.police.policeHeli;
+        if (Math.hypot(heli.x - p.x, heli.y - p.y, heli.z - p.z) < 3.5) {
+          hasHit = true;
+          this.police.damagePoliceHeli(p.damage);
+          this.police.addCrimeSeverity(40);
         }
       }
 
@@ -272,8 +326,7 @@ export class WeaponSystem {
         for (const ped of this.pedestrians.pedestrians) {
           if (Math.hypot(ped.x - p.x, ped.z - p.z) < 1.4) {
             hasHit = true;
-            ped.isPanicking = true;
-            ped.panicTimer = 6;
+            this.pedestrians.launchRagdoll(ped, p.vx * 0.15, 6.0, p.vz * 0.15);
             this.police.addCrimeSeverity(25);
             break;
           }
@@ -299,6 +352,7 @@ export class WeaponSystem {
           this.createExplosion(p.x, Math.max(1, p.y), p.z);
         }
         this.group.remove(p.mesh);
+        disposeObject3D(p.mesh);
         this.projectiles.splice(i, 1);
       }
     }
@@ -312,11 +366,16 @@ export class WeaponSystem {
 
       const mat = exp.mesh.material as THREE.MeshBasicMaterial;
       mat.opacity = Math.max(0, exp.life * 2.0);
-      exp.light.intensity = exp.life * 14;
+      if (exp.light) {
+        exp.light.intensity = exp.life * 14;
+      }
 
       if (exp.life <= 0) {
         this.group.remove(exp.mesh);
-        this.group.remove(exp.light);
+        if (exp.light && exp.light.parent) {
+          exp.light.parent.remove(exp.light);
+        }
+        disposeObject3D(exp.mesh);
         this.explosions.splice(i, 1);
       }
     }

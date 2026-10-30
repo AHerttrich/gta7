@@ -87,6 +87,14 @@ export class Game {
   private weaponCooldown: number = 0;
   private prevCarBoosting: boolean = false;
   private crashCooldown: number = 0;
+  private timedPromptText: string | null = null;
+  private timedPromptTimer: number = 0;
+
+  public showTimedPrompt(text: string, duration: number = 2.5): void {
+    this.timedPromptText = text;
+    this.timedPromptTimer = duration;
+    this.hud.setPrompt(text);
+  }
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new Renderer(canvas);
@@ -115,7 +123,7 @@ export class Game {
     this.radio = new RadioSystem(this.sound);
 
     // Controllable Player Helicopter on Skyscraper Helipad
-    this.helicopter = new Helicopter(0, 52.5, 0);
+    this.helicopter = new Helicopter(176, 0.6, 20);
     this.renderer.scene.add(this.helicopter.group);
 
     this.traffic = new TrafficSystem(this.renderer.scene);
@@ -129,10 +137,11 @@ export class Game {
       this.traffic,
       this.police,
       this.pedestrians,
+      this.city,
     );
 
-    this.missions = new MissionSystem(this.renderer.scene, this.sound, this.economy);
-    this.gangs = new GangSystem(this.renderer.scene, this.economy, this.sound);
+    this.missions = new MissionSystem(this.renderer.scene, this.sound, this.economy, this.city);
+    this.gangs = new GangSystem(this.renderer.scene, this.economy, this.sound, this.city);
     this.weapons.setGangSystem(this.gangs);
 
     // Phases 13-20 Subsystems
@@ -142,13 +151,14 @@ export class Game {
     this.water = new WaterSystem(this.renderer.scene, this.economy, this.sound);
     this.train = new TrainSystem(this.renderer.scene, this.sound);
     this.story = new StorySystem(this.economy, this.sound);
-    this.stuntEditor = new StuntEditor(this.renderer.scene, this.sound);
+    this.stuntEditor = new StuntEditor(this.renderer.scene, this.sound, this.economy);
     this.portal = new PortalSystem(this.renderer.scene, this.economy, this.sound);
     this.aliens = new AlienSystem(this.renderer.scene, this.economy, this.sound);
     this.weapons.setAlienSystem(this.aliens);
     this.aliens.setDimensionVisibility(false);
     this.interiors = new InteriorSystem(this.renderer.scene);
     this.playerHouse = new PlayerHouseSystem();
+    this.syncWorldVisibility();
 
     // Multiplayer initialization
     this.network = new NetworkManager();
@@ -161,13 +171,17 @@ export class Game {
 
     // Hotkeys & Event Listeners
     window.addEventListener('keydown', (e) => {
+      if (Input.isTextInputFocused(e) && e.key.toLowerCase() !== 'escape') {
+        return;
+      }
+
       const weaponMap: { [key: string]: string } = {
         '1': 'fists',
         '2': 'baseball_bat',
         '3': 'pistol',
         '4': 'rocket_launcher',
       };
-      if (weaponMap[e.key]) {
+      if (weaponMap[e.key] && !e.repeat) {
         const weaponId = weaponMap[e.key];
         const weapon = this.economy.weapons.find((w) => w.id === weaponId);
         if (weapon && weapon.unlocked) {
@@ -179,15 +193,9 @@ export class Game {
 
       if (e.key === 'Tab') {
         e.preventDefault();
-        this.stuntEditor.toggleBuildMode();
-      } else if (e.key === 'j' || e.key === 'J') {
-        const active = this.player.toggleJetpack();
-        this.hud.showNotification(
-          active
-            ? '🚀 CYBER-JETPACK AKTIV! [Leertaste] Steigen — Tank lädt am Boden nach!'
-            : '🚀 Jetpack abgelegt.',
-        );
       } else if (e.key === 'h' || e.key === 'H') {
+        if (e.repeat) return;
+        const wasGps = this.playerHouse.gpsActive;
         this.playerHouse.handleHomeKey(
           this.player,
           this.mode === 'IN_CAR' ? this.car : null,
@@ -196,7 +204,19 @@ export class Game {
           this.sound,
           this.camera,
         );
-      } else if (this.stuntEditor.isBuildMode) {
+        if (wasGps) {
+          if (this.portal.currentDimension === 'OTHER_WORLD') {
+            this.portal.currentDimension = 'NORMAL_WORLD';
+            this.renderer.setDimension('NORMAL_WORLD');
+            this.player.lowGravity = false;
+            this.car.physics.gravityMultiplier = 1.0;
+          }
+          if (this.interiors.currentInteriorId !== null) {
+            this.interiors.exitInterior(this.player, this.camera, this.hud, this.sound);
+          }
+          this.syncWorldVisibility();
+        }
+      } else if (this.stuntEditor.isBuildMode && !e.repeat) {
         const x = this.mode === 'IN_CAR' ? this.car.physics.x : this.player.x;
         const z = this.mode === 'IN_CAR' ? this.car.physics.z : this.player.z;
         const heading = this.mode === 'IN_CAR' ? this.car.physics.heading : this.player.rotationY;
@@ -218,6 +238,10 @@ export class Game {
         } else if (e.key === '9') {
           this.stuntEditor.placeProp('kisten', spawnX, spawnZ, heading);
           this.hud.showNotification('📦 Kisten-Hindernis platziert!');
+        } else if (e.key === 'Delete' || e.key === 'Backspace') {
+          if (this.stuntEditor.removeLastProp()) {
+            this.hud.showNotification('🗑️ Letztes Stunt-Objekt entfernt!');
+          }
         }
       }
     });
@@ -279,9 +303,10 @@ export class Game {
       });
     }
 
-    // Keyboard shortcuts L (Day/Night) and K (Weather)
+    // Keyboard shortcuts I (Day/Night) and K (Weather)
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'l' || e.key === 'L') {
+      if (Input.isTextInputFocused(e) && e.key.toLowerCase() !== 'escape') return;
+      if (e.key === 'i' || e.key === 'I') {
         const name = this.renderer.cycleTimePreset();
         this.hud.showNotification(`🕒 Beleuchtung: ${name}`);
       } else if (e.key === 'k' || e.key === 'K') {
@@ -315,6 +340,12 @@ export class Game {
   }
 
   private setupMultiplayerNetworking(): void {
+    this.network.onStatus((status) => {
+      if (status === 'disconnected') {
+        this.remotePlayer.hide();
+      }
+    });
+
     this.network.onMessage((msg) => {
       if (msg.kind === NetMsgKind.PLAYER_SYNC) {
         this.remotePlayer.applySync(msg);
@@ -397,6 +428,13 @@ export class Game {
   }
 
   private update(dt: number): void {
+    if (this.timedPromptTimer > 0) {
+      this.timedPromptTimer -= dt;
+      if (this.timedPromptTimer <= 0) {
+        this.timedPromptText = null;
+      }
+    }
+
     if (this.weaponCooldown > 0) {
       this.weaponCooldown -= dt;
     }
@@ -404,11 +442,21 @@ export class Game {
       this.crashCooldown -= dt;
     }
 
+    // 0. Single-Read Input Latching
+    const interactPressed = this.input.actionInteract;
+    const firePressed = this.input.fire;
+    let interactConsumed = false;
+    let framePrompt: string | null = null;
+
     // 1. Process Actions & Subsystem Toggles
     if (this.input.toggleSettings) {
-      this.hud.toggleSettings();
+      if (this.hud.isShopOpen || this.hud.isMultiOpen || this.hud.isCasinoOpen) {
+        this.hud.closeAllModals();
+      } else {
+        this.hud.toggleSettings();
+      }
     }
-    if (this.input.wasJustPressed('m')) {
+    if (this.input.toggleMinimap || this.input.wasJustPressed('z')) {
       this.hud.toggleMinimapZoom();
     }
     if (this.input.toggleShop) {
@@ -423,38 +471,59 @@ export class Game {
     if (this.input.cycleCamera) {
       this.camera.cycleMode();
     }
+    if (this.input.wasJustPressed('tab')) {
+      this.stuntEditor.toggleBuildMode();
+    }
+    if (this.input.wasJustPressed('j')) {
+      if (this.mode === 'ON_FOOT' && this.interiors.currentInteriorId === null) {
+        const active = this.player.toggleJetpack();
+        this.hud.showNotification(
+          active
+            ? '🚀 CYBER-JETPACK AKTIV! [Leertaste] Steigen — Tank lädt am Boden nach!'
+            : '🚀 Jetpack abgelegt.',
+        );
+      }
+    }
+
+    // Pause Simulation when settings modal is open (offline single player)
+    if (this.hud.isSettingsOpen && !this.network.isConnected) {
+      this.sound.updateEnginePitch(0, false);
+      return;
+    }
+
     if (this.input.resetVehicle) {
       if (this.mode === 'ON_FOOT') {
         this.player.setPosition(44, 0, 44);
         this.player.vy = 0;
         this.hud.showNotification('Sicher zur Kreuzung zurückgesetzt!');
       } else if (this.mode === 'IN_HELI') {
-        this.helicopter.x = 44;
-        this.helicopter.y = 0.5;
-        this.helicopter.z = 44;
+        this.helicopter.x = 176;
+        this.helicopter.y = 0.6;
+        this.helicopter.z = 20;
         this.helicopter.vx = 0;
         this.helicopter.vy = 0;
         this.helicopter.vz = 0;
         this.helicopter.heading = 0;
         this.helicopter.health = 100;
-        this.helicopter.group.position.set(44, 0.5, 44);
-        this.hud.showNotification('Helikopter repariert & zur Kreuzung zurückgesetzt!');
+        this.helicopter.group.position.set(176, 0.6, 20);
+        this.hud.showNotification('Helikopter repariert & zum Flugplatz zurückgesetzt!');
       } else if (this.mode === 'IN_TANK' && this.activeTank) {
-        this.activeTank.x = 44;
-        this.activeTank.y = 0;
-        this.activeTank.z = 44;
+        this.activeTank.x = 176;
+        this.activeTank.y = 0.8;
+        this.activeTank.z = 176;
         this.activeTank.speed = 0;
         this.activeTank.heading = 0;
-        this.activeTank.health = 100;
-        this.activeTank.group.position.set(44, 0, 44);
-        this.hud.showNotification('Panzer repariert & zur Kreuzung zurückgesetzt!');
+        this.activeTank.repair();
+        this.activeTank.group.position.set(176, 0.8, 176);
+        this.hud.showNotification('Panzer repariert & zur Militärbasis zurückgesetzt!');
       } else if (this.mode === 'IN_BOAT' && this.activeBoat) {
-        this.activeBoat.x = -170;
-        this.activeBoat.y = 0;
+        this.activeBoat.x = -335;
+        this.activeBoat.y = 0.2;
         this.activeBoat.z = 0;
         this.activeBoat.speed = 0;
         this.activeBoat.heading = 0;
-        this.activeBoat.group.position.set(-170, 0, 0);
+        this.activeBoat.health = 200;
+        this.activeBoat.group.position.set(-335, 0.2, 0);
         this.hud.showNotification('Boot repariert & zur Marina zurückgesetzt!');
       } else {
         this.car.physics.reset(44, 44, 0);
@@ -482,15 +551,19 @@ export class Game {
       this.mode === 'IN_BOAT';
     const isRadioActive = inVehicle || this.radio.playOnFoot;
     this.radio.update(dt, isRadioActive);
-    if (this.input.horn) {
+    if (this.input.horn && this.mode === 'IN_CAR') {
       this.sound.playHorn();
-      const pX = this.mode === 'IN_CAR' ? this.car.physics.x : this.player.x;
-      const pZ = this.mode === 'IN_CAR' ? this.car.physics.z : this.player.z;
+      const pX = this.car.physics.x;
+      const pZ = this.car.physics.z;
       this.pedestrians.scareNearby(pX, pZ, 20);
     }
 
     // 2. Weapon Combat (Mouse Click or F key)
-    if (this.input.fire && this.weaponCooldown <= 0) {
+    if (
+      firePressed &&
+      (this.mode === 'ON_FOOT' || this.mode === 'IN_CAR') &&
+      this.weaponCooldown <= 0
+    ) {
       const currentWeapon = this.economy.getSelectedWeapon();
       this.weaponCooldown = currentWeapon.fireRate;
 
@@ -570,6 +643,8 @@ export class Game {
             this.car.physics.y = roofH + 0.5;
             this.car.physics.vy = Math.max(0, this.car.physics.vy);
           }
+        } else if (this.car.physics.x < -318) {
+          this.car.physics.groundY = -2.5;
         } else {
           this.car.physics.groundY = 0.5;
         }
@@ -594,6 +669,9 @@ export class Game {
           this.hud.showNotification(
             '⚡ DELOREAN HOVER-FLUG! [Leertaste] Steigen | [C] Sinken | [V]/[X] Landen',
           );
+          if (this.story.currentChapterIndex === 2) {
+            this.story.advanceChapter();
+          }
         } else {
           this.hud.showNotification('🛬 DeLorean gelandet — Straßenmodus aktiv');
         }
@@ -979,6 +1057,7 @@ export class Game {
       const trainCollision = this.train.checkFreightTrainCollision(
         this.car.physics.x,
         this.car.physics.z,
+        this.car.physics.y,
       );
       if (trainCollision.hit) {
         this.car.takeDamage(40);
@@ -1072,27 +1151,41 @@ export class Game {
         this.car.repair();
         this.hud.showNotification('⚓ Notfall-Bergung: Auto auf die Straße zurückgesetzt!');
       } else if (this.car.physics.y < -0.8) {
-        this.hud.setPrompt('⚠️ Auto im Wasser versunken! Drücke [R] zur Bergung');
-        if (this.input.resetVehicle || this.input.actionInteract) {
+        framePrompt = '⚠️ Auto im Wasser versunken! Drücke [R] zur Bergung';
+        if (this.input.resetVehicle || (interactPressed && !interactConsumed)) {
           this.car.physics.reset(44, 44, 0);
           this.car.repair();
           this.hud.showNotification('⚓ Auto vom Bergungsdienst an Land gezogen!');
+          interactConsumed = true;
         }
       } else if (this.car.physics.isFlipped) {
-        this.hud.setPrompt('⚠️ Auto liegt auf dem Dach! Drücke [R] zum Aufrichten');
-        if (this.input.resetVehicle || this.input.actionInteract) {
+        framePrompt = '⚠️ Auto liegt auf dem Dach! Drücke [R] zum Aufrichten';
+        if (this.input.resetVehicle || (interactPressed && !interactConsumed)) {
           this.car.physics.rightUpright();
           this.hud.showNotification('🔄 Auto wieder aufgerichtet!');
+          interactConsumed = true;
+        }
+      } else if (this.car.health <= 0) {
+        framePrompt = '💥 AUTO ZERSTÖRT! Drücke [R] zur Reparatur oder [E] zum Aussteigen';
+        if (this.input.resetVehicle) {
+          this.car.repair();
+          this.economy.spendCash(300);
+          this.hud.showNotification('🔧 Notfall-Reparatur abgeschlossen (-$300)!');
+        } else if (interactPressed && !interactConsumed) {
+          this.exitCar();
+          interactConsumed = true;
         }
       } else {
-        this.hud.setPrompt('Drücke [E] zum Aussteigen');
-        if (this.input.actionInteract && Math.abs(this.car.physics.speed) < 5) {
+        framePrompt = 'Drücke [E] zum Aussteigen';
+        if (interactPressed && !interactConsumed && Math.abs(this.car.physics.speed) < 5) {
           this.exitCar();
+          interactConsumed = true;
         }
       }
 
       // Building Interiors Proximity Check (while in car)
-      this.interiors.update(
+      const prevInt = this.interiors.currentInteriorId;
+      const intRes = this.interiors.update(
         dt,
         this.player,
         this.hud,
@@ -1103,11 +1196,21 @@ export class Game {
         this.economy,
         this.camera,
         this.car,
+        interactPressed && !interactConsumed,
       );
+      if (intRes.consumedInteract) {
+        interactConsumed = true;
+      }
+      if (intRes.prompt) {
+        framePrompt = intRes.prompt;
+      }
       if (this.interiors.currentInteriorId !== null) {
         this.mode = 'ON_FOOT';
         this.player.group.visible = true;
         this.sound.updateEnginePitch(0, false);
+      }
+      if (prevInt !== this.interiors.currentInteriorId) {
+        this.syncWorldVisibility();
       }
     } else if (this.mode === 'IN_HELI') {
       // Helicopter Flight Mode
@@ -1123,6 +1226,7 @@ export class Game {
         this.helicopter.heading,
         this.helicopter.getSpeedKmh() / 3.6,
         dt,
+        this.city,
       );
       this.sound.updateRotorPitch(this.helicopter.rpm, true);
       this.sound.updateEnginePitch(0, false);
@@ -1135,12 +1239,14 @@ export class Game {
         true,
       );
 
-      this.hud.setPrompt('Drücke [E] zum Landen / Aussteigen 🚁');
+      framePrompt = 'Drücke [E] zum Landen / Aussteigen 🚁';
       if (
-        this.input.actionInteract &&
+        interactPressed &&
+        !interactConsumed &&
         (this.helicopter.y <= 0.6 || Math.abs(this.helicopter.vy) < 0.6 || this.helicopter.isLanded)
       ) {
         this.exitHelicopter();
+        interactConsumed = true;
       }
     } else if (this.mode === 'IN_TANK' && this.activeTank) {
       // Rhino Tank Controls & Physics
@@ -1149,9 +1255,9 @@ export class Game {
         reverse: this.input.backward,
         steerLeft: this.input.left,
         steerRight: this.input.right,
-        fire: this.input.fire,
+        fire: firePressed,
         turretLeft: this.input.isDown('q'),
-        turretRight: this.input.isDown('e') && Math.abs(this.activeTank.speed) > 1,
+        turretRight: this.input.isDown('x'),
       });
 
       // Tank Building Collision Check & Anti-Penetration Resolution
@@ -1187,8 +1293,9 @@ export class Game {
         this.activeTank.heading,
         this.activeTank.speed,
         dt,
+        this.city,
       );
-      this.sound.updateEnginePitch(Math.abs(this.activeTank.speed) * 80 + 1000, true);
+      this.sound.updateEnginePitch(Math.min(1.0, Math.abs(this.activeTank.speed) / 16.0), true);
       this.sound.updateRotorPitch(0, false);
       this.hud.updateVehicleStats(
         Math.round(this.activeTank.speed * 3.6),
@@ -1199,9 +1306,10 @@ export class Game {
         false,
       );
 
-      this.hud.setPrompt('Drücke [E] zum Aussteigen aus dem Panzer');
-      if (this.input.actionInteract && Math.abs(this.activeTank.speed) < 3.0) {
+      framePrompt = 'Drücke [E] zum Aussteigen aus dem Panzer';
+      if (interactPressed && !interactConsumed && Math.abs(this.activeTank.speed) < 3.0) {
         this.exitTank();
+        interactConsumed = true;
       }
     } else if (this.mode === 'IN_BOAT' && this.activeBoat) {
       // Boat & Jet-Ski Controls & Water Buoyancy
@@ -1221,8 +1329,9 @@ export class Game {
         this.activeBoat.heading,
         this.activeBoat.speed,
         dt,
+        this.city,
       );
-      this.sound.updateEnginePitch(Math.abs(this.activeBoat.speed) * 90 + 900, true);
+      this.sound.updateEnginePitch(Math.min(1.0, Math.abs(this.activeBoat.speed) / 22.0), true);
       this.sound.updateRotorPitch(0, false);
       this.hud.updateVehicleStats(
         Math.round(this.activeBoat.speed * 3.6),
@@ -1233,9 +1342,10 @@ export class Game {
         false,
       );
 
-      this.hud.setPrompt('Drücke [E] zum Verlassen des Boots');
-      if (this.input.actionInteract && Math.abs(this.activeBoat.speed) < 4.0) {
+      framePrompt = 'Drücke [E] zum Verlassen des Boots';
+      if (interactPressed && !interactConsumed && Math.abs(this.activeBoat.speed) < 4.0) {
         this.exitBoat();
+        interactConsumed = true;
       }
     } else {
       // On Foot Mode
@@ -1338,6 +1448,19 @@ export class Game {
         this.hud.showNotification('⚓ Notfall-Bergung: Spieler auf den Gehweg zurückgesetzt!');
       }
 
+      // Player Wasted Respawn Check
+      if (this.player.health <= 0) {
+        this.sound.playCrash(25);
+        this.hud.showNotification(
+          '💀 AUSSER GEFECHT! Cyber-MedCenter Notfall-Wiederbelebung (-$500)',
+        );
+        this.economy.spendCash(500);
+        this.police.setWantedLevel(0);
+        this.player.health = 100;
+        this.player.setPosition(44, 0.5, -44);
+        this.player.vy = 0;
+      }
+
       const distToHeli = Math.hypot(
         this.player.x - this.helicopter.x,
         this.player.z - this.helicopter.z,
@@ -1374,52 +1497,8 @@ export class Game {
         }
       }
 
-      if (distToTank < 4.5) {
-        this.hud.setPrompt('Drücke [E] um in den RHINO TANK einzusteigen 🛡️');
-        if (this.input.actionInteract) {
-          this.enterTank();
-        }
-      } else if (distToBoat < 5.0) {
-        this.hud.setPrompt('Drücke [E] um ins OFFSHORE SPEEDBOOT einzusteigen 🚤');
-        if (this.input.actionInteract) {
-          this.enterBoat(this.water.speedboat);
-        }
-      } else if (distToJetSki < 4.5) {
-        this.hud.setPrompt('Drücke [E] um auf das CYBER JET-SKI aufzusteigen 🌊');
-        if (this.input.actionInteract) {
-          this.enterBoat(this.water.jetSki);
-        }
-      } else if (distToHeli < 4.5 && Math.abs(this.player.y - this.helicopter.y) < 4.0) {
-        this.hud.setPrompt('Drücke [E] um in den Helikopter einzusteigen 🚁');
-        if (this.input.actionInteract) {
-          this.enterHelicopter();
-        }
-      } else if (nearestTrafficCar && nearestDist < 3.5) {
-        this.hud.setPrompt('Drücke [E] um dieses Auto / Taxi zu KLAUEN! 🚨');
-        if (this.input.actionInteract) {
-          this.jackTrafficCar(nearestTrafficCar);
-        }
-      } else if (distToOwnCar < PLAYER_CONFIG.INTERACTION_RADIUS) {
-        this.hud.setPrompt('Drücke [E] um ins Auto einzusteigen');
-        if (this.input.actionInteract) {
-          this.enterCar();
-        }
-      } else if (nearCasino) {
-        this.hud.setPrompt('Drücke [G] oder [🎰 CASINO] um das Casino zu betreten');
-        if (this.input.actionInteract) {
-          this.hud.toggleCasino(true);
-        }
-      } else if (distToBank < 6.0) {
-        this.hud.setPrompt('Drücke [E] um den GROSSEN BANKRAUB zu starten 🏦');
-        if (this.input.actionInteract) {
-          this.heist.startHeist();
-        }
-      } else {
-        this.hud.setPrompt(null);
-      }
-
-      // Building Interiors (Exterior Entrance Proximity & Interior Interaction)
-      this.interiors.update(
+      const prevInt = this.interiors.currentInteriorId;
+      const intRes = this.interiors.update(
         dt,
         this.player,
         this.hud,
@@ -1429,10 +1508,73 @@ export class Game {
         this.police,
         this.economy,
         this.camera,
+        undefined,
+        interactPressed && !interactConsumed,
       );
+      if (intRes.consumedInteract) {
+        interactConsumed = true;
+      }
+      if (prevInt !== this.interiors.currentInteriorId) {
+        this.syncWorldVisibility();
+      }
+      if (intRes.prompt) {
+        framePrompt = intRes.prompt;
+      } else if (distToTank < 4.5) {
+        framePrompt = 'Drücke [E] um in den RHINO TANK einzusteigen 🛡️';
+        if (interactPressed && !interactConsumed) {
+          this.enterTank();
+          interactConsumed = true;
+        }
+      } else if (distToBoat < 5.0) {
+        framePrompt = 'Drücke [E] um ins OFFSHORE SPEEDBOOT einzusteigen 🚤';
+        if (interactPressed && !interactConsumed) {
+          this.enterBoat(this.water.speedboat);
+          interactConsumed = true;
+        }
+      } else if (distToJetSki < 4.5) {
+        framePrompt = 'Drücke [E] um auf das CYBER JET-SKI aufzusteigen 🌊';
+        if (interactPressed && !interactConsumed) {
+          this.enterBoat(this.water.jetSki);
+          interactConsumed = true;
+        }
+      } else if (distToHeli < 4.5 && Math.abs(this.player.y - this.helicopter.y) < 4.0) {
+        framePrompt = 'Drücke [E] um in den Helikopter einzusteigen 🚁';
+        if (interactPressed && !interactConsumed) {
+          this.enterHelicopter();
+          interactConsumed = true;
+        }
+      } else if (nearestTrafficCar && nearestDist < 3.5) {
+        framePrompt = 'Drücke [E] um dieses Auto / Taxi zu KLAUEN! 🚨';
+        if (interactPressed && !interactConsumed) {
+          this.jackTrafficCar(nearestTrafficCar);
+          interactConsumed = true;
+        }
+      } else if (distToOwnCar < PLAYER_CONFIG.INTERACTION_RADIUS) {
+        framePrompt = 'Drücke [E] um ins Auto einzusteigen';
+        if (interactPressed && !interactConsumed) {
+          this.enterCar();
+          interactConsumed = true;
+        }
+      } else if (nearCasino) {
+        framePrompt = 'Drücke [E] um das Diamond Casino zu betreten 🎰';
+        if (interactPressed && !interactConsumed) {
+          this.hud.toggleCasino(true);
+          interactConsumed = true;
+        }
+      } else if (distToBank < 6.0) {
+        framePrompt = 'Drücke [E] um den GROSSEN BANKRAUB zu starten 🏦';
+        if (interactPressed && !interactConsumed) {
+          this.heist.startHeist();
+          interactConsumed = true;
+        }
+      }
     }
 
     // 4. Update Subsystems
+    const isOtherWorld = this.portal.currentDimension === 'OTHER_WORLD';
+    const isInsideInterior = this.interiors.currentInteriorId !== null;
+    const isEarthExterior = !isOtherWorld && !isInsideInterior;
+
     this.playerHouse.update(
       dt,
       this.player,
@@ -1442,49 +1584,59 @@ export class Game {
       this.sound,
     );
     this.weapons.update(dt);
-    this.missions.update(dt, playerPos.x, playerPos.z, this.mode === 'IN_CAR');
-    this.gangs.update(dt, playerPos.x, playerPos.z, this.mode === 'IN_CAR');
-    if (this.mode === 'IN_CAR') {
-      this.gangs.checkPlayerCarRamming(
-        this.car.physics.x,
-        this.car.physics.z,
-        this.car.physics.speed,
-        this.car.physics.y,
+    this.stuntEditor.update(dt);
+
+    this.police.isSuppressed = !isEarthExterior;
+
+    if (isEarthExterior) {
+      this.missions.update(dt, playerPos.x, playerPos.z, this.mode === 'IN_CAR', playerPos.y);
+      this.gangs.update(dt, playerPos.x, playerPos.z, this.mode === 'IN_CAR');
+      if (this.mode === 'IN_CAR') {
+        this.gangs.checkPlayerCarRamming(
+          this.car.physics.x,
+          this.car.physics.z,
+          this.car.physics.speed,
+          this.car.physics.y,
+        );
+      }
+      this.traffic.update(dt, playerPos.x, playerPos.z);
+      this.pedestrians.update(
+        dt,
+        playerPos.x,
+        playerPos.z,
+        this.mode === 'IN_CAR' ? this.car.physics.speed : 0,
+        this.city,
       );
-    }
-    this.traffic.update(dt, playerPos.x, playerPos.z);
-    this.pedestrians.update(
-      dt,
-      playerPos.x,
-      playerPos.z,
-      this.mode === 'IN_CAR' ? this.car.physics.speed : 0,
-      this.city,
-    );
-    let copTargetX = playerPos.x;
-    let copTargetZ = playerPos.z;
-    let copTargetY = playerPos.y;
-    if (this.interiors.currentInteriorId !== null) {
-      const activeDoor = this.interiors.doors.find(
-        (d) => d.id === this.interiors.currentInteriorId,
-      );
-      if (activeDoor) {
-        copTargetX = activeDoor.exteriorX;
-        copTargetZ = activeDoor.exteriorZ;
-        copTargetY = 0;
+      this.police.update(dt, playerPos.x, playerPos.z, playerPos.y);
+      this.sound.updateSiren(this.police.wantedLevel, dt);
+      this.economy.update(dt, playerPos.x, playerPos.z);
+
+      // Phases 13-20 Subsystem Updates
+      const milResult = this.military.update(dt, playerPos.x, playerPos.z);
+      if (milResult.triggerArea77Alarm) {
+        this.police.setWantedLevel(6);
+      }
+      this.water.update(dt, playerPos.x, playerPos.z);
+      this.train.update(dt);
+      this.heist.update(dt, playerPos.x, playerPos.z, this.mode === 'IN_CAR');
+
+      if (
+        this.story.currentChapterIndex === 3 &&
+        (this.heist.stage === 'LOOTING' ||
+          this.heist.stage === 'ESCAPE' ||
+          this.heist.stage === 'COMPLETED')
+      ) {
+        this.story.advanceChapter();
+      }
+
+      if (this.story.currentChapterIndex === 4 && this.gangs.bountyBoss?.isDestroyed) {
+        this.story.advanceChapter();
+      }
+    } else {
+      if (this.police.wantedLevel > 0) {
+        this.sound.updateSiren(0, dt);
       }
     }
-    this.police.update(dt, copTargetX, copTargetZ, copTargetY);
-    this.sound.updateSiren(this.police.wantedLevel, dt);
-    this.economy.update(dt, playerPos.x, playerPos.z);
-
-    // Phases 13-20 Subsystem Updates
-    const milResult = this.military.update(dt, playerPos.x, playerPos.z);
-    if (milResult.triggerArea77Alarm) {
-      this.police.setWantedLevel(6);
-    }
-    this.water.update(dt, playerPos.x, playerPos.z);
-    this.train.update(dt);
-    this.heist.update(dt, playerPos.x, playerPos.z, this.mode === 'IN_CAR');
 
     // Update Portal System & Check Interdimensional Warp
     this.portal.update(dt);
@@ -1522,6 +1674,7 @@ export class Game {
 
       this.renderer.setDimension(warpCheck.targetDimension);
       this.aliens.setDimensionVisibility(warpCheck.targetDimension === 'OTHER_WORLD');
+      this.syncWorldVisibility();
 
       if (warpCheck.targetDimension === 'OTHER_WORLD') {
         this.sound.playMoonLanding();
@@ -1530,13 +1683,16 @@ export class Game {
         this.hud.showNotification(
           '🌕 DIMENSIONSSPRUNG: Willkommen auf dem Mond! (Mondbasis Alpha)',
         );
-        this.hud.setPrompt(
+        this.showTimedPrompt(
           '👨‍🚀 1/6g Mond-Schwerkraft aktiv! VORSICHT: Feindliche Aliens & UFOs greifen an!',
+          3.0,
         );
       } else {
         this.player.lowGravity = false;
         this.car.physics.gravityMultiplier = 1.0;
+        this.aliens.clearBolts();
         this.hud.showNotification('🌍 DIMENSIONSSPRUNG: Rückkehr zur Erde (GTA 7 Cyber City)!');
+        this.showTimedPrompt('🌐 ZURÜCK IN DER NORMALEN WELT: ERDE!', 2.5);
       }
     }
 
@@ -1569,6 +1725,8 @@ export class Game {
         this.player,
         this.car,
         this.hud,
+        this.portal,
+        this.activeTank || undefined,
       );
 
       // Vehicle ramming aliens on the Moon
@@ -1650,6 +1808,18 @@ export class Game {
           color: '#22c55e',
         };
       }
+    } else if (this.playerHouse.gpsActive) {
+      activeTarget = {
+        x: PlayerHouseSystem.VILLA_POS.x,
+        z: PlayerHouseSystem.VILLA_POS.z,
+        color: '#f59e0b',
+      };
+    } else if (this.economy.activeJob) {
+      activeTarget = {
+        x: this.economy.activeJob.targetX,
+        z: this.economy.activeJob.targetZ,
+        color: '#f97316',
+      };
     }
 
     // =========================================================================
@@ -1753,6 +1923,15 @@ export class Game {
       remotePos,
       alienBlips,
     );
+
+    // 5. Unified Single-Point Prompt Output
+    if (this.timedPromptTimer > 0) {
+      this.hud.setPrompt(this.timedPromptText);
+    } else {
+      this.hud.setPrompt(framePrompt);
+    }
+
+    this.input.endFrame();
   }
 
   private enterHelicopter(): void {
@@ -1760,12 +1939,16 @@ export class Game {
     this.player.group.visible = false;
     this.helicopter.isOccupied = true;
     this.hud.showNotification(
-      '🚁 Im Helikopter! Steigen: [Leertaste] | Sinken: [Shift] | Lenken: [A]/[D]',
+      '🚁 Im Helikopter! Steigen: [Leertaste] | Sinken: [Strg] | Lenken: [A]/[D]',
     );
+    if (this.story.currentChapterIndex === 2) {
+      this.story.advanceChapter();
+    }
   }
 
   private exitHelicopter(): void {
     this.mode = 'ON_FOOT';
+    this.input.touchTurnDelta = 0;
     this.helicopter.isOccupied = false;
     let exitX = this.helicopter.x - Math.cos(this.helicopter.heading) * 2.5;
     let exitZ = this.helicopter.z + Math.sin(this.helicopter.heading) * 2.5;
@@ -1799,13 +1982,14 @@ export class Game {
     this.player.group.visible = false;
     this.activeTank = this.military.parkedTank;
     this.hud.showNotification(
-      '🛡️ RHINO TANK ÜBERNOMMEN! Fahren: [W/A/S/D] | 120mm Kanone: [Klick]/[F] | Turm: [Q]/[E] | Aussteigen: [E]',
+      '🛡️ RHINO TANK ÜBERNOMMEN! Fahren: [W/A/S/D] | 120mm Kanone: [Klick]/[F] | Turm: [Q]/[X] | Aussteigen: [E]',
     );
   }
 
   private exitTank(): void {
     if (!this.activeTank) return;
     this.mode = 'ON_FOOT';
+    this.input.touchTurnDelta = 0;
     let exitX = this.activeTank.x - Math.cos(this.activeTank.heading) * 3.5;
     let exitZ = this.activeTank.z + Math.sin(this.activeTank.heading) * 3.5;
     let exitY = this.activeTank.y;
@@ -1839,8 +2023,9 @@ export class Game {
   private exitBoat(): void {
     if (!this.activeBoat) return;
     this.mode = 'ON_FOOT';
-    const exitX = this.activeBoat.x + 3.0;
-    const exitZ = this.activeBoat.z;
+    this.input.touchTurnDelta = 0;
+    const exitX = Math.min(-324, this.activeBoat.x + 3.0);
+    const exitZ = Math.max(-55, Math.min(55, this.activeBoat.z));
     this.player.setPosition(exitX, 0.4, exitZ);
     this.player.group.visible = true;
     this.activeBoat = null;
@@ -1855,6 +2040,7 @@ export class Game {
 
   private exitCar(): void {
     this.mode = 'ON_FOOT';
+    this.input.touchTurnDelta = 0;
     let exitX = this.car.physics.x - Math.cos(this.car.physics.heading) * 2.2;
     let exitZ = this.car.physics.z + Math.sin(this.car.physics.heading) * 2.2;
     let exitY = this.car.physics.y;
@@ -1900,5 +2086,31 @@ export class Game {
 
     this.police.addCrimeSeverity(25);
     this.hud.showNotification('🚗💨 Auto geklaut! Fahrer rausgeworfen — Polizei sucht dich!');
+  }
+
+  public syncWorldVisibility(): void {
+    const isOtherWorld = this.portal ? this.portal.currentDimension === 'OTHER_WORLD' : false;
+    const isInsideInterior = this.interiors ? this.interiors.currentInteriorId !== null : false;
+    const isEarthExterior = !isOtherWorld && !isInsideInterior;
+
+    if (this.city) this.city.group.visible = isEarthExterior;
+    if (this.water && this.water.waterMesh) this.water.waterMesh.visible = isEarthExterior;
+    if (this.traffic) this.traffic.group.visible = isEarthExterior;
+    if (this.pedestrians) this.pedestrians.group.visible = isEarthExterior;
+    if (this.gangs) this.gangs.group.visible = isEarthExterior;
+    if (this.military) this.military.group.visible = isEarthExterior;
+    if (this.train) this.train.group.visible = isEarthExterior;
+    if (this.casino) this.casino.group.visible = isEarthExterior;
+    if (this.heist) this.heist.group.visible = isEarthExterior;
+    if (this.missions) this.missions.group.visible = isEarthExterior;
+    if (this.stuntEditor) this.stuntEditor.group.visible = isEarthExterior;
+    if (this.portal) {
+      this.portal.group.visible = isEarthExterior;
+      this.portal.otherWorldGroup.visible = isOtherWorld;
+    }
+    if (this.aliens) this.aliens.group.visible = isOtherWorld;
+    if (this.interiors && this.interiors.exteriorDoorsGroup) {
+      this.interiors.exteriorDoorsGroup.visible = isEarthExterior;
+    }
   }
 }

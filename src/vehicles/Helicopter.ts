@@ -26,7 +26,7 @@ export class Helicopter {
   private searchlightTarget!: THREE.Object3D;
   private beaconLight!: THREE.Mesh;
 
-  constructor(startX: number = 0, startY: number = 52.5, startZ: number = 0) {
+  constructor(startX: number = 176, startY: number = 0.6, startZ: number = 20) {
     this.x = startX;
     this.y = startY;
     this.z = startZ;
@@ -141,6 +141,7 @@ export class Helicopter {
     // 6. Downward High-Intensity Searchlight
     this.searchlight = new THREE.SpotLight(0xffffff, 4.5, 90, Math.PI / 5, 0.35);
     this.searchlight.position.set(0, 0.4, 1.8);
+    this.searchlight.visible = false;
 
     this.searchlightTarget = new THREE.Object3D();
     this.searchlightTarget.position.set(0, -30, 8);
@@ -157,7 +158,13 @@ export class Helicopter {
   }
 
   public update(dt: number, input: Input, city: City): void {
-    if (this.isDestroyed) return;
+    if (this.isDestroyed) {
+      if (this.searchlight) this.searchlight.visible = false;
+      return;
+    }
+    if (this.searchlight) {
+      this.searchlight.visible = this.isOccupied;
+    }
 
     // 1. Rotor RPM Spin-Up / Spin-Down
     const targetRpm = this.isOccupied ? 1.0 : 0.0;
@@ -221,6 +228,10 @@ export class Helicopter {
       this.roll = THREE.MathUtils.lerp(this.roll, 0, dt * 2);
     }
 
+    // Aerodynamic drag
+    this.vx -= this.vx * 0.4 * dt;
+    this.vz -= this.vz * 0.4 * dt;
+
     // 3. Position Integration
     this.x += this.vx * dt;
     this.y += this.vy * dt;
@@ -233,6 +244,10 @@ export class Helicopter {
       this.y = minHeight;
       this.vy = 0;
       this.isLanded = true;
+      if (!this.isOccupied) {
+        this.vx = 0;
+        this.vz = 0;
+      }
     } else {
       this.isLanded = Math.abs(this.y - minHeight) < 0.15 && Math.abs(this.vy) < 0.2;
     }
@@ -244,7 +259,7 @@ export class Helicopter {
     }
 
     // Keep rotation in range
-    this.heading = ((this.heading + Math.PI) % (Math.PI * 2)) - Math.PI;
+    this.heading = THREE.MathUtils.euclideanModulo(this.heading + Math.PI, Math.PI * 2) - Math.PI;
 
     // Apply 3D transforms
     this.group.position.set(this.x, this.y, this.z);

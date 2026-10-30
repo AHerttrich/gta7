@@ -42,6 +42,7 @@ export class NetworkManager {
   /** Host a game session */
   public host(): Promise<string> {
     return new Promise((resolve, reject) => {
+      this.disconnect();
       this._isHost = true;
       this._roomCode = generateRoomCode();
       const peerId = ROOM_PREFIX + this._roomCode;
@@ -71,6 +72,7 @@ export class NetworkManager {
   /** Join an existing room by code */
   public join(roomCode: string): Promise<void> {
     return new Promise((resolve, reject) => {
+      this.disconnect();
       this._isHost = false;
       this._roomCode = roomCode.trim().toUpperCase();
       const guestId = 'gta7-guest-' + Math.random().toString(36).substring(2, 8);
@@ -103,24 +105,36 @@ export class NetworkManager {
     });
 
     conn.on('data', (data) => {
-      const msg = data as NetMessage;
-      if (msg.kind === NetMsgKind.PING) {
-        this.send({ kind: NetMsgKind.PONG, t: msg.t });
-        return;
-      }
-      if (msg.kind === NetMsgKind.PONG) {
-        this.pingMs = Math.round(performance.now() - msg.t);
-        return;
-      }
-      for (const h of this.messageHandlers) {
-        h(msg);
+      try {
+        const msg = data as NetMessage;
+        if (!msg || typeof msg !== 'object') return;
+        if (msg.kind === NetMsgKind.PING) {
+          this.send({ kind: NetMsgKind.PONG, t: msg.t });
+          return;
+        }
+        if (msg.kind === NetMsgKind.PONG) {
+          this.pingMs = Math.round(performance.now() - msg.t);
+          return;
+        }
+        for (const h of this.messageHandlers) {
+          try {
+            h(msg);
+          } catch {
+            // Ignored
+          }
+        }
+      } catch {
+        // Ignored
       }
     });
 
     conn.on('close', () => {
+      const wasConnected = this._isConnected;
       this._isConnected = false;
       this.stopHeartbeat();
-      this.emitStatus('disconnected');
+      if (wasConnected) {
+        this.emitStatus('disconnected');
+      }
     });
 
     conn.on('error', (err) => {
@@ -130,7 +144,11 @@ export class NetworkManager {
 
   public send(msg: NetMessage): void {
     if (this.conn && this.conn.open) {
-      this.conn.send(msg);
+      try {
+        this.conn.send(msg);
+      } catch {
+        // Ignored
+      }
     }
   }
 
@@ -174,14 +192,26 @@ export class NetworkManager {
 
   public disconnect(): void {
     this.stopHeartbeat();
+    const wasConnected = this._isConnected;
+    this._isConnected = false;
     if (this.conn) {
-      this.conn.close();
+      try {
+        this.conn.close();
+      } catch {
+        // Ignored
+      }
       this.conn = null;
     }
     if (this.peer) {
-      this.peer.destroy();
+      try {
+        this.peer.destroy();
+      } catch {
+        // Ignored
+      }
       this.peer = null;
     }
-    this._isConnected = false;
+    if (wasConnected) {
+      this.emitStatus('disconnected');
+    }
   }
 }

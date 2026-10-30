@@ -43,7 +43,7 @@ export class WaterSystem {
       opacity: 0.88,
     });
     this.waterMesh = new THREE.Mesh(waterGeo, waterMat);
-    this.waterMesh.position.set(-290, 0.05, 0);
+    this.waterMesh.position.set(-478, 0.05, 0);
     this.waterMesh.receiveShadow = true;
     this.group.add(this.waterMesh);
 
@@ -51,8 +51,8 @@ export class WaterSystem {
     this.buildMarina();
 
     // 3. Docked Water Vehicles
-    this.speedboat = new Boat(-195, 20, false);
-    this.jetSki = new Boat(-195, -20, true);
+    this.speedboat = new Boat(-335, 20, false);
+    this.jetSki = new Boat(-335, -20, true);
     this.scene.add(this.speedboat.group, this.jetSki.group);
 
     // 4. Sunken Smuggling Crates
@@ -63,7 +63,7 @@ export class WaterSystem {
     const dockGeo = new THREE.BoxGeometry(14, 0.8, 120);
     const dockMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.8 }); // Timber
     const dock = new THREE.Mesh(dockGeo, dockMat);
-    dock.position.set(-185, 0.4, 0);
+    dock.position.set(-325, 0.4, 0);
     dock.castShadow = true;
     dock.receiveShadow = true;
     this.group.add(dock);
@@ -71,9 +71,9 @@ export class WaterSystem {
 
   private spawnCrates(): void {
     const locations = [
-      { x: -240, z: -100, val: 1500 },
-      { x: -290, z: 20, val: 2000 },
-      { x: -330, z: 80, val: 2500 },
+      { x: -380, z: -100, val: 1500 },
+      { x: -430, z: 20, val: 2000 },
+      { x: -480, z: 80, val: 2500 },
     ];
 
     locations.forEach((loc) => {

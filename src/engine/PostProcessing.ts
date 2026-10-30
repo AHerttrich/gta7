@@ -95,15 +95,17 @@ export class PostProcessingManager {
       const width = Math.min(window.innerWidth || 800, 1920);
       const height = Math.min(window.innerHeight || 600, 1080);
 
-      // Safe, cross-platform render target supported by 100% of WebGL devices without black screen
+      // High-precision HDR render target for vibrant specular bloom without color banding
       const renderTarget = new THREE.WebGLRenderTarget(width, height, {
         minFilter: THREE.LinearFilter,
         magFilter: THREE.LinearFilter,
         format: THREE.RGBAFormat,
-        type: THREE.UnsignedByteType,
+        type: THREE.HalfFloatType,
       });
 
       this.composer = new EffectComposer(this.renderer, renderTarget);
+      this.composer.setPixelRatio(this.renderer.getPixelRatio());
+      this.composer.setSize(width, height);
 
       // 1. Scene Render Pass
       this.renderPass = new RenderPass(this.scene, this.camera);
@@ -123,6 +125,7 @@ export class PostProcessingManager {
       // 3. Radial Speed Warp & Chromatic Aberration Pass
       this.warpPass = new ShaderPass(SpeedWarpShader);
       this.warpPass.uniforms.uAberration.value = 0.0;
+      this.warpPass.enabled = false;
       this.composer.addPass(this.warpPass);
 
       // 4. Tone Mapping & Color Space Output Pass
@@ -192,15 +195,14 @@ export class PostProcessingManager {
     }
 
     const currentAberr = (this.warpPass.uniforms.uAberration.value as number) || 0.0;
-    this.warpPass.uniforms.uAberration.value = THREE.MathUtils.lerp(
-      currentAberr,
-      targetAberration,
-      0.15,
-    );
+    const aberr = THREE.MathUtils.lerp(currentAberr, targetAberration, 0.15);
+    this.warpPass.uniforms.uAberration.value = aberr;
+    this.warpPass.enabled = aberr > 0.0005;
   }
 
   public setSize(width: number, height: number): void {
     if (this.composer) {
+      this.composer.setPixelRatio(this.renderer.getPixelRatio());
       this.composer.setSize(width, height);
       if (this.bloomPass) {
         this.bloomPass.resolution.set(Math.round(width * 0.5), Math.round(height * 0.5));

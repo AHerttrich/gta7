@@ -97,10 +97,10 @@ describe('Map Expansion: 7x7 Grid & Handcrafted POIs', () => {
     const economy = new EconomySystem();
     const water = new WaterSystem(scene, economy, sound);
 
-    expect(water.waterMesh.position.x).toBe(-290);
+    expect(water.waterMesh.position.x).toBe(-478);
     expect(water.crates.length).toBe(3);
     // Boats are placed in the expanded bay
-    expect(water.speedboat.x).toBe(-195);
-    expect(water.jetSki.x).toBe(-195);
+    expect(water.speedboat.x).toBe(-335);
+    expect(water.jetSki.x).toBe(-335);
   });
 });

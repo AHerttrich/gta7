@@ -81,6 +81,11 @@ export class InteriorSystem {
   public activeDoor: InteriorDoor | null = null;
   public interactables: Map<string, InteriorInteractable[]> = new Map();
   public residents: InteriorResident[] = [];
+  public exteriorDoorsGroup = new THREE.Group();
+  public roomGroups = new Map<string, THREE.Group>();
+  public interactCooldowns = new Map<string, number>();
+  public interiorAmbientLight: THREE.AmbientLight;
+  public interiorHemiLight: THREE.HemisphereLight;
 
   private scene: THREE.Scene;
   private animTimer: number = 0;
@@ -94,10 +99,27 @@ export class InteriorSystem {
   constructor(scene: THREE.Scene) {
     this.scene = scene;
     this.group = new THREE.Group();
+    this.group.add(this.exteriorDoorsGroup);
     this.scene.add(this.group);
+
+    this.interiorAmbientLight = new THREE.AmbientLight(0xfffaf0, 2.4);
+    this.interiorHemiLight = new THREE.HemisphereLight(0xffffff, 0xdbeafe, 1.8);
+    this.interiorAmbientLight.visible = false;
+    this.interiorHemiLight.visible = false;
+    this.group.add(this.interiorAmbientLight, this.interiorHemiLight);
 
     this.registerDoors();
     this.buildAllInteriors();
+  }
+
+  public canTriggerInteractable(id: string, cooldownSec: number = 60): boolean {
+    const now = Date.now();
+    const last = this.interactCooldowns.get(id) || 0;
+    if (now - last < cooldownSec * 1000) {
+      return false;
+    }
+    this.interactCooldowns.set(id, now);
+    return true;
   }
 
   /**
@@ -146,7 +168,7 @@ export class InteriorSystem {
     doormat.position.set(0, 0.04, 1.2);
 
     doorGroup.add(frameL, frameR, frameTop, doorPanelL, doorPanelR, signBoard, doormat);
-    this.group.add(doorGroup);
+    this.exteriorDoorsGroup.add(doorGroup);
     return doorGroup;
   }
 
@@ -193,7 +215,7 @@ export class InteriorSystem {
         doorColor: 0xec4899,
         archetypeId: 'nightclub',
         interiorSpawn: { x: 4200, y: 100.0, z: 3988, heading: 0 },
-        bounds: { minX: 4186, maxX: 4214, minZ: 3986, maxZ: 4214, floorY: 100.0, ceilingY: 105.5 },
+        bounds: { minX: 4186, maxX: 4214, minZ: 3986, maxZ: 4014, floorY: 100.0, ceilingY: 105.5 },
       },
       {
         id: 'hacker_loft',
@@ -321,6 +343,10 @@ export class InteriorSystem {
       airport_lounge: 5400,
       stadium_lounge: 5500,
       penthouse: 4000,
+      family_house: 5700,
+      modern_villa_resident: 5800,
+      student_flat: 5900,
+      cozy_bungalow: 6000,
     };
 
     for (let i = 0; i < GRID_SIZE; i++) {
@@ -423,7 +449,28 @@ export class InteriorSystem {
         let icon = '🏢';
         let doorColor = 0x00f0ff;
 
-        if (style === 'COMMERCIAL_HQ') {
+        if (i === 0 && j === 1) {
+          // Oakwood Family Suburban Neighborhood at Block [0, 1]
+          archetypeId = 'family_house';
+          name = '🏡 Vorstadt-Familienhaus "Eichengrund"';
+          subtitle = 'Familie Müller: Wohnzimmer, offene Küche & Kinderzimmer';
+          icon = '🏡';
+          doorColor = 0x22c55e;
+        } else if (i === 1 && j === 0) {
+          // Sunny Hills Bungalow at Block [1, 0]
+          archetypeId = 'cozy_bungalow';
+          name = '🏡 Vorstadt-Bungalow "Sonnengarten"';
+          subtitle = 'Oma Helga: Kaminfeuer, Schaukelstuhl & Apfelkuchen';
+          icon = '🏡';
+          doorColor = 0xf59e0b;
+        } else if (i === 0 && j === 3) {
+          // Campus Townhouses & Student WG at Block [0, 3]
+          archetypeId = 'student_flat';
+          name = '🏘️ Bunte Studenten-WG "Campus Loft"';
+          subtitle = 'Jan & Lisa: Chill-Ecke, Gitarre, Gaming & Pizza';
+          icon = '🏘️';
+          doorColor = 0xa855f7;
+        } else if (style === 'COMMERCIAL_HQ') {
           archetypeId = 'corp_hq';
           name = `🏢 OmniTech Konzernzentrale #${i}${j}`;
           subtitle = 'Vorstandsetage, Trading & Espresso';
@@ -442,17 +489,34 @@ export class InteriorSystem {
           icon = archetypeId === 'cyber_loft' ? '🏙️' : '💉';
           doorColor = 0x8b5cf6;
         } else if (style === 'RESIDENTIAL_BLOCK') {
-          archetypeId = (i + j) % 2 === 0 ? 'cyber_loft' : 'noodle_bar';
-          name =
-            archetypeId === 'cyber_loft'
-              ? `🏘️ Cyber-Residenz Block #${i}${j}`
-              : `🍜 Neon Ramen Bistro #${i}${j}`;
-          subtitle =
-            archetypeId === 'cyber_loft'
-              ? 'Wohnung, Küche & Erholung'
-              : 'Dampfende Nudeln, Tee & Glückskatze';
-          icon = archetypeId === 'cyber_loft' ? '🏘️' : '🍜';
-          doorColor = 0xf59e0b;
+          const resArchetypes = [
+            'family_house',
+            'modern_villa_resident',
+            'student_flat',
+            'cozy_bungalow',
+          ];
+          archetypeId = resArchetypes[(i * 3 + j) % resArchetypes.length];
+          if (archetypeId === 'family_house') {
+            name = `🏡 Vorstadt-Familienhaus #${i}${j}`;
+            subtitle = 'Familien-Wohnzimmer, Küche & Kinderzimmer';
+            icon = '🏡';
+            doorColor = 0x22c55e;
+          } else if (archetypeId === 'modern_villa_resident') {
+            name = `🏡 Moderne Architekten-Stadtvilla #${i}${j}`;
+            subtitle = 'Designer-Lounge, Whirlpool & Barista-Küche';
+            icon = '🏡';
+            doorColor = 0x06b6d4;
+          } else if (archetypeId === 'student_flat') {
+            name = `🏘️ Bunte Studenten-WG #${i}${j}`;
+            subtitle = 'Chill-Ecke, Akustikgitarre, Gaming & WG-Küche';
+            icon = '🏘️';
+            doorColor = 0xa855f7;
+          } else {
+            name = `🏡 Gemütlicher Vorstadt-Bungalow #${i}${j}`;
+            subtitle = 'Kaminfeuer, Schaukelstuhl & Großmutters Küche';
+            icon = '🏡';
+            doorColor = 0xf59e0b;
+          }
         } else if (style === 'LUXURY_RESORT') {
           archetypeId = (i + j) % 2 === 0 ? 'penthouse' : 'neon_arcade';
           name =
@@ -570,8 +634,13 @@ export class InteriorSystem {
     floorColor: number,
     wallColor: number,
     ambientColor: number,
+    archetypeId?: string,
   ): { group: THREE.Group; exitDoor: THREE.Mesh } {
     const group = new THREE.Group();
+    group.visible = false;
+    if (archetypeId) {
+      this.roomGroups.set(archetypeId, group);
+    }
 
     // Floor & Ceiling
     const floor = new THREE.Mesh(
@@ -582,10 +651,27 @@ export class InteriorSystem {
 
     const ceiling = new THREE.Mesh(
       new THREE.BoxGeometry(28, 0.3, 28),
-      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 }),
+      new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.5 }),
     );
     ceiling.position.set(cx, cy + 4.8, cz);
     group.add(floor, ceiling);
+
+    // 4 Glowing Recessed LED Ceiling Downlight Panels + Quadrant Fill Lights
+    const downlightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const panelGeo = new THREE.BoxGeometry(2.4, 0.05, 2.4);
+    const quadOffsets = [
+      { x: -7, z: -7 },
+      { x: 7, z: -7 },
+      { x: -7, z: 7 },
+      { x: 7, z: 7 },
+    ];
+    quadOffsets.forEach((off) => {
+      const panel = new THREE.Mesh(panelGeo, downlightMat);
+      panel.position.set(cx + off.x, cy + 4.75, cz + off.z);
+      const quadLight = new THREE.PointLight(ambientColor, 4.5, 35);
+      quadLight.position.set(cx + off.x, cy + 4.2, cz + off.z);
+      group.add(panel, quadLight);
+    });
 
     // Walls
     const wallMat = new THREE.MeshStandardMaterial({ color: wallColor, roughness: 0.7 });
@@ -611,8 +697,8 @@ export class InteriorSystem {
     exitDoor.position.set(cx, cy + 1.6, cz - 13.8);
     group.add(exitDoor);
 
-    // Ceiling Chandelier / Ambient Light
-    const light = new THREE.PointLight(ambientColor, 3.0, 24);
+    // Central High-Lux Chandelier / Ceiling Light
+    const light = new THREE.PointLight(ambientColor, 7.5, 48);
     light.position.set(cx, cy + 4.2, cz);
     group.add(light);
 
@@ -737,6 +823,7 @@ export class InteriorSystem {
 
     pedGroup.position.set(options.x, options.y, options.z);
     pedGroup.rotation.y = options.rotationY;
+    pedGroup.visible = false;
     this.group.add(pedGroup);
 
     const resident: InteriorResident = {
@@ -810,6 +897,12 @@ export class InteriorSystem {
     this.buildAirportLounge();
     this.buildStadiumLounge();
     this.buildPlayerHouse();
+
+    // 4 Residential Houses ("Wohnhäuser")
+    this.buildFamilyHouse();
+    this.buildModernVilla();
+    this.buildStudentFlat();
+    this.buildCozyBungalow();
   }
 
   private buildPenthouse(): void {
@@ -826,7 +919,7 @@ export class InteriorSystem {
     floor.position.set(cx, cy - 0.15, cz);
     const ceiling = new THREE.Mesh(
       new THREE.BoxGeometry(28, 0.3, 24),
-      new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 }),
+      new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.5 }),
     );
     ceiling.position.set(cx, cy + 4.8, cz);
     pentGroup.add(floor, ceiling);
@@ -885,8 +978,27 @@ export class InteriorSystem {
       new THREE.MeshStandardMaterial({ color: 0xfacc15 }),
     );
     exitDoor.position.set(cx, cy + 1.5, cz - 11.9);
-    pentGroup.add(sofaMain, sofaL, table, bar, bed, headboard, exitDoor);
+    const pentLight = new THREE.PointLight(0xfffbeb, 7.5, 48);
+    pentLight.position.set(cx, cy + 4.2, cz);
+    const pentFill1 = new THREE.PointLight(0xfff1e6, 4.5, 35);
+    pentFill1.position.set(cx - 7, cy + 4.2, cz);
+    const pentFill2 = new THREE.PointLight(0xfff1e6, 4.5, 35);
+    pentFill2.position.set(cx + 7, cy + 4.2, cz);
+    pentGroup.add(
+      sofaMain,
+      sofaL,
+      table,
+      bar,
+      bed,
+      headboard,
+      exitDoor,
+      pentLight,
+      pentFill1,
+      pentFill2,
+    );
 
+    pentGroup.visible = false;
+    this.roomGroups.set('penthouse', pentGroup);
     this.group.add(pentGroup);
 
     // Penthouse Residents: Viktor Vance & Chloe
@@ -981,7 +1093,7 @@ export class InteriorSystem {
     floor.position.set(cx, cy - 0.15, cz);
     const ceiling = new THREE.Mesh(
       new THREE.BoxGeometry(24, 0.3, 32),
-      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 }),
+      new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.5 }),
     );
     ceiling.position.set(cx, cy + 4.5, cz);
     gunGroup.add(floor, ceiling);
@@ -1022,8 +1134,16 @@ export class InteriorSystem {
       new THREE.MeshStandardMaterial({ color: 0xef4444 }),
     );
     exitDoor.position.set(cx, cy + 1.6, cz - 15.8);
-    gunGroup.add(counter, rack, exitDoor);
+    const gunLight = new THREE.PointLight(0xffedd5, 7.5, 48);
+    gunLight.position.set(cx, cy + 4.2, cz);
+    const gunFill1 = new THREE.PointLight(0xffedd5, 4.5, 35);
+    gunFill1.position.set(cx, cy + 4.2, cz - 8);
+    const gunFill2 = new THREE.PointLight(0xffedd5, 4.5, 35);
+    gunFill2.position.set(cx, cy + 4.2, cz + 8);
+    gunGroup.add(counter, rack, exitDoor, gunLight, gunFill1, gunFill2);
 
+    gunGroup.visible = false;
+    this.roomGroups.set('gun_store', gunGroup);
     this.group.add(gunGroup);
 
     // Ammu-Nation Residents: Sgt. Mac & Rusty
@@ -1076,8 +1196,7 @@ export class InteriorSystem {
         z: cz - 6,
         radius: 3.0,
         onInteract: ({ economy, hud, sound }): void => {
-          if (economy.cash >= 500) {
-            economy.addCash(-500);
+          if (economy.spendCash(500)) {
             economy.weapons.forEach((w) => {
               w.unlocked = true;
               w.ammo = w.maxAmmo;
@@ -1126,7 +1245,7 @@ export class InteriorSystem {
 
     const ceiling = new THREE.Mesh(
       new THREE.BoxGeometry(28, 0.3, 28),
-      new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.95 }),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 }),
     );
     ceiling.position.set(cx, cy + 5.5, cz);
     clubGroup.add(floor, ceiling);
@@ -1170,8 +1289,20 @@ export class InteriorSystem {
       new THREE.MeshStandardMaterial({ color: 0xec4899 }),
     );
     exitDoor.position.set(cx, cy + 1.6, cz - 13.8);
-    clubGroup.add(exitDoor);
+    const clubLight = new THREE.PointLight(0xa855f7, 7.5, 48);
+    clubLight.position.set(cx, cy + 4.2, cz);
+    const clubLight1 = new THREE.PointLight(0xec4899, 5.0, 35);
+    clubLight1.position.set(cx - 6, cy + 4.8, cz - 6);
+    const clubLight2 = new THREE.PointLight(0x00f0ff, 5.0, 35);
+    clubLight2.position.set(cx + 6, cy + 4.8, cz - 6);
+    const clubLight3 = new THREE.PointLight(0xa855f7, 5.0, 35);
+    clubLight3.position.set(cx - 6, cy + 4.8, cz + 6);
+    const clubLight4 = new THREE.PointLight(0xfacc15, 5.0, 35);
+    clubLight4.position.set(cx + 6, cy + 4.8, cz + 6);
+    clubGroup.add(exitDoor, clubLight, clubLight1, clubLight2, clubLight3, clubLight4);
 
+    clubGroup.visible = false;
+    this.roomGroups.set('nightclub', clubGroup);
     this.group.add(clubGroup);
 
     // Club Neon Dreams Residents: Jax, DJ Pulse, Nova, Rico
@@ -1297,7 +1428,15 @@ export class InteriorSystem {
     const cx = 4300;
     const cy = 100.0;
     const cz = 4000;
-    const { group, exitDoor } = this.createRoomShell(cx, cy, cz, 0x0f172a, 0x1e293b, 0x10b981);
+    const { group, exitDoor } = this.createRoomShell(
+      cx,
+      cy,
+      cz,
+      0x0f172a,
+      0x1e293b,
+      0x10b981,
+      'hacker_loft',
+    );
 
     const desk = new THREE.Mesh(
       new THREE.BoxGeometry(8, 0.9, 3.5),
@@ -1396,7 +1535,15 @@ export class InteriorSystem {
     const cx = 4400;
     const cy = 100.0;
     const cz = 4000;
-    const { group, exitDoor } = this.createRoomShell(cx, cy, cz, 0x1e293b, 0x334155, 0x3b82f6);
+    const { group, exitDoor } = this.createRoomShell(
+      cx,
+      cy,
+      cz,
+      0x1e293b,
+      0x334155,
+      0x3b82f6,
+      'city_bank',
+    );
 
     const vaultMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.95 });
     const vaultDoor = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 0.8, 24), vaultMat);
@@ -1470,6 +1617,10 @@ export class InteriorSystem {
         z: cz + 8,
         radius: 3.2,
         onInteract: ({ economy, hud, sound }): void => {
+          if (!this.canTriggerInteractable('bank_gold', 60)) {
+            hud.showNotification('⏳ Goldtresor vorübergehend leer! (Abklingzeit: 60s)');
+            return;
+          }
           economy.addCash(3000);
           sound.playCheckpointChime();
           hud.showNotification('💰 GOLDBARREN GEPLÜNDERT! +$3.000 fette Beute eingesackt!');
@@ -1484,7 +1635,15 @@ export class InteriorSystem {
     const cx = 4500;
     const cy = 100.0;
     const cz = 4000;
-    const { group, exitDoor } = this.createRoomShell(cx, cy, cz, 0x0f172a, 0x1e293b, 0x00f0ff);
+    const { group, exitDoor } = this.createRoomShell(
+      cx,
+      cy,
+      cz,
+      0x0f172a,
+      0x1e293b,
+      0x00f0ff,
+      'corp_hq',
+    );
 
     // Boardroom Table
     const tableMat = new THREE.MeshStandardMaterial({
@@ -1586,7 +1745,15 @@ export class InteriorSystem {
     const cx = 4600;
     const cy = 100.0;
     const cz = 4000;
-    const { group, exitDoor } = this.createRoomShell(cx, cy, cz, 0x18181b, 0x09090b, 0xfacc15);
+    const { group, exitDoor } = this.createRoomShell(
+      cx,
+      cy,
+      cz,
+      0x18181b,
+      0x09090b,
+      0xfacc15,
+      'neon_arcade',
+    );
 
     // 4 Retro Arcade Cabinets
     const cabMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6, metalness: 0.6 });
@@ -1679,7 +1846,7 @@ export class InteriorSystem {
     const cx = 4700;
     const cy = 100.0;
     const cz = 4000;
-    const { group } = this.createRoomShell(cx, cy, cz, 0x1e1b4b, 0x312e81, 0x8b5cf6);
+    const { group } = this.createRoomShell(cx, cy, cz, 0x1e1b4b, 0x312e81, 0x8b5cf6, 'cyber_loft');
 
     const couch = new THREE.Mesh(
       new THREE.BoxGeometry(7, 0.8, 2.5),
@@ -1785,7 +1952,15 @@ export class InteriorSystem {
     const cx = 4800;
     const cy = 100.0;
     const cz = 4000;
-    const { group } = this.createRoomShell(cx, cy, cz, 0x451a03, 0x78350f, 0x10b981);
+    const { group } = this.createRoomShell(
+      cx,
+      cy,
+      cz,
+      0x451a03,
+      0x78350f,
+      0x10b981,
+      'martial_dojo',
+    );
 
     // Punching Bags
     const bagMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.5 });
@@ -1888,7 +2063,15 @@ export class InteriorSystem {
     const cx = 4900;
     const cy = 100.0;
     const cz = 4000;
-    const { group } = this.createRoomShell(cx, cy, cz, 0x1e293b, 0x334155, 0xef4444);
+    const { group } = this.createRoomShell(
+      cx,
+      cy,
+      cz,
+      0x1e293b,
+      0x334155,
+      0xef4444,
+      'tuner_garage',
+    );
 
     // Car Lift Hydraulic Posts
     const postMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.8 });
@@ -1965,7 +2148,7 @@ export class InteriorSystem {
     const cx = 5000;
     const cy = 100.0;
     const cz = 4000;
-    const { group } = this.createRoomShell(cx, cy, cz, 0x451a03, 0x292524, 0xf43f5e);
+    const { group } = this.createRoomShell(cx, cy, cz, 0x451a03, 0x292524, 0xf43f5e, 'noodle_bar');
 
     // Noodle Counter
     const barMat = new THREE.MeshStandardMaterial({ color: 0x78350f });
@@ -2058,7 +2241,7 @@ export class InteriorSystem {
     const cx = 5100;
     const cy = 100.0;
     const cz = 4000;
-    const { group } = this.createRoomShell(cx, cy, cz, 0xf8fafc, 0xe2e8f0, 0x06b6d4);
+    const { group } = this.createRoomShell(cx, cy, cz, 0xf8fafc, 0xe2e8f0, 0x06b6d4, 'ripperdoc');
 
     // Surgical Bed
     const bedMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.7 });
@@ -2139,7 +2322,7 @@ export class InteriorSystem {
     const cx = 5200;
     const cy = 100.0;
     const cz = 4000;
-    const { group } = this.createRoomShell(cx, cy, cz, 0x09090b, 0x18181b, 0xa855f7);
+    const { group } = this.createRoomShell(cx, cy, cz, 0x09090b, 0x18181b, 0xa855f7, 'art_gallery');
 
     // Neon Abstract Pedestals
     for (let i = -1; i <= 1; i++) {
@@ -2222,7 +2405,15 @@ export class InteriorSystem {
     const cx = 5300;
     const cy = 100.0;
     const cz = 4000;
-    const { group } = this.createRoomShell(cx, cy, cz, 0x451a03, 0x292524, 0xf59e0b);
+    const { group } = this.createRoomShell(
+      cx,
+      cy,
+      cz,
+      0x451a03,
+      0x292524,
+      0xf59e0b,
+      'lighthouse_cabin',
+    );
 
     // Stone Fireplace
     const fireplace = new THREE.Mesh(
@@ -2300,7 +2491,15 @@ export class InteriorSystem {
     const cx = 5400;
     const cy = 100.0;
     const cz = 4000;
-    const { group } = this.createRoomShell(cx, cy, cz, 0x1e3a8a, 0x1e293b, 0x38bdf8);
+    const { group } = this.createRoomShell(
+      cx,
+      cy,
+      cz,
+      0x1e3a8a,
+      0x1e293b,
+      0x38bdf8,
+      'airport_lounge',
+    );
 
     // Flight Departures Board
     const board = new THREE.Mesh(
@@ -2377,7 +2576,15 @@ export class InteriorSystem {
     const cx = 5500;
     const cy = 100.0;
     const cz = 4000;
-    const { group } = this.createRoomShell(cx, cy, cz, 0x0f172a, 0x1e293b, 0xf59e0b);
+    const { group } = this.createRoomShell(
+      cx,
+      cy,
+      cz,
+      0x0f172a,
+      0x1e293b,
+      0xf59e0b,
+      'stadium_lounge',
+    );
 
     // Trophy Cabinet
     const cabinet = new THREE.Mesh(
@@ -2469,7 +2676,7 @@ export class InteriorSystem {
     // Modern acoustic coffered ceiling
     const ceiling = new THREE.Mesh(
       new THREE.BoxGeometry(36, 0.3, 32),
-      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.85 }),
+      new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.5 }),
     );
     ceiling.position.set(cx, cy + 5.2, cz);
     houseGroup.add(floor, ceiling);
@@ -2498,10 +2705,18 @@ export class InteriorSystem {
     exitDoor.position.set(cx, cy + 1.6, cz - 15.8);
     houseGroup.add(exitDoor);
 
-    // Central Warm Crystal Chandelier
-    const chandelier = new THREE.PointLight(0xfef08a, 3.5, 32);
+    // Central Warm Crystal Chandelier & Luxury Quadrant Downlights
+    const chandelier = new THREE.PointLight(0xfef08a, 7.5, 48);
     chandelier.position.set(cx, cy + 4.8, cz);
-    houseGroup.add(chandelier);
+    const hLight1 = new THREE.PointLight(0xfffbeb, 4.5, 35);
+    hLight1.position.set(cx - 10, cy + 4.8, cz - 8);
+    const hLight2 = new THREE.PointLight(0xfffbeb, 4.5, 35);
+    hLight2.position.set(cx + 10, cy + 4.8, cz - 8);
+    const hLight3 = new THREE.PointLight(0xfffbeb, 4.5, 35);
+    hLight3.position.set(cx - 10, cy + 4.8, cz + 8);
+    const hLight4 = new THREE.PointLight(0xfffbeb, 4.5, 35);
+    hLight4.position.set(cx + 10, cy + 4.8, cz + 8);
+    houseGroup.add(chandelier, hLight1, hLight2, hLight3, hLight4);
 
     // 2. Master Bedroom Suite (cx + 10, cz + 8)
     const bedFrame = new THREE.Mesh(
@@ -2700,6 +2915,8 @@ export class InteriorSystem {
 
     houseGroup.add(terminalPillar, terminalHolo);
 
+    houseGroup.visible = false;
+    this.roomGroups.set('player_house', houseGroup);
     this.group.add(houseGroup);
 
     // Villa Residents & Staff: Alfred the Butler, Dave (Buddy), and Elena (Security Chief)
@@ -2884,6 +3101,12 @@ export class InteriorSystem {
         z: cz + 8,
         radius: 2.8,
         onInteract: ({ economy, hud, sound }): void => {
+          if (!this.canTriggerInteractable('house_vault', 60)) {
+            hud.showNotification(
+              '⏳ Tresor vorübergehend leer! (Passiv-Einkommen regeneriert alle 60s)',
+            );
+            return;
+          }
           economy.addCash(1500);
           sound.playFanfare();
           hud.showNotification(
@@ -2943,6 +3166,704 @@ export class InteriorSystem {
     ]);
   }
 
+  private buildFamilyHouse(): void {
+    const cx = 5700;
+    const cy = 100.0;
+    const cz = 4000;
+    const { group, exitDoor } = this.createRoomShell(
+      cx,
+      cy,
+      cz,
+      0xd4a373, // Warm Oak parquet floor
+      0xf8fafc, // Bright warm white plaster walls
+      0xfef08a, // Warm ambient ceiling glow
+      'family_house',
+    );
+    exitDoor.material = new THREE.MeshStandardMaterial({ color: 0x22c55e });
+
+    // 1. Living Room: L-shaped sofa, rug, coffee table & 75" TV console
+    const couchMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7 });
+    const sofaMain = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.8, 2.2), couchMat);
+    sofaMain.position.set(cx - 5, cy + 0.4, cz + 4);
+    const sofaL = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.8, 4.0), couchMat);
+    sofaL.position.set(cx - 7.2, cy + 0.4, cz + 1.8);
+
+    const rugMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.9 });
+    const livingRug = new THREE.Mesh(new THREE.BoxGeometry(7.0, 0.05, 5.5), rugMat);
+    livingRug.position.set(cx - 5, cy + 0.02, cz + 2.5);
+
+    const coffeeTable = new THREE.Mesh(
+      new THREE.BoxGeometry(3.2, 0.45, 1.8),
+      new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.6 }),
+    );
+    coffeeTable.position.set(cx - 4.5, cy + 0.22, cz + 2.5);
+
+    const tvConsole = new THREE.Mesh(
+      new THREE.BoxGeometry(5.5, 0.6, 1.2),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5 }),
+    );
+    tvConsole.position.set(cx - 4.5, cy + 0.3, cz - 1.5);
+
+    const tvScreen = new THREE.Mesh(
+      new THREE.BoxGeometry(4.6, 2.4, 0.1),
+      new THREE.MeshStandardMaterial({
+        color: 0x0284c7,
+        emissive: 0x0369a1,
+        emissiveIntensity: 0.4,
+      }),
+    );
+    tvScreen.position.set(cx - 4.5, cy + 1.8, cz - 1.4);
+    group.add(sofaMain, sofaL, livingRug, coffeeTable, tvConsole, tvScreen);
+
+    // 2. Kitchen & Dining: Oak dining table, chairs & kitchen counter with fridge
+    const diningTable = new THREE.Mesh(
+      new THREE.BoxGeometry(5.0, 0.8, 2.6),
+      new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.5 }),
+    );
+    diningTable.position.set(cx + 6, cy + 0.4, cz - 4);
+
+    const chairMat = new THREE.MeshStandardMaterial({ color: 0x475569 });
+    for (let i = -1; i <= 1; i += 2) {
+      const chair1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.9, 0.8), chairMat);
+      chair1.position.set(cx + 6 + i * 1.5, cy + 0.45, cz - 5.8);
+      const chair2 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.9, 0.8), chairMat);
+      chair2.position.set(cx + 6 + i * 1.5, cy + 0.45, cz - 2.2);
+      group.add(chair1, chair2);
+    }
+
+    const kitchenCounter = new THREE.Mesh(
+      new THREE.BoxGeometry(8.0, 1.0, 2.2),
+      new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.3 }),
+    );
+    kitchenCounter.position.set(cx + 6, cy + 0.5, cz + 6);
+
+    const fridge = new THREE.Mesh(
+      new THREE.BoxGeometry(2.0, 3.4, 2.0),
+      new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.7, roughness: 0.3 }),
+    );
+    fridge.position.set(cx + 11.5, cy + 1.7, cz + 6);
+    group.add(diningTable, kitchenCounter, fridge);
+
+    // 3. Kids' Corner: Bunk bed and colorful toy chest
+    const bedFrame = new THREE.Mesh(
+      new THREE.BoxGeometry(2.4, 2.6, 4.4),
+      new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.6 }),
+    );
+    bedFrame.position.set(cx - 10, cy + 1.3, cz + 9);
+
+    const toyChest = new THREE.Mesh(
+      new THREE.BoxGeometry(2.2, 0.9, 1.4),
+      new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.5 }),
+    );
+    toyChest.position.set(cx - 6, cy + 0.45, cz + 11);
+    group.add(bedFrame, toyChest);
+
+    this.group.add(group);
+
+    // Family Residents: Thomas Müller, Sabine Müller, Leo Müller
+    const thomas = this.createInteriorResident({
+      id: 'house_thomas',
+      name: 'Thomas Müller',
+      role: 'Familienvater & Ingenieur',
+      icon: '👨‍💼',
+      archetypeId: 'family_house',
+      x: cx + 6,
+      y: cy,
+      z: cz - 4,
+      rotationY: 0,
+      shirtColor: 0x0284c7,
+      pantsColor: 0x1e293b,
+      hairColor: 0x451a03,
+      isSitting: true,
+      dialogues: [
+        'Hallo Nachbar! Schön, dass du in unserem Wohnhaus vorbeischaust!',
+        'Ich habe die Solaranlage auf unserem Dach installiert – 100% autarker Ökostrom!',
+        'Setz dich gerne zu uns an den Esstisch und nimm dir etwas Warmes! (+35 HP)',
+      ],
+      bonusAction: ({ player, sound }): void => {
+        player.health = Math.min(100, player.health + 35);
+        sound.playHoverEngage();
+      },
+    });
+
+    const sabine = this.createInteriorResident({
+      id: 'house_sabine',
+      name: 'Sabine Müller',
+      role: 'Mutter & Architektin',
+      icon: '👩‍💼',
+      archetypeId: 'family_house',
+      x: cx + 6,
+      y: cy,
+      z: cz + 5,
+      rotationY: Math.PI,
+      shirtColor: 0x10b981,
+      pantsColor: 0x334155,
+      hairColor: 0xd97706,
+      dialogues: [
+        'Herzlich willkommen bei Familie Müller! Ich habe dieses Haus selbst entworfen.',
+        'Ein echtes Zuhause braucht viel Tageslicht, warme Holzböden und eine große Küche!',
+        'Das Essen ist gleich fertig! Frischer Familienauflauf aus dem Ofen!',
+      ],
+    });
+
+    const leo = this.createInteriorResident({
+      id: 'house_leo',
+      name: 'Leo Müller',
+      role: 'Sohn & Lego-Cyberbauer',
+      icon: '👦',
+      archetypeId: 'family_house',
+      x: cx - 6,
+      y: cy,
+      z: cz + 10.5,
+      rotationY: -Math.PI / 2,
+      shirtColor: 0xef4444,
+      pantsColor: 0x1e3a8a,
+      hairColor: 0xd97706,
+      isSitting: true,
+      dialogues: [
+        'Hi! Guck mal, mein neues Raumschiff aus Bauklötzen!',
+        'Wenn ich groß bin, baue ich die schnellsten Flugautos von ganz GTA 7!',
+        'Papa hat gesagt, wir fahren am Wochenende zum Leuchtturm und ans Meer!',
+      ],
+    });
+
+    this.interactables.set('family_house', [
+      {
+        id: 'family_dinner',
+        name: '🍲 Gemeinsames Familien-Abendessen',
+        prompt: 'Drücke [E] um mit Familie Müller zu Abend zu essen (+50 HP & +100$) 🍲',
+        x: cx + 6,
+        y: cy,
+        z: cz - 4,
+        radius: 3.2,
+        onInteract: ({ player, economy, hud, sound }): void => {
+          player.health = Math.min(100, player.health + 50);
+          economy.addCash(100);
+          sound.playCheckpointChime();
+          hud.showNotification(
+            '🍲 FAMILIEN-ABENDESSEN: Leckerer Auflauf! +50 HP Vitalität & +100$ Taschengeld!',
+          );
+        },
+      },
+      {
+        id: 'family_tv',
+        name: '📺 Familien-Fernseher',
+        prompt: 'Drücke [E] um den Fernseher einzuschalten 📺',
+        x: cx - 4.5,
+        y: cy,
+        z: cz - 1.0,
+        radius: 2.8,
+        onInteract: ({ hud, sound }): void => {
+          sound.playFanfare();
+          hud.showNotification(
+            '📺 75" SMART-TV: Kinderserien & Lokalnachrichten aus GTA 7 laufen!',
+          );
+        },
+      },
+      thomas.interactable,
+      sabine.interactable,
+      leo.interactable,
+    ]);
+  }
+
+  private buildModernVilla(): void {
+    const cx = 5800;
+    const cy = 100.0;
+    const cz = 4000;
+    const { group, exitDoor } = this.createRoomShell(
+      cx,
+      cy,
+      cz,
+      0xe2e8f0, // Carrera polished marble floor
+      0x1e293b, // Slate and walnut slat architectural walls
+      0x38bdf8, // Cool sky cyan ambient fill
+      'modern_villa_resident',
+    );
+    exitDoor.material = new THREE.MeshStandardMaterial({ color: 0x06b6d4 });
+
+    // 1. Heated Jacuzzi / Indoor Spa Pool
+    const jacuzziRim = new THREE.Mesh(
+      new THREE.CylinderGeometry(3.6, 3.8, 1.1, 16),
+      new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.6 }), // Teak deck
+    );
+    jacuzziRim.position.set(cx + 7, cy + 0.55, cz + 6);
+
+    const jacuzziWater = new THREE.Mesh(
+      new THREE.CylinderGeometry(3.3, 3.3, 0.9, 16),
+      new THREE.MeshStandardMaterial({
+        color: 0x06b6d4,
+        emissive: 0x0891b2,
+        emissiveIntensity: 0.5,
+        transparent: true,
+        opacity: 0.8,
+        roughness: 0.1,
+      }),
+    );
+    jacuzziWater.position.set(cx + 7, cy + 0.55, cz + 6);
+
+    const spaLight = new THREE.PointLight(0x06b6d4, 4.0, 15);
+    spaLight.position.set(cx + 7, cy + 1.5, cz + 6);
+    group.add(jacuzziRim, jacuzziWater, spaLight);
+
+    // 2. Designer Lounge: Low Italian leather couch & glass sculpture
+    const loungeCouch = new THREE.Mesh(
+      new THREE.BoxGeometry(6.0, 0.7, 2.4),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4 }),
+    );
+    loungeCouch.position.set(cx - 6, cy + 0.35, cz + 4);
+
+    const sculptureMat = new THREE.MeshStandardMaterial({
+      color: 0xd946ef,
+      metalness: 0.9,
+      roughness: 0.1,
+    });
+    const sculpture = new THREE.Mesh(new THREE.TorusKnotGeometry(0.8, 0.25, 64, 16), sculptureMat);
+    sculpture.position.set(cx - 6, cy + 1.8, cz - 2);
+
+    const sculptBase = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.6, 0.8, 1.2, 16),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a }),
+    );
+    sculptBase.position.set(cx - 6, cy + 0.6, cz - 2);
+    group.add(loungeCouch, sculpture, sculptBase);
+
+    // 3. Barista Espresso Kitchen Counter
+    const barCounter = new THREE.Mesh(
+      new THREE.BoxGeometry(6.5, 1.1, 1.8),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.5 }),
+    );
+    barCounter.position.set(cx - 5, cy + 0.55, cz - 7);
+
+    const espressoMachine = new THREE.Mesh(
+      new THREE.BoxGeometry(1.2, 0.8, 0.9),
+      new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9 }),
+    );
+    espressoMachine.position.set(cx - 5, cy + 1.5, cz - 7);
+    group.add(barCounter, espressoMachine);
+
+    this.group.add(group);
+
+    // Villa Residents: Felix Sommer & Laura Lindner
+    const felix = this.createInteriorResident({
+      id: 'villa_felix',
+      name: 'Felix Sommer',
+      role: 'Architekt & Stadtplaner',
+      icon: '🕶️',
+      archetypeId: 'modern_villa_resident',
+      x: cx - 5,
+      y: cy,
+      z: cz - 1.5,
+      rotationY: 0,
+      shirtColor: 0x0f172a,
+      pantsColor: 0x334155,
+      hairColor: 0x1e293b,
+      dialogues: [
+        'Willkommen in unserer Architekten-Stadtvilla! Klare Linien und Naturmaterialien sind die Zukunft.',
+        'Die raumhohe Verglasung und der fließende Übergang zur Terrasse schaffen perfekte Harmonie.',
+        'Gönn dir gerne einen frisch gemahlenen Siebträger-Espresso an unserer Bar!',
+      ],
+    });
+
+    const laura = this.createInteriorResident({
+      id: 'villa_laura',
+      name: 'Laura Lindner',
+      role: 'Modedesignerin & Sommelière',
+      icon: '🥂',
+      archetypeId: 'modern_villa_resident',
+      x: cx + 7,
+      y: cy,
+      z: cz + 2.5,
+      rotationY: Math.PI,
+      shirtColor: 0x06b6d4,
+      pantsColor: 0x0f172a,
+      hairColor: 0xf59e0b,
+      dialogues: [
+        'Guten Tag! Steig gerne in den Whirlpool, das warme Wasser tut nach einer schnellen Autofahrt so gut.',
+        'Wir lieben das urbane Leben in GTA 7 – tagsüber kreativ arbeiten, abends entspannen.',
+        'Hier, ein erfrischender Bio-Smoothie zur Stärkung! (+40 HP)',
+      ],
+      bonusAction: ({ player, sound }): void => {
+        player.health = Math.min(100, player.health + 40);
+        sound.playHoverEngage();
+      },
+    });
+
+    this.interactables.set('modern_villa_resident', [
+      {
+        id: 'villa_jacuzzi',
+        name: '🛁 Beheizter Designer-Whirlpool',
+        prompt: 'Drücke [E] um im warmen Whirlpool zu relaxen (+50 HP & +200$) 🛁✨',
+        x: cx + 7,
+        y: cy,
+        z: cz + 6,
+        radius: 3.5,
+        onInteract: ({ player, economy, hud, sound }): void => {
+          player.health = Math.min(100, player.health + 50);
+          economy.addCash(200);
+          sound.playHoverEngage();
+          hud.showNotification(
+            '🛁 WHIRLPOOL-WELLNESS: Herrlich entspannt! +50 HP & +200$ Erholungsprämie!',
+          );
+        },
+      },
+      {
+        id: 'villa_espresso',
+        name: '☕ Barista-Espressobar',
+        prompt: 'Drücke [E] für frisch gebrühten Siebträger-Espresso (+30 HP & Speed Boost) ☕⚡',
+        x: cx - 5,
+        y: cy,
+        z: cz - 7,
+        radius: 2.8,
+        onInteract: ({ player, hud, sound }): void => {
+          player.health = Math.min(100, player.health + 30);
+          player.speedMultiplier = 1.25;
+          sound.playBlowOffValve();
+          hud.showNotification(
+            '☕ SIEBTRÄGER-ESPRESSO: Maximaler Koffein-Kick! (+30 HP & +25% Speed Boost)!',
+          );
+        },
+      },
+      felix.interactable,
+      laura.interactable,
+    ]);
+  }
+
+  private buildStudentFlat(): void {
+    const cx = 5900;
+    const cy = 100.0;
+    const cz = 4000;
+    const { group, exitDoor } = this.createRoomShell(
+      cx,
+      cy,
+      cz,
+      0xcb997e, // Pine wood parquet floor
+      0x334155, // Exposed brick and navy wall
+      0xa855f7, // Purple neon accent fill
+      'student_flat',
+    );
+    exitDoor.material = new THREE.MeshStandardMaterial({ color: 0xa855f7 });
+
+    // 1. Shared Chill Corner: Corduroy couch, vinyl turntable, acoustic guitar & fairy lights
+    const couchMat = new THREE.MeshStandardMaterial({ color: 0x7e22ce, roughness: 0.8 });
+    const retroSofa = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.75, 2.2), couchMat);
+    retroSofa.position.set(cx - 5, cy + 0.38, cz + 4);
+
+    const recordTable = new THREE.Mesh(
+      new THREE.BoxGeometry(2.4, 0.7, 1.4),
+      new THREE.MeshStandardMaterial({ color: 0x78350f }),
+    );
+    recordTable.position.set(cx - 9.5, cy + 0.35, cz + 4);
+
+    // Vinyl turntable
+    const turntable = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.5, 0.5, 0.08, 16),
+      new THREE.MeshStandardMaterial({ color: 0x18181b, metalness: 0.8 }),
+    );
+    turntable.position.set(cx - 9.5, cy + 0.75, cz + 4);
+
+    // Guitar on stand
+    const guitarBody = new THREE.Mesh(
+      new THREE.BoxGeometry(0.8, 1.4, 0.25),
+      new THREE.MeshStandardMaterial({ color: 0xb45309 }),
+    );
+    guitarBody.position.set(cx - 7, cy + 1.2, cz + 8);
+    const guitarNeck = new THREE.Mesh(
+      new THREE.BoxGeometry(0.15, 1.2, 0.1),
+      new THREE.MeshStandardMaterial({ color: 0x78350f }),
+    );
+    guitarNeck.position.set(cx - 7, cy + 2.3, cz + 8);
+    group.add(retroSofa, recordTable, turntable, guitarBody, guitarNeck);
+
+    // 2. WG Kitchen: Cork pinboard, pizza boxes & kitchen table
+    const kitchenTable = new THREE.Mesh(
+      new THREE.BoxGeometry(4.5, 0.75, 2.4),
+      new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.6 }),
+    );
+    kitchenTable.position.set(cx + 6, cy + 0.38, cz - 4);
+
+    const pizzaBox1 = new THREE.Mesh(
+      new THREE.BoxGeometry(1.4, 0.15, 1.4),
+      new THREE.MeshStandardMaterial({ color: 0xd97706 }),
+    );
+    pizzaBox1.position.set(cx + 6, cy + 0.82, cz - 4);
+    const pizzaBox2 = new THREE.Mesh(
+      new THREE.BoxGeometry(1.4, 0.15, 1.4),
+      new THREE.MeshStandardMaterial({ color: 0xb45309 }),
+    );
+    pizzaBox2.position.set(cx + 6.2, cy + 0.97, cz - 4.1);
+    pizzaBox2.rotation.y = 0.2;
+    group.add(kitchenTable, pizzaBox1, pizzaBox2);
+
+    // 3. High-Tech Gaming & Coding Desk with RGB Monitors
+    const gamingDesk = new THREE.Mesh(
+      new THREE.BoxGeometry(5.2, 0.8, 2.0),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4 }),
+    );
+    gamingDesk.position.set(cx + 6, cy + 0.4, cz + 6);
+
+    const ultrawideMon = new THREE.Mesh(
+      new THREE.BoxGeometry(3.6, 1.4, 0.1),
+      new THREE.MeshStandardMaterial({
+        color: 0xa855f7,
+        emissive: 0x9333ea,
+        emissiveIntensity: 0.6,
+      }),
+    );
+    ultrawideMon.position.set(cx + 6, cy + 1.6, cz + 6.8);
+
+    const rgbPc = new THREE.Mesh(
+      new THREE.BoxGeometry(0.8, 1.6, 1.4),
+      new THREE.MeshStandardMaterial({
+        color: 0x00f0ff,
+        emissive: 0x00f0ff,
+        emissiveIntensity: 0.5,
+      }),
+    );
+    rgbPc.position.set(cx + 9.2, cy + 0.8, cz + 6);
+    group.add(gamingDesk, ultrawideMon, rgbPc);
+
+    this.group.add(group);
+
+    // Student Flat Residents: Jan & Lisa
+    const jan = this.createInteriorResident({
+      id: 'student_jan',
+      name: 'Jan',
+      role: 'Informatik-Student & Indie-Musiker',
+      icon: '🎸',
+      archetypeId: 'student_flat',
+      x: cx - 5,
+      y: cy,
+      z: cz + 3.8,
+      rotationY: Math.PI,
+      shirtColor: 0x6b21a8,
+      pantsColor: 0x18181b,
+      hairColor: 0x78350f,
+      isSitting: true,
+      dialogues: [
+        'Hey! Willkommen in unserer WG! Nimm dir ein Stück Pizza und mach es dir auf der Couch bequem.',
+        'Ich schreibe gerade an einem KI-Patch für autonome Ampelschaltungen in GTA 7.',
+        'Lust auf eine Runde Jammen? Musik bringt die besten Ideen hervor!',
+      ],
+    });
+
+    const lisa = this.createInteriorResident({
+      id: 'student_lisa',
+      name: 'Lisa',
+      role: 'Biochemie-Studentin & Gamerin',
+      icon: '🎧',
+      archetypeId: 'student_flat',
+      x: cx + 6,
+      y: cy,
+      z: cz + 4.8,
+      rotationY: 0,
+      shirtColor: 0xec4899,
+      pantsColor: 0x1e293b,
+      hairColor: 0x38bdf8,
+      dialogues: [
+        'Hi! Schönen guten Tag! Heute Abend streamen wir GTA 7 Highspeed-Rennen auf Twitch.',
+        'Im Labor haben wir heute synthetische Treibstoffe erforscht – brennt 30% effizienter!',
+        'Hier, nimm eine kalte Dose Cyber-Energy für deinen nächsten Trip! (+30 HP)',
+      ],
+      bonusAction: ({ player, sound }): void => {
+        player.health = Math.min(100, player.health + 30);
+        sound.playHoverEngage();
+      },
+    });
+
+    this.interactables.set('student_flat', [
+      {
+        id: 'wg_pizza',
+        name: '🍕 Frische WG-Steinofenpizza',
+        prompt: 'Drücke [E] um Pizza zu snacken (+40 HP & +50$) 🍕',
+        x: cx + 6,
+        y: cy,
+        z: cz - 4,
+        radius: 2.8,
+        onInteract: ({ player, economy, hud, sound }): void => {
+          player.health = Math.min(100, player.health + 40);
+          economy.addCash(50);
+          sound.playHoverEngage();
+          hud.showNotification(
+            '🍕 WG-PIZZA: Knusprige Vier-Käse-Pizza verputzt! (+40 HP & +50$ WG-Bonus)!',
+          );
+        },
+      },
+      {
+        id: 'wg_guitar',
+        name: '🎸 Akustikgitarre & Vinyl-Plattenspieler',
+        prompt: 'Drücke [E] um Gitarre zu spielen (+100$ Vibe-Bonus) 🎸🎶',
+        x: cx - 7,
+        y: cy,
+        z: cz + 8,
+        radius: 2.8,
+        onInteract: ({ economy, hud, sound }): void => {
+          economy.addCash(100);
+          sound.playFanfare();
+          hud.showNotification('🎸 WG-JAM-SESSION: Bester Groove der Stadt! +100$ Vibe-Bonus!');
+        },
+      },
+      jan.interactable,
+      lisa.interactable,
+    ]);
+  }
+
+  private buildCozyBungalow(): void {
+    const cx = 6000;
+    const cy = 100.0;
+    const cz = 4000;
+    const { group, exitDoor } = this.createRoomShell(
+      cx,
+      cy,
+      cz,
+      0xb45309, // Honey-pine wood floor
+      0xfef3c7, // Warm vintage cream wallpaper plaster
+      0xf59e0b, // Warm amber hearth glow
+      'cozy_bungalow',
+    );
+    exitDoor.material = new THREE.MeshStandardMaterial({ color: 0x78350f });
+
+    // 1. Cozy Fireplace Corner: Red brick fireplace, crackling fire & rocking chair
+    const fireplaceMat = new THREE.MeshStandardMaterial({ color: 0x9a3412, roughness: 0.9 });
+    const fireplace = new THREE.Mesh(new THREE.BoxGeometry(4.8, 3.4, 2.0), fireplaceMat);
+    fireplace.position.set(cx, cy + 1.7, cz + 12);
+
+    const hearthHole = new THREE.Mesh(
+      new THREE.BoxGeometry(2.4, 1.8, 1.2),
+      new THREE.MeshStandardMaterial({ color: 0x1c1917 }),
+    );
+    hearthHole.position.set(cx, cy + 0.9, cz + 11.5);
+
+    const fireGlow = new THREE.PointLight(0xf97316, 5.0, 18);
+    fireGlow.position.set(cx, cy + 1.0, cz + 11.0);
+    group.add(fireplace, hearthHole, fireGlow);
+
+    // Persian floral rug
+    const rug = new THREE.Mesh(
+      new THREE.CylinderGeometry(3.5, 3.5, 0.05, 16),
+      new THREE.MeshStandardMaterial({ color: 0x991b1b, roughness: 0.95 }),
+    );
+    rug.position.set(cx, cy + 0.02, cz + 6);
+
+    // Rocking chair
+    const rockerMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.6 });
+    const rockerSeat = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.4, 1.6), rockerMat);
+    rockerSeat.position.set(cx + 2.5, cy + 0.6, cz + 6);
+    const rockerBack = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.8, 0.2), rockerMat);
+    rockerBack.position.set(cx + 2.5, cy + 1.5, cz + 6.8);
+    const rockerPillow = new THREE.Mesh(
+      new THREE.BoxGeometry(1.2, 0.2, 1.2),
+      new THREE.MeshStandardMaterial({ color: 0xfef08a }),
+    );
+    rockerPillow.position.set(cx + 2.5, cy + 0.85, cz + 6);
+    group.add(rug, rockerSeat, rockerBack, rockerPillow);
+
+    // 2. Grandma's Country Kitchen with Fresh Cinnamon Apple Pie
+    const kitchenWood = new THREE.MeshStandardMaterial({ color: 0x854d0e, roughness: 0.7 });
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(6.5, 1.0, 2.0), kitchenWood);
+    counter.position.set(cx - 6, cy + 0.5, cz - 5);
+
+    const oven = new THREE.Mesh(
+      new THREE.BoxGeometry(1.8, 1.6, 1.8),
+      new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.6 }),
+    );
+    oven.position.set(cx - 10, cy + 0.8, cz - 5);
+
+    // Fresh hot apple pie on the counter!
+    const piePlate = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.7, 0.6, 0.08, 16),
+      new THREE.MeshStandardMaterial({ color: 0xf8fafc }),
+    );
+    piePlate.position.set(cx - 6, cy + 1.05, cz - 5);
+
+    const pieCrust = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.65, 0.55, 0.15, 16),
+      new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.8 }),
+    );
+    pieCrust.position.set(cx - 6, cy + 1.15, cz - 5);
+    group.add(counter, oven, piePlate, pieCrust);
+
+    // 3. Grandfather Clock & Bookshelf
+    const clock = new THREE.Mesh(
+      new THREE.BoxGeometry(1.2, 4.2, 1.0),
+      new THREE.MeshStandardMaterial({ color: 0x451a03 }),
+    );
+    clock.position.set(cx - 8, cy + 2.1, cz + 12);
+
+    const bookshelf = new THREE.Mesh(
+      new THREE.BoxGeometry(3.6, 3.6, 1.0),
+      new THREE.MeshStandardMaterial({ color: 0x78350f }),
+    );
+    bookshelf.position.set(cx + 8, cy + 1.8, cz - 12);
+    group.add(clock, bookshelf);
+
+    this.group.add(group);
+
+    // Bungalow Resident: Oma Helga
+    const helga = this.createInteriorResident({
+      id: 'bungalow_helga',
+      name: 'Oma Helga',
+      role: 'Liebevolle Vorstadt-Großmutter',
+      icon: '👵',
+      archetypeId: 'cozy_bungalow',
+      x: cx + 2.5,
+      y: cy,
+      z: cz + 5.8,
+      rotationY: -Math.PI / 4,
+      shirtColor: 0xec4899,
+      pantsColor: 0x475569,
+      hairColor: 0xe2e8f0,
+      isSitting: true,
+      dialogues: [
+        'Ach, wie schön mein Kind! Komm herein aus der Kälte und wärme dich am Kamin.',
+        'Du bist so dünn geworden! Ich habe gerade ofenfrischen Apfelkuchen mit Zimt gebacken!',
+        'Hier, nimm ein großes Stück Kuchen und etwas Taschengeld für deine Abenteuer!',
+      ],
+      bonusAction: ({ player, economy, sound }): void => {
+        player.health = 100;
+        economy.addCash(150);
+        sound.playFanfare();
+      },
+    });
+
+    this.interactables.set('cozy_bungalow', [
+      {
+        id: 'oma_pie',
+        name: '🥧 Oma Helgas ofenfrischer Apfelkuchen',
+        prompt:
+          'Drücke [E] um ofenfrischen Apfelkuchen zu essen (Volle HP 100 & +$150 Taschengeld) 🥧❤️',
+        x: cx - 6,
+        y: cy,
+        z: cz - 5,
+        radius: 3.0,
+        onInteract: ({ player, economy, hud, sound }): void => {
+          player.health = 100;
+          economy.addCash(150);
+          sound.playFanfare();
+          hud.showNotification(
+            '🥧 OMA HELGAS APFELKUCHEN: Mmmh, himmlisch! Volle Gesundheit (100 HP) & +$150 Taschengeld von Oma!',
+          );
+        },
+      },
+      {
+        id: 'oma_fireplace',
+        name: '🔥 Kaminfeuer & Schaukelstuhl',
+        prompt: 'Drücke [E] um dich am Kamin auszuruhen (+40 HP) 🔥',
+        x: cx,
+        y: cy,
+        z: cz + 10,
+        radius: 3.5,
+        onInteract: ({ player, hud, sound }): void => {
+          player.health = Math.min(100, player.health + 40);
+          sound.playCheckpointChime();
+          hud.showNotification(
+            '🔥 KAMINFEUER: Die wohlige Wärme durchströmt dich (+40 HP Vitalität)!',
+          );
+        },
+      },
+      helga.interactable,
+    ]);
+  }
+
   /**
    * Enter a building interior
    */
@@ -2958,6 +3879,15 @@ export class InteriorSystem {
 
     this.activeDoor = door;
     this.currentInteriorId = door.archetypeId || door.id;
+    this.exteriorDoorsGroup.visible = false;
+    this.interiorAmbientLight.visible = true;
+    this.interiorHemiLight.visible = true;
+    for (const [idKey, grp] of this.roomGroups) {
+      grp.visible = idKey === this.currentInteriorId;
+    }
+    for (const res of this.residents) {
+      res.group.visible = res.archetypeId === this.currentInteriorId;
+    }
     player.setPosition(door.interiorSpawn.x, door.interiorSpawn.y, door.interiorSpawn.z);
     player.rotationY = door.interiorSpawn.heading;
     camera.reset(player.group.position, door.interiorSpawn.heading);
@@ -2977,6 +3907,15 @@ export class InteriorSystem {
     const doorName = door.name;
     this.currentInteriorId = null;
     this.activeDoor = null;
+    this.exteriorDoorsGroup.visible = true;
+    this.interiorAmbientLight.visible = false;
+    this.interiorHemiLight.visible = false;
+    for (const [, grp] of this.roomGroups) {
+      grp.visible = false;
+    }
+    for (const res of this.residents) {
+      res.group.visible = false;
+    }
 
     let exitX = door.exteriorX;
     let exitZ = door.exteriorZ + 2.0;
@@ -3023,11 +3962,23 @@ export class InteriorSystem {
     economy: EconomySystem,
     camera: GameCamera,
     car?: Car,
-  ): void {
+    interactOverride?: boolean,
+  ): { consumedInteract: boolean; prompt: string | null } {
     this.animTimer += dt;
+    this.exteriorDoorsGroup.visible = this.currentInteriorId === null;
+    for (const [idKey, grp] of this.roomGroups) {
+      grp.visible = idKey === this.currentInteriorId;
+    }
+    for (const res of this.residents) {
+      res.group.visible = res.archetypeId === this.currentInteriorId;
+    }
+
+    let consumedInteract = false;
+    let currentPrompt: string | null = null;
+    const canInteract = interactOverride !== undefined ? interactOverride : input.actionInteract;
 
     // Animate Club Neon Dreams LED Dance Floor and DJ Equalizer
-    if (this.danceFloorTiles.length > 0) {
+    if (this.currentInteriorId === 'nightclub' && this.danceFloorTiles.length > 0) {
       const colors = [0xec4899, 0x00f0ff, 0xfacc15, 0xa855f7, 0x10b981];
       this.danceFloorTiles.forEach((tile, idx) => {
         const cIdx = Math.floor((this.animTimer * 4 + idx) % colors.length);
@@ -3040,9 +3991,11 @@ export class InteriorSystem {
     }
 
     // Animate Hacker Server LEDs
-    this.hackerLeds.forEach((led, idx) => {
-      led.intensity = Math.sin(this.animTimer * 12 + idx) > 0 ? 3 : 0.5;
-    });
+    if (this.currentInteriorId === 'hacker_loft') {
+      this.hackerLeds.forEach((led, idx) => {
+        led.intensity = Math.sin(this.animTimer * 12 + idx) > 0 ? 3 : 0.5;
+      });
+    }
 
     // -------------------------------------------------------------
     // A. Player is INSIDE an Interior
@@ -3054,12 +4007,22 @@ export class InteriorSystem {
         this.doors.find((d) => (d.archetypeId || d.id) === activeArchetype) ||
         this.doors[0];
 
-      // 1. Enforce solid floor & room wall boundaries
+      // 1. Enforce solid floor, ceiling & room wall boundaries
       if (player.y < room.bounds.floorY) {
         player.y = room.bounds.floorY;
         player.vy = 0;
-        player.setPosition(player.x, player.y, player.z);
       }
+      const maxCeilingY = room.bounds.ceilingY - 1.8;
+      if (player.y > maxCeilingY) {
+        player.y = maxCeilingY;
+        player.vy = Math.min(0, player.vy);
+      }
+      // Block cyber jetpack propulsion inside indoor building interiors
+      if (player.hasJetpack && player.isJetpacking) {
+        player.isJetpacking = false;
+        player.vy = 0;
+      }
+
       player.x = Math.max(room.bounds.minX + 0.6, Math.min(room.bounds.maxX - 0.6, player.x));
       player.z = Math.max(room.bounds.minZ + 0.6, Math.min(room.bounds.maxZ - 0.6, player.z));
       player.setPosition(player.x, player.y, player.z);
@@ -3077,13 +4040,15 @@ export class InteriorSystem {
             res.torsoMesh.scale.set(1 + breathe * 0.5, 1 + breathe, 1 + breathe * 0.5);
           }
 
-          // Face player when close (if standing)
+          // Face player when close (if standing) using shortest angle delta
           const dx = player.x - res.x;
           const dz = player.z - res.z;
           const dist = Math.hypot(dx, dz);
           if (dist < 4.5 && !res.isSitting) {
             const targetRot = Math.atan2(dx, dz);
-            res.group.rotation.y = THREE.MathUtils.lerp(res.group.rotation.y, targetRot, 0.08);
+            let diff = (targetRot - res.group.rotation.y) % (Math.PI * 2);
+            diff = ((diff + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+            res.group.rotation.y += diff * 0.08;
           }
         }
       }
@@ -3100,10 +4065,11 @@ export class InteriorSystem {
 
       if (distToExit < 3.2 || distToSpawn < 2.5) {
         const displayName = this.activeDoor ? this.activeDoor.name : room.name;
-        hud.setPrompt(`Drücke [E] um ${displayName} zu verlassen 🚪`);
-        if (input.actionInteract) {
+        currentPrompt = `Drücke [E] um ${displayName} zu verlassen 🚪`;
+        hud.setPrompt(currentPrompt);
+        if (canInteract) {
           this.exitInterior(player, camera, hud, sound);
-          return;
+          return { consumedInteract: true, prompt: currentPrompt };
         }
       }
 
@@ -3112,14 +4078,16 @@ export class InteriorSystem {
       for (const item of list) {
         const d = Math.hypot(player.x - item.x, player.z - item.z);
         if (d < item.radius) {
-          hud.setPrompt(item.prompt);
-          if (input.actionInteract) {
+          currentPrompt = item.prompt;
+          hud.setPrompt(currentPrompt);
+          if (canInteract) {
             item.onInteract({ player, hud, sound, weapons, police, economy });
+            consumedInteract = true;
           }
           break;
         }
       }
-      return;
+      return { consumedInteract, prompt: currentPrompt };
     }
 
     // -------------------------------------------------------------
@@ -3132,16 +4100,23 @@ export class InteriorSystem {
       const dist = Math.hypot(checkX - door.exteriorX, checkZ - door.exteriorZ);
       if (dist < 3.6) {
         if (car) {
-          hud.setPrompt(`Drücke [E] um auszusteigen & ${door.name} zu betreten ${door.icon}`);
+          currentPrompt = `Drücke [E] um auszusteigen & ${door.name} zu betreten ${door.icon}`;
         } else {
-          hud.setPrompt(`Drücke [E] um ${door.name} zu betreten ${door.icon}`);
+          currentPrompt = `Drücke [E] um ${door.name} zu betreten ${door.icon}`;
         }
+        hud.setPrompt(currentPrompt);
 
-        if (input.actionInteract) {
-          this.enterInterior(door.id, player, camera, hud, sound);
+        if (canInteract) {
+          if (car && Math.abs(car.physics.speed) >= 5) {
+            // Speed too high to enter building while driving
+          } else {
+            this.enterInterior(door.id, player, camera, hud, sound);
+            consumedInteract = true;
+          }
         }
         break;
       }
     }
+    return { consumedInteract, prompt: currentPrompt };
   }
 }

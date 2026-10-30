@@ -20,6 +20,7 @@ export class SoundManager {
   private sirenOsc: OscillatorNode | null = null;
   private sirenGain: GainNode | null = null;
   private sirenTimer: number = 0;
+  private cachedNoiseBuffer: AudioBuffer | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -153,14 +154,16 @@ export class SoundManager {
   public playBlowOffValve(): void {
     if (!this.ctx || this.isMuted || this.sfxVolume <= 0) return;
     try {
-      const bufferSize = Math.floor(this.ctx.sampleRate * 0.25);
-      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-      const output = buffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) {
-        output[i] = Math.random() * 2 - 1;
+      if (!this.cachedNoiseBuffer) {
+        const bufferSize = Math.floor(this.ctx.sampleRate * 0.25);
+        this.cachedNoiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const output = this.cachedNoiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = Math.random() * 2 - 1;
+        }
       }
       const whiteNoise = this.ctx.createBufferSource();
-      whiteNoise.buffer = buffer;
+      whiteNoise.buffer = this.cachedNoiseBuffer;
       const filter = this.ctx.createBiquadFilter();
       filter.type = 'bandpass';
       filter.frequency.setValueAtTime(2400, this.ctx.currentTime);
@@ -180,18 +183,16 @@ export class SoundManager {
   public updateRotorPitch(rpm: number, inHeli: boolean): void {
     if (!this.ctx || !this.rotorOsc || !this.rotorGain || this.isMuted) return;
 
-    if (!inHeli || rpm <= 0.05 || this.sfxVolume <= 0) {
+    const clampedRpm = Math.max(0, Math.min(1.0, Number.isNaN(rpm) ? 0 : rpm));
+    if (!inHeli || clampedRpm <= 0.05 || this.sfxVolume <= 0) {
       this.rotorGain.gain.value = 0.0;
       this.rotorGain.gain.setValueAtTime(0.0, this.ctx.currentTime);
       return;
     }
 
-    const freq = 12 + rpm * 26; // Rhythmic chopper blade thump
+    const freq = 12 + clampedRpm * 26; // Rhythmic chopper blade thump
     this.rotorOsc.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.05);
-    this.rotorGain.gain.setValueAtTime(
-      0.06 * Math.min(1.0, rpm) * this.sfxVolume,
-      this.ctx.currentTime,
-    );
+    this.rotorGain.gain.setValueAtTime(0.06 * clampedRpm * this.sfxVolume, this.ctx.currentTime);
   }
 
   public toggleMute(): boolean {
@@ -229,9 +230,15 @@ export class SoundManager {
       return;
     }
 
+    const clampedRpm = Math.max(0, Math.min(1.0, Number.isNaN(rpm) ? 0 : rpm));
+    const maxFreq = this.ctx.sampleRate ? this.ctx.sampleRate / 2 - 100 : 20000;
+
     if (isHoverMode) {
       // Futuristic sci-fi hover hum
-      const hoverFreq = 160 + Math.sin(this.ctx.currentTime * 8) * 20 + rpm * 80;
+      const hoverFreq = Math.min(
+        maxFreq,
+        160 + Math.sin(this.ctx.currentTime * 8) * 20 + clampedRpm * 80,
+      );
       this.engineOsc.frequency.setTargetAtTime(hoverFreq, this.ctx.currentTime, 0.05);
       const vol = (isBoosting ? 0.08 : 0.05) * this.sfxVolume;
       this.engineGain?.gain.setValueAtTime(vol, this.ctx.currentTime);
@@ -239,7 +246,7 @@ export class SoundManager {
     }
 
     const boostMultiplier = isBoosting ? 1.4 : 1.0;
-    const freq = (45 + rpm * 110) * boostMultiplier;
+    const freq = Math.min(maxFreq, (45 + clampedRpm * 110) * boostMultiplier);
     this.engineOsc.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.05);
     const vol = (isBoosting ? 0.07 : 0.04) * this.sfxVolume;
     this.engineGain?.gain.setValueAtTime(vol, this.ctx.currentTime);

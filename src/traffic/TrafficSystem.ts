@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CITY_CONFIG } from '../utils/Constants';
+import { disposeObject3D } from '../utils/disposeObject';
 
 export interface TrafficCar {
   id: number;
@@ -13,6 +14,7 @@ export interface TrafficCar {
   color: number;
   health: number;
   isWrecked: boolean;
+  wreckTimer?: number;
   modelMesh: THREE.Mesh;
   wheels: THREE.Mesh[];
   wheelRotation: number;
@@ -181,8 +183,18 @@ export class TrafficSystem {
     const mapLimit =
       (CITY_CONFIG.GRID_SIZE * (CITY_CONFIG.BLOCK_SIZE + CITY_CONFIG.ROAD_WIDTH)) / 2;
 
-    for (const car of this.cars) {
-      if (car.isWrecked) continue;
+    for (let i = this.cars.length - 1; i >= 0; i--) {
+      const car = this.cars[i];
+      if (car.isWrecked) {
+        if (car.wreckTimer !== undefined) {
+          car.wreckTimer -= dt;
+          if (car.wreckTimer <= 0) {
+            this.removeCar(car);
+            this.spawnInitialTraffic(1);
+          }
+        }
+        continue;
+      }
 
       // Check distance to player car to slow down if directly in front
       const distToPlayer = Math.hypot(playerCarX - car.x, playerCarZ - car.z);
@@ -222,12 +234,14 @@ export class TrafficSystem {
     if (car.health <= 0) {
       car.isWrecked = true;
       car.speed = 0;
+      car.wreckTimer = 20.0;
       (car.modelMesh.material as THREE.MeshStandardMaterial).color.setHex(0x1e293b);
     }
   }
 
   public removeCar(car: TrafficCar): void {
     this.group.remove(car.group);
+    disposeObject3D(car.group);
     const index = this.cars.indexOf(car);
     if (index !== -1) {
       this.cars.splice(index, 1);

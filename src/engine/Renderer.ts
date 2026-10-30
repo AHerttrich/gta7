@@ -22,6 +22,11 @@ export class Renderer {
   public timeOfDay: number = 0.35; // 0.0=midnight, 0.25=sunrise, 0.5=noon, 0.75=sunset
   public timeSpeed: number = 0.006;
   public isTimePaused: boolean = false;
+  public currentDimension: 'NORMAL_WORLD' | 'OTHER_WORLD' = 'NORMAL_WORLD';
+  private shadowsEnabled: boolean = true;
+
+  private static readonly FOG_SUNSET = new THREE.Color(0xfb923c);
+  private static readonly FOG_DAY = new THREE.Color(0xb0d5f8);
 
   public weather: 'clear' | 'rain' | 'thunder' = 'clear';
   private rainParticles!: THREE.Points;
@@ -124,6 +129,7 @@ export class Renderer {
     this.sunLight.shadow.camera.bottom = -180;
     this.sunLight.shadow.bias = -0.0002;
     this.scene.add(this.sunLight);
+    this.scene.add(this.sunLight.target);
 
     // Ambient light fill for clear visibility across all districts
     this.ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
@@ -131,6 +137,7 @@ export class Renderer {
 
     // Dynamic lightning point light for thunderstorms
     this.lightningLight = new THREE.PointLight(0xffffff, 0, 450);
+    this.lightningLight.visible = false;
     this.scene.add(this.lightningLight);
   }
 
@@ -189,6 +196,7 @@ export class Renderer {
       depthWrite: false,
     });
     this.starfield = new THREE.Points(starGeo, this.starfieldMat);
+    this.starfield.visible = false;
     this.scene.add(this.starfield);
 
     // Glowing Cyber Moon
@@ -199,9 +207,11 @@ export class Renderer {
       opacity: 0.0,
     });
     this.moonMesh = new THREE.Mesh(moonGeo, moonMat);
+    this.moonMesh.visible = false;
     this.scene.add(this.moonMesh);
 
     this.moonLight = new THREE.PointLight(0x38bdf8, 0, 450);
+    this.moonLight.visible = false;
     this.scene.add(this.moonLight);
   }
 
@@ -225,6 +235,7 @@ export class Renderer {
     });
 
     this.dustParticles = new THREE.Points(geo, mat);
+    this.dustParticles.visible = false;
     this.scene.add(this.dustParticles);
   }
 
@@ -247,6 +258,7 @@ export class Renderer {
       blending: THREE.AdditiveBlending,
     });
     this.rainParticles = new THREE.Points(geo, mat);
+    this.rainParticles.visible = false;
     this.scene.add(this.rainParticles);
 
     // Ground Rain Splashes & Ripples on road pavement
@@ -267,6 +279,7 @@ export class Renderer {
       blending: THREE.AdditiveBlending,
     });
     this.rainSplashParticles = new THREE.Points(splashGeo, this.rainSplashMat);
+    this.rainSplashParticles.visible = false;
     this.scene.add(this.rainSplashParticles);
   }
 
@@ -299,6 +312,7 @@ export class Renderer {
     });
 
     this.speedStreaks = new THREE.LineSegments(geo, this.streakMat);
+    this.speedStreaks.visible = false;
     this.scene.add(this.speedStreaks);
   }
 
@@ -309,6 +323,53 @@ export class Renderer {
     isBoosting: boolean,
     isHovering: boolean,
   ): void {
+    // In OTHER_WORLD (the Moon), space environment is static and should not be overwritten by Earth daytime cycles
+    if (this.currentDimension === 'OTHER_WORLD') {
+      if (this.skyMesh) this.skyMesh.visible = false;
+      if (this.moonLight) this.moonLight.visible = false;
+      if (this.lightningLight) this.lightningLight.visible = false;
+      if (this.rainParticles) this.rainParticles.visible = false;
+      if (this.rainSplashParticles) this.rainSplashParticles.visible = false;
+      if (this.dustParticles) this.dustParticles.visible = false;
+      if (this.starfieldMat) {
+        this.starfieldMat.opacity = 0.95;
+        this.starfield.position.copy(camPos);
+        this.starfield.visible = true;
+      }
+      this.sunLight.castShadow = false;
+
+      // Post-Processing & Speed Streaks update
+      this.postProcessing.update(dt, 0.0, 'clear', carSpeed, isBoosting);
+
+      const absSpeed = Math.abs(carSpeed);
+      const showStreaks = isBoosting || (isHovering && absSpeed > 18) || absSpeed > 28;
+      if (showStreaks) {
+        this.streakMat.opacity = THREE.MathUtils.lerp(
+          this.streakMat.opacity,
+          isBoosting ? 0.75 : 0.45,
+          0.15,
+        );
+        this.speedStreaks.position.copy(camPos);
+        this.speedStreaks.rotation.copy(this.camera.rotation);
+
+        const p = this.speedStreakPositions;
+        for (let i = 0; i < p.length / 6; i++) {
+          p[i * 6 + 2] -= dt * (isBoosting ? 60 : 35);
+          p[i * 6 + 5] -= dt * (isBoosting ? 60 : 35);
+          if (p[i * 6 + 2] < -18) {
+            p[i * 6 + 2] = 12;
+            p[i * 6 + 5] = 8.5;
+          }
+        }
+        this.speedStreaks.geometry.attributes.position.needsUpdate = true;
+        this.speedStreaks.visible = true;
+      } else {
+        this.streakMat.opacity = THREE.MathUtils.lerp(this.streakMat.opacity, 0.0, 0.2);
+        this.speedStreaks.visible = this.streakMat.opacity > 0.005;
+      }
+      return;
+    }
+
     // 1. Dynamic Day / Night Cycle
     if (!this.isTimePaused) {
       this.timeOfDay = (this.timeOfDay + this.timeSpeed * dt) % 1.0;
@@ -327,11 +388,7 @@ export class Renderer {
       this.ambientLight.intensity = THREE.MathUtils.lerp(0.55, 0.85, sunRatio);
       this.ambientLight.color.setHex(0xffffff);
       if (this.scene.fog instanceof THREE.FogExp2) {
-        this.scene.fog.color.lerpColors(
-          new THREE.Color(0xfb923c),
-          new THREE.Color(0xb0d5f8),
-          sunRatio,
-        );
+        this.scene.fog.color.lerpColors(Renderer.FOG_SUNSET, Renderer.FOG_DAY, sunRatio);
       }
     } else {
       // Cyber Night Mode: Vibrant neon moonlight & ambient glow - never pitch black!
@@ -348,6 +405,7 @@ export class Renderer {
     if (this.rainParticles) {
       const rainMat = this.rainParticles.material as THREE.PointsMaterial;
       rainMat.opacity = THREE.MathUtils.lerp(rainMat.opacity, isRaining ? 0.75 : 0.0, 0.15);
+      this.rainParticles.visible = rainMat.opacity > 0.005;
 
       if (isRaining && this.rainPositions) {
         this.rainParticles.position.x = camPos.x;
@@ -379,15 +437,19 @@ export class Renderer {
       if (this.lightningFlashTime > 0) {
         this.lightningFlashTime -= dt;
         this.lightningLight.intensity = Math.random() > 0.35 ? 14 : 2;
+        this.lightningLight.visible = true;
       } else {
         this.lightningLight.intensity = 0;
+        this.lightningLight.visible = false;
       }
     } else if (this.lightningLight) {
       this.lightningLight.intensity = 0;
+      this.lightningLight.visible = false;
     }
 
     // Keep Sky Dome centered on camera
     if (this.skyMesh) {
+      this.skyMesh.visible = true;
       this.skyMesh.position.copy(camPos);
     }
 
@@ -406,10 +468,13 @@ export class Renderer {
     if (this.starfieldMat) {
       this.starfieldMat.opacity = nightFactor * 0.95;
       this.starfield.position.copy(camPos);
+      this.starfield.visible = this.starfieldMat.opacity > 0.005;
     }
     if (this.moonMesh) {
       (this.moonMesh.material as THREE.MeshBasicMaterial).opacity = nightFactor * 0.92;
+      this.moonMesh.visible = (this.moonMesh.material as THREE.MeshBasicMaterial).opacity > 0.005;
       this.moonLight.intensity = nightFactor * 2.4;
+      this.moonLight.visible = nightFactor > 0.05;
     }
 
     // Rain Ground Splashes on pavement
@@ -419,6 +484,7 @@ export class Renderer {
         isRaining ? 0.65 : 0.0,
         0.15,
       );
+      this.rainSplashParticles.visible = this.rainSplashMat.opacity > 0.005;
       if (isRaining && this.rainSplashPositions) {
         this.rainSplashParticles.position.x = camPos.x;
         this.rainSplashParticles.position.z = camPos.z;
@@ -432,15 +498,20 @@ export class Renderer {
       }
     }
 
-    // Sun shadow camera target tracks camera for pin-sharp local shadows
-    this.sunLight.target.position.set(camPos.x, 0, camPos.z);
+    // Sun shadow camera target tracks camera with texel snapping to prevent shadow shimmering
+    const shadowSnap = 360 / 2048;
+    const snappedX = Math.round(camPos.x / shadowSnap) * shadowSnap;
+    const snappedZ = Math.round(camPos.z / shadowSnap) * shadowSnap;
+    this.sunLight.target.position.set(snappedX, 0, snappedZ);
     this.sunLight.target.updateMatrixWorld();
+    this.sunLight.castShadow =
+      this.shadowsEnabled && sunY > 2 && this.currentDimension === 'NORMAL_WORLD';
 
     // Cinematic Post-Processing Update (Dynamic Bloom & Hyperspace Speed Warp)
     this.postProcessing.update(dt, this.timeOfDay, this.weather, carSpeed, isBoosting);
 
-    // Floating Dust Motes drift gently
-    if (this.dustPositions) {
+    // Floating Dust Motes drift gently (only in normal world near ground)
+    if (this.dustPositions && camPos.length() < 500) {
       for (let i = 0; i < this.dustPositions.length / 3; i++) {
         this.dustPositions[i * 3 + 1] += dt * 0.4;
         if (this.dustPositions[i * 3 + 1] > 55) {
@@ -448,6 +519,9 @@ export class Renderer {
         }
       }
       this.dustParticles.geometry.attributes.position.needsUpdate = true;
+      this.dustParticles.visible = true;
+    } else if (this.dustParticles) {
+      this.dustParticles.visible = false;
     }
 
     // High Speed Hyperspace Warp Streaks
@@ -475,8 +549,10 @@ export class Renderer {
         }
       }
       this.speedStreaks.geometry.attributes.position.needsUpdate = true;
+      this.speedStreaks.visible = true;
     } else {
       this.streakMat.opacity = THREE.MathUtils.lerp(this.streakMat.opacity, 0.0, 0.2);
+      this.speedStreaks.visible = this.streakMat.opacity > 0.005;
     }
   }
 
@@ -503,6 +579,10 @@ export class Renderer {
   }
 
   public setDimension(dim: 'NORMAL_WORLD' | 'OTHER_WORLD'): void {
+    this.currentDimension = dim;
+    if (this.skyMesh) {
+      this.skyMesh.visible = dim === 'NORMAL_WORLD';
+    }
     if (dim === 'OTHER_WORLD') {
       this.scene.background = new THREE.Color(0x020208); // Deep space cosmic black
       this.scene.fog = new THREE.FogExp2(0x050510, 0.00012); // Subtle vacuum star dust
@@ -512,6 +592,8 @@ export class Renderer {
       this.sunLight.intensity = 3.6;
       this.ambientLight.color.setHex(0x38bdf8); // Cool blue Earthshine reflections
       this.ambientLight.intensity = 0.55;
+      if (this.moonLight) this.moonLight.visible = false;
+      if (this.lightningLight) this.lightningLight.visible = false;
     } else {
       this.scene.background = new THREE.Color(0x76b6f0);
       this.scene.fog = new THREE.FogExp2(0xb0d5f8, 0.0022);
@@ -568,13 +650,16 @@ export class Renderer {
       this.postProcessing.setQuality(preset);
     }
     if (preset === 'low') {
+      this.shadowsEnabled = false;
       this.renderer.setPixelRatio(0.85);
       this.renderer.shadowMap.enabled = false;
     } else if (preset === 'med') {
+      this.shadowsEnabled = true;
       this.renderer.setPixelRatio(1.0);
       this.renderer.shadowMap.enabled = true;
       this.renderer.shadowMap.type = THREE.BasicShadowMap;
     } else {
+      this.shadowsEnabled = true;
       const dpr = typeof window !== 'undefined' ? Math.min(window.devicePixelRatio, 2.0) : 1.5;
       this.renderer.setPixelRatio(dpr);
       this.renderer.shadowMap.enabled = true;

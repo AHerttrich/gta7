@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { PlayerSyncMsg } from './NetProtocol';
 import { VEHICLE_CONFIG } from '../utils/Constants';
+import { disposeObject3D } from '../utils/disposeObject';
 
 export class RemotePlayer {
   public group: THREE.Group;
@@ -185,6 +186,16 @@ export class RemotePlayer {
   }
 
   public applySync(msg: PlayerSyncMsg): void {
+    if (
+      !Number.isFinite(msg.x) ||
+      !Number.isFinite(msg.y) ||
+      !Number.isFinite(msg.z) ||
+      !Number.isFinite(msg.heading) ||
+      !Number.isFinite(msg.speed)
+    ) {
+      return;
+    }
+
     this.group.visible = true;
     this.targetX = msg.x;
     this.targetY = msg.y;
@@ -194,7 +205,9 @@ export class RemotePlayer {
     this.mode = msg.mode;
 
     // Update body color if changed
-    (this.carBodyMesh.material as THREE.MeshStandardMaterial).color.setHex(msg.carColor);
+    if (Number.isFinite(msg.carColor)) {
+      (this.carBodyMesh.material as THREE.MeshStandardMaterial).color.setHex(msg.carColor);
+    }
 
     // Switch between car and on foot
     if (this.mode === 'IN_CAR') {
@@ -212,12 +225,21 @@ export class RemotePlayer {
 
   public update(dt: number): void {
     if (!this.group.visible) return;
+    if (!Number.isFinite(dt) || dt <= 0) return;
 
     // Smooth position interpolation
-    this.group.position.x = THREE.MathUtils.lerp(this.group.position.x, this.targetX, 0.25);
-    this.group.position.y = THREE.MathUtils.lerp(this.group.position.y, this.targetY, 0.25);
-    this.group.position.z = THREE.MathUtils.lerp(this.group.position.z, this.targetZ, 0.25);
-    this.group.rotation.y = THREE.MathUtils.lerp(this.group.rotation.y, this.targetHeading, 0.25);
+    if (Number.isFinite(this.targetX)) {
+      this.group.position.x = THREE.MathUtils.lerp(this.group.position.x, this.targetX, 0.25);
+    }
+    if (Number.isFinite(this.targetY)) {
+      this.group.position.y = THREE.MathUtils.lerp(this.group.position.y, this.targetY, 0.25);
+    }
+    if (Number.isFinite(this.targetZ)) {
+      this.group.position.z = THREE.MathUtils.lerp(this.group.position.z, this.targetZ, 0.25);
+    }
+    if (Number.isFinite(this.targetHeading)) {
+      this.group.rotation.y = THREE.MathUtils.lerp(this.group.rotation.y, this.targetHeading, 0.25);
+    }
 
     // Wheel roll & hover folding
     if (this.mode === 'IN_CAR') {
@@ -238,5 +260,13 @@ export class RemotePlayer {
 
   public hide(): void {
     this.group.visible = false;
+  }
+
+  public destroy(): void {
+    this.hide();
+    if (this.group.parent) {
+      this.group.parent.remove(this.group);
+    }
+    disposeObject3D(this.group);
   }
 }

@@ -18,6 +18,8 @@ export class HeistSystem {
   public c4Timer: number = 0;
   public lootRemaining: number = 4;
   public totalHeistLoot: number = 25000;
+  public lootCooldown: number = 0;
+  public hackTimer: number = 3.0;
 
   private scene: THREE.Scene;
   private economy: EconomySystem;
@@ -82,6 +84,10 @@ export class HeistSystem {
 
     this.stage = 'SETUP';
     this.lootRemaining = 4;
+    this.lootCooldown = 0;
+    this.hackTimer = 3.0;
+    this.vaultDoor.position.set(this.bankX, 2.8, this.bankZ);
+    this.vaultDoor.rotation.set(0, 0, 0);
     eventBus.emit(EVENTS.NOTIFICATION, {
       text: '🏦 BANKÜBERFALL GESTARTET! Parke den Fluchtwagen in der Seitengasse!',
     });
@@ -91,6 +97,7 @@ export class HeistSystem {
   public completeSetup(): void {
     if (this.stage !== 'SETUP') return;
     this.stage = 'HACKING';
+    this.hackTimer = 3.0;
     eventBus.emit(EVENTS.NOTIFICATION, {
       text: '💻 HACKE DIE ALARMANLAGE! Überbrücke das Sicherheitsgitter!',
     });
@@ -113,6 +120,24 @@ export class HeistSystem {
       this.startHeist();
     }
 
+    // Auto progression for SETUP if in getaway alley or at bank door
+    if (this.stage === 'SETUP') {
+      const distToAlley = Math.hypot(playerX - (this.bankX + 18), playerZ - this.bankZ);
+      if (distToAlley < 8.0 || distToBank < 5.0) {
+        this.completeSetup();
+      }
+    }
+
+    // Auto progression for HACKING
+    if (this.stage === 'HACKING') {
+      if (distToBank < 10.0) {
+        this.hackTimer -= dt;
+        if (this.hackTimer <= 0) {
+          this.completeHack();
+        }
+      }
+    }
+
     // 1. Vault C4 Countdown & Detonation
     if (this.stage === 'VAULT_BREACH') {
       this.c4Timer -= dt;
@@ -123,8 +148,10 @@ export class HeistSystem {
 
     // 2. Looting phase check
     if (this.stage === 'LOOTING') {
+      this.lootCooldown -= dt;
       const dToVault = Math.hypot(playerX - this.bankX, playerZ - this.bankZ);
-      if (dToVault < 4.5) {
+      if (dToVault < 4.5 && this.lootCooldown <= 0) {
+        this.lootCooldown = 0.08;
         this.lootRemaining--;
         this.sound.playCheckpointChime();
 
@@ -148,6 +175,8 @@ export class HeistSystem {
     if (this.stage === 'ESCAPE') {
       if (this.police.wantedLevel === 0) {
         this.stage = 'COMPLETED';
+        this.vaultDoor.position.set(this.bankX, 2.8, this.bankZ);
+        this.vaultDoor.rotation.set(0, 0, 0);
         this.economy.addCash(this.totalHeistLoot);
         this.sound.playFanfare();
         eventBus.emit(EVENTS.NOTIFICATION, {

@@ -32,10 +32,10 @@ export class HUD {
   private minimapCanvas!: HTMLCanvasElement;
   private minimapCtx!: CanvasRenderingContext2D;
 
-  private isShopOpen: boolean = false;
-  private isMultiOpen: boolean = false;
-  private isCasinoOpen: boolean = false;
-  private isSettingsOpen: boolean = false;
+  public isShopOpen: boolean = false;
+  public isMultiOpen: boolean = false;
+  public isCasinoOpen: boolean = false;
+  public isSettingsOpen: boolean = false;
   private settingsModalElement!: HTMLElement;
   private rpmFillElement!: HTMLElement;
   private minimapHintElement!: HTMLElement;
@@ -47,6 +47,14 @@ export class HUD {
   private sound: SoundManager | null = null;
   private radio: RadioSystem | null = null;
   private rendererRef: Renderer | null = null;
+  private lastSpeed: number = -999;
+  private lastGear: string | number = '';
+  private lastHealth: number = -999;
+  private lastNitro: number = -999;
+  private lastInCar: boolean | null = null;
+  private lastIsHover: boolean | null = null;
+  private lastRpm: number = -999;
+  private lastMinimapTime: number = 0;
 
   constructor(overlayId: string, economy: EconomySystem, network?: NetworkManager, input?: Input) {
     this.economy = economy;
@@ -227,7 +235,8 @@ export class HUD {
           width: 100%;
           background: linear-gradient(90deg, #00d4ff, #38bdf8);
           box-shadow: 0 0 8px #00d4ff;
-          transition: width 0.1s ease;
+          transform-origin: left;
+          transition: transform 0.1s ease;
         }
         .hud-nitro-label {
           font-size: 9px;
@@ -250,7 +259,8 @@ export class HUD {
           height: 100%;
           width: 100%;
           background: #22c55e;
-          transition: width 0.2s ease, background-color 0.2s ease;
+          transform-origin: left;
+          transition: transform 0.2s ease, background-color 0.2s ease;
         }
         .hud-health-label {
           font-size: 10px;
@@ -261,7 +271,7 @@ export class HUD {
 
         .hud-bottom-left {
           position: absolute;
-          bottom: 120px;
+          bottom: 84px;
           left: 18px;
           border: 3px solid rgba(0, 212, 255, 0.6);
           border-radius: 50%;
@@ -519,6 +529,9 @@ export class HUD {
           margin: 8px 0;
           letter-spacing: 2px;
           font-weight: 700;
+          user-select: text;
+          -webkit-user-select: text;
+          pointer-events: auto;
         }
       </style>
 
@@ -545,12 +558,12 @@ export class HUD {
       </div>
 
       <div class="hud-controls-helper">
-        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>: Fahren / Laufen / Fliegen</div>
+        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>: Fahren / Laufen / Fliegen | <kbd>Strg</kbd>: Sinken</div>
         <div><kbd>V</kbd> / <kbd>X</kbd>: DeLorean Flug | <kbd>J</kbd>: Jetpack 🚀 | <kbd>H</kbd>: Eigenes Haus 👑</div>
-        <div><kbd>E</kbd>: Einsteigen | <kbd>Tab</kbd>: Stunt-Editor 🏗️ | <kbd>C</kbd>: Cockpit 🥽</div>
-        <div><kbd>Esc</kbd>: Optionen & Pause ⚙️ | Controller (Gamepad) unterstützt 🎮</div>
-        <div><kbd>L</kbd>: Tag/Nacht ☀️🌙 | <kbd>K</kbd>: Wetter 🌧️⚡</div>
-        <div><kbd>B</kbd>: Radio / Kopfhörer 📻🎧 | <kbd>M</kbd>: Stumm 🔇 | <kbd>N</kbd>: Nitro 🔥 | <kbd>F</kbd>: Schießen 💥</div>
+        <div><kbd>E</kbd>: Interaktion / Ein-/Aussteigen | <kbd>Tab</kbd>: Stunt-Editor 🏗️ | <kbd>C</kbd>: Kamera 🎥</div>
+        <div><kbd>Esc</kbd>: Optionen & Pause ⚙️ | <kbd>G</kbd>: Shop 🛒 | <kbd>P</kbd>: Koop 🌐</div>
+        <div><kbd>I</kbd>: Tag/Nacht ☀️🌙 | <kbd>K</kbd>: Wetter 🌦️ | <kbd>O</kbd>: Taxi-Job 🚕</div>
+        <div><kbd>B</kbd>: Radio 📻 | <kbd>M</kbd>: Stumm 🔇 | <kbd>Z</kbd>: Radar 🗺️ | <kbd>T</kbd>: Hupe 📢 | <kbd>N</kbd>: Nitro 🔥 | <kbd>F</kbd>: Schuss 💥</div>
       </div>
 
       <div class="hud-top-right">
@@ -580,9 +593,9 @@ export class HUD {
         </div>
       </div>
 
-      <div class="hud-bottom-left" id="hud-minimap-container" style="cursor:pointer;" title="Klicken für Stadt-Übersicht / Nahbereich (Taste [M])">
+      <div class="hud-bottom-left" id="hud-minimap-container" style="cursor:pointer;" title="Klicken für Stadt-Übersicht / Nahbereich (Taste [Z])">
         <canvas id="minimap-canvas" width="140" height="140"></canvas>
-        <div id="hud-minimap-hint" style="font-size:10px;text-align:center;color:#64748b;font-weight:700;margin-top:2px;">[M] RADAR NAH</div>
+        <div id="hud-minimap-hint" style="font-size:10px;text-align:center;color:#64748b;font-weight:700;margin-top:2px;">[Z] RADAR NAH</div>
       </div>
 
       <div class="hud-bottom-right">
@@ -590,7 +603,7 @@ export class HUD {
         <div class="hud-speed-unit">KM/H</div>
         <div class="hud-gear" id="hud-gear">GANG: P</div>
         <div class="hud-rpm-bar" style="width:100%;height:5px;background:#1e293b;border-radius:3px;overflow:hidden;margin:4px 0;">
-          <div id="hud-rpm-fill" style="width:20%;height:100%;background:#00f0ff;box-shadow:0 0 6px #00f0ff;transition:width 0.05s ease-out;"></div>
+          <div id="hud-rpm-fill" style="width:100%;height:100%;background:#00f0ff;box-shadow:0 0 6px #00f0ff;transform-origin:left;transition:transform 0.05s ease-out;"></div>
         </div>
 
         <div class="hud-nitro-container" id="hud-nitro-container">
@@ -792,6 +805,9 @@ export class HUD {
     this.bindCasinoHandlers();
     this.setupMultiplayerControls();
     this.setupSettingsControls();
+    if (this.network) {
+      this.setupNetworkCallbacks();
+    }
   }
 
   private setupTouchControls(): void {
@@ -863,12 +879,6 @@ export class HUD {
     document.getElementById('m-btn-build')?.addEventListener('click', () => {
       if (this.input) this.input.justPressed['tab'] = true;
     });
-    document.getElementById('m-btn-time')?.addEventListener('click', () => {
-      if (this.input) this.input.justPressed['l'] = true;
-    });
-    document.getElementById('m-btn-weather')?.addEventListener('click', () => {
-      if (this.input) this.input.justPressed['k'] = true;
-    });
     document
       .getElementById('m-btn-multi')
       ?.addEventListener('click', () => this.toggleMultiplayer());
@@ -888,12 +898,6 @@ export class HUD {
 
     // Touch controls: Floating Virtual Joystick (Left) + Swipe Camera (Right)
     if (typeof window !== 'undefined') {
-      window.addEventListener('keydown', (e: KeyboardEvent) => {
-        if (e.key === 'm' || e.key === 'M') {
-          this.toggleMinimapZoom();
-        }
-      });
-
       const touchControls = document.getElementById('hud-touch-controls');
       const mobileQuickbar = document.querySelector('.hud-mobile-quickbar') as HTMLElement | null;
       let fadeTimer: number | null = null;
@@ -1049,7 +1053,7 @@ export class HUD {
       if (!this.network) return;
       const code = joinInput.value.trim();
       if (code.length < 4) {
-        alert('Bitte gültigen Code eingeben!');
+        this.showNotification('Bitte gültigen Code eingeben!');
         return;
       }
       joinBtn.textContent = 'Verbinde...';
@@ -1180,7 +1184,11 @@ export class HUD {
       this.updateWeaponDisplay(w);
     });
 
+    let lastRaceUpdate = 0;
     eventBus.on(EVENTS.RACE_UPDATE, (data) => {
+      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      if (now - lastRaceUpdate < 100) return;
+      lastRaceUpdate = now;
       const d = data as {
         position: number;
         totalRacers: number;
@@ -1249,7 +1257,11 @@ export class HUD {
     }
   }
 
+  private lastPrompt: string | null = null;
+
   public setPrompt(text: string | null): void {
+    if (text === this.lastPrompt) return;
+    this.lastPrompt = text;
     if (text) {
       this.promptElement.textContent = text;
       this.promptElement.style.display = 'block';
@@ -1258,8 +1270,35 @@ export class HUD {
     }
   }
 
+  public get isAnyModalOpen(): boolean {
+    return this.isSettingsOpen || this.isShopOpen || this.isMultiOpen || this.isCasinoOpen;
+  }
+
+  public closeAllModals(except?: 'settings' | 'shop' | 'multi' | 'casino'): void {
+    if (except !== 'settings' && this.isSettingsOpen) {
+      this.isSettingsOpen = false;
+      this.settingsModalElement.style.display = 'none';
+    }
+    if (except !== 'shop' && this.isShopOpen) {
+      this.isShopOpen = false;
+      this.shopModalElement.style.display = 'none';
+    }
+    if (except !== 'multi' && this.isMultiOpen) {
+      this.isMultiOpen = false;
+      this.multiModalElement.style.display = 'none';
+    }
+    if (except !== 'casino' && this.isCasinoOpen) {
+      this.isCasinoOpen = false;
+      this.casinoModalElement.style.display = 'none';
+    }
+  }
+
   public toggleShop(force?: boolean): boolean {
-    this.isShopOpen = force !== undefined ? force : !this.isShopOpen;
+    const nextState = force !== undefined ? force : !this.isShopOpen;
+    if (nextState) {
+      this.closeAllModals('shop');
+    }
+    this.isShopOpen = nextState;
     this.shopModalElement.style.display = this.isShopOpen ? 'block' : 'none';
     if (this.isShopOpen) {
       this.renderShopContent();
@@ -1268,13 +1307,21 @@ export class HUD {
   }
 
   public toggleMultiplayer(force?: boolean): boolean {
-    this.isMultiOpen = force !== undefined ? force : !this.isMultiOpen;
+    const nextState = force !== undefined ? force : !this.isMultiOpen;
+    if (nextState) {
+      this.closeAllModals('multi');
+    }
+    this.isMultiOpen = nextState;
     this.multiModalElement.style.display = this.isMultiOpen ? 'block' : 'none';
     return this.isMultiOpen;
   }
 
   public toggleCasino(force?: boolean): boolean {
-    this.isCasinoOpen = force !== undefined ? force : !this.isCasinoOpen;
+    const nextState = force !== undefined ? force : !this.isCasinoOpen;
+    if (nextState) {
+      this.closeAllModals('casino');
+    }
+    this.isCasinoOpen = nextState;
     this.casinoModalElement.style.display = this.isCasinoOpen ? 'block' : 'none';
     if (this.isCasinoOpen) {
       this.bindCasinoHandlers();
@@ -1283,7 +1330,11 @@ export class HUD {
   }
 
   public toggleSettings(force?: boolean): boolean {
-    this.isSettingsOpen = force !== undefined ? force : !this.isSettingsOpen;
+    const nextState = force !== undefined ? force : !this.isSettingsOpen;
+    if (nextState) {
+      this.closeAllModals('settings');
+    }
+    this.isSettingsOpen = nextState;
     this.settingsModalElement.style.display = this.isSettingsOpen ? 'block' : 'none';
     return this.isSettingsOpen;
   }
@@ -1315,8 +1366,8 @@ export class HUD {
     this.isMinimapZoomed = !this.isMinimapZoomed;
     if (this.minimapHintElement) {
       this.minimapHintElement.textContent = this.isMinimapZoomed
-        ? '[M] STADT VOLL'
-        : '[M] RADAR NAH';
+        ? '[Z] STADT VOLL'
+        : '[Z] RADAR NAH';
     }
     this.showNotification(
       this.isMinimapZoomed ? '🗺️ Minimap: Stadt-Übersicht (Weit)' : '🗺️ Minimap: Nahbereich-Radar',
@@ -1418,7 +1469,7 @@ export class HUD {
       if (this.economy.buyCar(id)) {
         this.renderShopContent();
       } else {
-        alert('Nicht genug Geld!');
+        this.showNotification('❌ Nicht genug Geld!');
       }
     };
     (window as unknown as { gtaBuyWeapon: (id: string) => void }).gtaBuyWeapon = (
@@ -1427,7 +1478,7 @@ export class HUD {
       if (this.economy.buyWeapon(id)) {
         this.renderShopContent();
       } else {
-        alert('Nicht genug Geld!');
+        this.showNotification('❌ Nicht genug Geld!');
       }
     };
     (window as unknown as { gtaEquipWeapon: (id: string) => void }).gtaEquipWeapon = (
@@ -1455,46 +1506,74 @@ export class HUD {
     isHoverMode: boolean = false,
     rpm: number = 0.2,
   ): void {
-    this.speedElement.textContent = String(Math.abs(speedKmh));
-
-    if (isHoverMode) {
-      this.gearElement.textContent = 'MODUS: 🚀 HOVER FLUG';
-      this.gearElement.style.color = '#00f0ff';
-      this.gearElement.style.textShadow = '0 0 10px #00f0ff';
-    } else {
-      this.gearElement.textContent = `GANG: ${gear}`;
-      this.gearElement.style.color = '#38bdf8';
-      this.gearElement.style.textShadow = 'none';
+    const absSpeed = Math.abs(speedKmh);
+    if (absSpeed !== this.lastSpeed) {
+      this.lastSpeed = absSpeed;
+      this.speedElement.textContent = String(absSpeed);
     }
 
-    if (this.rpmFillElement) {
-      const rpmPct = Math.max(8, Math.min(100, Math.round(rpm * 100)));
-      this.rpmFillElement.style.width = `${rpmPct}%`;
-      if (rpm >= 0.82) {
-        this.rpmFillElement.style.backgroundColor = '#ef4444';
-        this.rpmFillElement.style.boxShadow = '0 0 8px #ef4444';
+    if (isHoverMode !== this.lastIsHover || gear !== this.lastGear) {
+      this.lastIsHover = isHoverMode;
+      this.lastGear = gear;
+      if (isHoverMode) {
+        this.gearElement.textContent = 'MODUS: 🚀 HOVER FLUG';
+        this.gearElement.style.color = '#00f0ff';
+        this.gearElement.style.textShadow = '0 0 10px #00f0ff';
       } else {
-        this.rpmFillElement.style.backgroundColor = '#00f0ff';
-        this.rpmFillElement.style.boxShadow = '0 0 6px #00f0ff';
+        this.gearElement.textContent = `GANG: ${gear}`;
+        this.gearElement.style.color = '#38bdf8';
+        this.gearElement.style.textShadow = 'none';
       }
     }
 
-    this.nitroContainerElement.style.display = inCar ? 'block' : 'none';
-    this.nitroFillElement.style.width = `${Math.max(0, Math.min(100, nitro))}%`;
-
-    const healthPct = Math.max(0, Math.min(100, health));
-    this.healthFillElement.style.width = `${healthPct}%`;
-
-    if (healthPct > 50) {
-      this.healthFillElement.style.backgroundColor = '#22c55e';
-    } else if (healthPct > 25) {
-      this.healthFillElement.style.backgroundColor = '#f59e0b';
-    } else {
-      this.healthFillElement.style.backgroundColor = '#ef4444';
+    if (this.rpmFillElement) {
+      if (Math.abs(rpm - this.lastRpm) > 0.01) {
+        this.lastRpm = rpm;
+        const rpmScale = Math.max(0.08, Math.min(1, rpm));
+        this.rpmFillElement.style.transform = `scaleX(${rpmScale})`;
+        if (rpm >= 0.82) {
+          this.rpmFillElement.style.backgroundColor = '#ef4444';
+          this.rpmFillElement.style.boxShadow = '0 0 8px #ef4444';
+        } else {
+          this.rpmFillElement.style.backgroundColor = '#00f0ff';
+          this.rpmFillElement.style.boxShadow = '0 0 6px #00f0ff';
+        }
+      }
     }
 
-    this.healthTextElement.textContent =
-      healthPct <= 0 ? 'AUTO ZERSTÖRT 💥' : `INTEGRITÄT ${healthPct}%`;
+    if (inCar !== this.lastInCar) {
+      this.lastInCar = inCar;
+      this.nitroContainerElement.style.display = inCar ? 'block' : 'none';
+    }
+
+    if (Math.abs(nitro - this.lastNitro) > 0.5) {
+      this.lastNitro = nitro;
+      const nitroScale = Math.max(0, Math.min(1, nitro / 100));
+      this.nitroFillElement.style.transform = `scaleX(${nitroScale})`;
+    }
+
+    if (Math.abs(health - this.lastHealth) > 0.5 || inCar !== this.lastInCar) {
+      this.lastHealth = health;
+      const healthPct = Math.max(0, Math.min(100, Math.round(health)));
+      this.healthFillElement.style.transform = `scaleX(${healthPct / 100})`;
+
+      if (healthPct > 50) {
+        this.healthFillElement.style.backgroundColor = '#22c55e';
+      } else if (healthPct > 25) {
+        this.healthFillElement.style.backgroundColor = '#f59e0b';
+      } else {
+        this.healthFillElement.style.backgroundColor = '#ef4444';
+      }
+
+      this.healthTextElement.textContent =
+        healthPct <= 0
+          ? inCar
+            ? 'AUTO ZERSTÖRT 💥'
+            : 'AUSSER GEFECHT 💀'
+          : inCar
+            ? `INTEGRITÄT ${healthPct}%`
+            : `LEBEN ${healthPct}%`;
+    }
   }
 
   public updateMinimap(
@@ -1507,6 +1586,11 @@ export class HUD {
     remotePeer: { x: number; z: number } | null = null,
     alienBlips: { x: number; z: number; isUfo?: boolean }[] = [],
   ): void {
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    if (now - this.lastMinimapTime < 33) {
+      return;
+    }
+    this.lastMinimapTime = now;
     const ctx = this.minimapCtx;
     const w = this.minimapCanvas.width;
     const h = this.minimapCanvas.height;
@@ -1711,12 +1795,6 @@ export class HUD {
       ctx.textBaseline = 'middle';
       ctx.fillText('🗼', lhx, lhz);
 
-      // Pay 'n' Spray Garage Icon (Green Square 🟩)
-      const gx = (CITY_CONFIG.GARAGE_X - playerX) * scale;
-      const gz = (CITY_CONFIG.GARAGE_Z - playerZ) * scale;
-      ctx.fillStyle = '#22c55e';
-      ctx.fillRect(gx - 4, gz - 4, 8, 8);
-
       // Street Race Start Line (Cyan Diamond 🔷)
       const rx = (CITY_CONFIG.RACE_START_X - playerX) * scale;
       const rz = (CITY_CONFIG.RACE_START_Z - playerZ) * scale;
@@ -1826,8 +1904,8 @@ export class HUD {
       ctx.fill();
     });
 
-    // Local Player Arrow at center
-    ctx.rotate(heading);
+    // Local Player Arrow at center (inverted heading to match 2D canvas Y-axis)
+    ctx.rotate(-heading);
     ctx.fillStyle = '#00d4ff';
     ctx.beginPath();
     ctx.moveTo(0, 8);

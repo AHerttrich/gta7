@@ -161,6 +161,13 @@ export class CasinoSystem {
   }
 
   public spinLuckyWheel(): WheelPrize {
+    if (this.hasSpunDailyWheel) {
+      eventBus.emit(EVENTS.NOTIFICATION, {
+        text: '🎡 Glücksrad bereits heute gedreht! Komm morgen wieder!',
+      });
+      return { label: 'Bereits heute gedreht', cash: 0 };
+    }
+
     const prizes: WheelPrize[] = [
       { label: '💵 $1.000 Cash', cash: 1000 },
       { label: '💵 $2.500 Cash', cash: 2500 },
@@ -172,6 +179,14 @@ export class CasinoSystem {
 
     const pick = prizes[Math.floor(Math.random() * prizes.length)];
     this.economy.addCash(pick.cash);
+    if (pick.ammoBonus) {
+      const rpg = this.economy.weapons.find((w) => w.id === 'rocket_launcher');
+      if (rpg) {
+        rpg.unlocked = true;
+        rpg.ammo = Math.min(rpg.maxAmmo, rpg.ammo + 5);
+        eventBus.emit(EVENTS.WEAPON_CHANGE, rpg);
+      }
+    }
     this.hasSpunDailyWheel = true;
     this.sound.playFanfare();
 

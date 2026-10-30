@@ -82,10 +82,51 @@ export class StorySystem {
     this.economy = economy;
     this.sound = sound;
 
+    this.loadFromLocalStorage();
+
     // Announce first chapter on start
     setTimeout(() => {
       this.announceCurrentChapter();
     }, 1500);
+  }
+
+  public saveToLocalStorage(): void {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      localStorage.setItem(
+        'gta7_story_chapter',
+        JSON.stringify({
+          currentChapterIndex: this.currentChapterIndex,
+          chapters: this.chapters.map((c) => ({ id: c.id, isCompleted: c.isCompleted })),
+        }),
+      );
+    } catch {
+      // ignore
+    }
+  }
+
+  public loadFromLocalStorage(): void {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      const data = localStorage.getItem('gta7_story_chapter');
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (typeof parsed.currentChapterIndex === 'number') {
+          this.currentChapterIndex = Math.min(
+            this.chapters.length - 1,
+            Math.max(0, parsed.currentChapterIndex),
+          );
+        }
+        if (Array.isArray(parsed.chapters)) {
+          parsed.chapters.forEach((saved: { id: number; isCompleted: boolean }) => {
+            const ch = this.chapters.find((c) => c.id === saved.id);
+            if (ch) ch.isCompleted = saved.isCompleted;
+          });
+        }
+      }
+    } catch {
+      // ignore
+    }
   }
 
   public getCurrentChapter(): StoryChapter {
@@ -106,11 +147,13 @@ export class StorySystem {
 
     if (this.currentChapterIndex < this.chapters.length - 1) {
       this.currentChapterIndex++;
+      this.saveToLocalStorage();
       setTimeout(() => {
         this.announceCurrentChapter();
       }, 3500);
       return true;
     } else {
+      this.saveToLocalStorage();
       eventBus.emit(EVENTS.NOTIFICATION, {
         text: '👑 GTA 7 STORY DURCHGESPIELT! Du bist der Boss von Los Cyberos!',
       });

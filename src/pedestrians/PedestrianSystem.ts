@@ -292,6 +292,21 @@ export class PedestrianSystem {
     ped.rotVz = (Math.random() - 0.5) * 16.0;
   }
 
+  /**
+   * Direct velocity launch for weapons and explosions
+   */
+  public launchRagdoll(ped: Pedestrian, vx: number, vy: number, vz: number): void {
+    ped.state = 'AIRBORNE';
+    ped.isPanicking = true;
+    ped.panicTimer = 6.0;
+    ped.vx = vx;
+    ped.vy = vy;
+    ped.vz = vz;
+    ped.rotVx = (Math.random() - 0.5) * 16.0;
+    ped.rotVy = (Math.random() - 0.5) * 12.0;
+    ped.rotVz = (Math.random() - 0.5) * 16.0;
+  }
+
   public scareNearby(x: number, z: number, radius: number = 14): void {
     for (const ped of this.pedestrians) {
       if (ped.state !== 'WALKING') continue;
@@ -326,9 +341,29 @@ export class PedestrianSystem {
       // 1. AIRBORNE Ragdoll Physics (Flying through the air!)
       if (ped.state === 'AIRBORNE') {
         ped.vy -= 26.0 * dt; // Gravity
-        ped.x += ped.vx * dt;
+        const nextX = ped.x + ped.vx * dt;
+        const nextZ = ped.z + ped.vz * dt;
+
+        if (city) {
+          const col = city.checkCollision(nextX, nextZ, 0.45, 0.25);
+          if (col.collided) {
+            // Wall bounce with damping
+            if (col.normalX !== 0) {
+              ped.vx = -ped.vx * 0.5;
+            }
+            if (col.normalZ !== 0) {
+              ped.vz = -ped.vz * 0.5;
+            }
+          } else {
+            ped.x = nextX;
+            ped.z = nextZ;
+          }
+        } else {
+          ped.x = nextX;
+          ped.z = nextZ;
+        }
+
         ped.y += ped.vy * dt;
-        ped.z += ped.vz * dt;
 
         // Tumbling spin in 3D
         ped.group.rotation.x += ped.rotVx * dt;

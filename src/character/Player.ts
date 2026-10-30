@@ -184,7 +184,7 @@ export class Player {
 
   public update(dt: number, input: Input, city: City): void {
     // 1. Steering & Rotation (Left / Right Arrows / Touch D-Pad / Swiping)
-    const turnSpeed = 3.8; // ~218 deg/sec, smooth and responsive
+    const turnSpeed = PLAYER_CONFIG.TURN_SPEED;
 
     if (input.left) {
       this.rotationY += turnSpeed * dt;
@@ -199,7 +199,8 @@ export class Player {
     }
 
     // Keep rotation in [-PI, PI]
-    this.rotationY = ((this.rotationY + Math.PI) % (Math.PI * 2)) - Math.PI;
+    this.rotationY =
+      THREE.MathUtils.euclideanModulo(this.rotationY + Math.PI, Math.PI * 2) - Math.PI;
     this.group.rotation.y = this.rotationY;
 
     // 2. Forward / Backward Movement along facing direction
@@ -275,7 +276,8 @@ export class Player {
 
     // 3. Jump & Cyber Jetpack Physics (with Rooftop Landing Support)
     const roofH = city.getRoofHeightAt(this.x, this.z, 0);
-    const groundLevel = roofH > 0 && (this.y >= roofH - 0.8 || this.y >= roofH) ? roofH : 0;
+    const groundLevel =
+      roofH > 0 && (this.y >= roofH - 0.8 || this.y >= roofH) ? roofH : this.x < -318 ? -2.5 : 0;
 
     if (this.hasJetpack) {
       if (input.jump && this.jetpackFuel > 0) {

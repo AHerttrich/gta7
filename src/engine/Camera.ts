@@ -94,9 +94,19 @@ export class GameCamera {
       }
     }
 
-    // Smooth interpolation with delta time
+    if (
+      !Number.isFinite(targetCamX) ||
+      !Number.isFinite(targetCamY) ||
+      !Number.isFinite(targetCamZ)
+    ) {
+      targetCamX = carPos.x;
+      targetCamY = carPos.y + height;
+      targetCamZ = carPos.z;
+    }
+
+    // Smooth interpolation with delta time (hard attach in COCKPIT mode to eliminate visual jitter)
     const lerpFactor =
-      this.mode === 'COCKPIT' ? 0.85 : Math.min(1.0, CAMERA_CONFIG.SMOOTH_FACTOR * 60 * dt);
+      this.mode === 'COCKPIT' ? 1.0 : Math.min(1.0, CAMERA_CONFIG.SMOOTH_FACTOR * 60 * dt);
     this.currentCameraPos.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), lerpFactor);
     this.camera.position.copy(this.currentCameraPos);
 
@@ -126,6 +136,10 @@ export class GameCamera {
     const dist = CAMERA_CONFIG.FOOT_DISTANCE;
     const height = CAMERA_CONFIG.FOOT_HEIGHT;
 
+    // Reset FOV towards 60 on foot
+    this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, 60.0, 0.1);
+    this.camera.updateProjectionMatrix();
+
     const forwardX = Math.sin(playerRotationY);
     const forwardZ = Math.cos(playerRotationY);
 
@@ -133,13 +147,38 @@ export class GameCamera {
     let targetCamZ = playerPos.z - forwardZ * dist;
     let targetCamY = playerPos.y + height;
 
-    if (city) {
-      const col = city.checkCollision(targetCamX, targetCamZ, 0.6, targetCamY);
-      if (col.collided) {
-        targetCamX = playerPos.x - forwardX * (dist * 0.35);
-        targetCamZ = playerPos.z - forwardZ * (dist * 0.35);
-        targetCamY = playerPos.y + height * 0.8;
+    const isInterior = playerPos.x >= 3800 && playerPos.z >= 3800;
+    if (isInterior) {
+      targetCamY = Math.max(100.8, Math.min(104.2, targetCamY));
+    } else if (city) {
+      // 3-step ray sample from playerPos towards targetCam
+      for (let step = 1; step <= 3; step++) {
+        const frac = step / 3.0;
+        const testX = THREE.MathUtils.lerp(playerPos.x, targetCamX, frac);
+        const testZ = THREE.MathUtils.lerp(playerPos.z, targetCamZ, frac);
+        const testY = THREE.MathUtils.lerp(playerPos.y + 1.5, targetCamY, frac);
+        const col = city.checkCollision(testX, testZ, 0.5, testY);
+        if (col.collided) {
+          targetCamX = THREE.MathUtils.lerp(playerPos.x, targetCamX, Math.max(0.2, frac - 0.2));
+          targetCamZ = THREE.MathUtils.lerp(playerPos.z, targetCamZ, Math.max(0.2, frac - 0.2));
+          targetCamY = THREE.MathUtils.lerp(
+            playerPos.y + 1.5,
+            targetCamY,
+            Math.max(0.2, frac - 0.2),
+          );
+          break;
+        }
       }
+    }
+
+    if (
+      !Number.isFinite(targetCamX) ||
+      !Number.isFinite(targetCamY) ||
+      !Number.isFinite(targetCamZ)
+    ) {
+      targetCamX = playerPos.x;
+      targetCamY = playerPos.y + height;
+      targetCamZ = playerPos.z;
     }
 
     const lerpFactor = Math.min(1.0, 0.15 * 60 * dt);

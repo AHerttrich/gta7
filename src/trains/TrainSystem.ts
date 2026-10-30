@@ -130,10 +130,10 @@ export class TrainSystem {
     this.subwayGroup.rotation.y = subAngle;
 
     // 2. Move Unstoppable Freight Train (East-West Industrial Line along z = -220)
-    this.freightProgress = (this.freightProgress + (this.freightSpeed / 560) * safeDt) % 1.0;
+    this.freightProgress = (this.freightProgress + (this.freightSpeed / 880) * safeDt) % 1.0;
     if (this.freightProgress < 0) this.freightProgress += 1.0;
 
-    const fx = THREE.MathUtils.lerp(-280, 280, this.freightProgress);
+    const fx = THREE.MathUtils.lerp(-440, 440, this.freightProgress);
     const fz = -220;
     this.freightTrainGroup.position.set(fx, 0, fz);
     this.freightTrainGroup.rotation.y = Math.PI / 2;
@@ -142,15 +142,20 @@ export class TrainSystem {
   public checkFreightTrainCollision(
     carX: number,
     carZ: number,
+    carY?: number,
   ): { hit: boolean; pushX: number; pushZ: number } {
+    if (carY !== undefined && carY > 4.5) {
+      return { hit: false, pushX: 0, pushZ: 0 };
+    }
+
     const fx = this.freightTrainGroup.position.x;
     const fz = this.freightTrainGroup.position.z;
 
-    // Check collision bounding box along 50m train length
-    const dx = Math.abs(carX - fx);
-    const dz = Math.abs(carZ - fz);
+    // Check collision bounding box along 50m train length (locomotive at fx, trailing wagons behind to fx - 50)
+    const relX = carX - fx;
+    const relZ = carZ - fz;
 
-    if (dx < 3.2 && dz < 25.0) {
+    if (relX >= -50.5 && relX <= 7.5 && Math.abs(relZ) < 3.2) {
       this.sound.playCrash(35);
       eventBus.emit(EVENTS.NOTIFICATION, {
         text: '💥 VOM GÜTERZUG ERFASST! Unaufhaltbare Wucht!',

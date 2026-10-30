@@ -49,6 +49,7 @@ export class Car {
   // Hover particle stream
   private hoverParticles!: THREE.Points;
   private hoverPositions!: Float32Array;
+  public baseColor: number = 0xd1d5db;
 
   constructor(
     startX: number = 0,
@@ -56,6 +57,7 @@ export class Car {
     heading: number = 0,
     bodyColor: number = 0xd1d5db, // DeLorean Brushed Stainless Steel
   ) {
+    this.baseColor = bodyColor;
     this.physics = new CarPhysics(startX, startZ, heading);
     this.group = new THREE.Group();
     this.carBodyGroup = new THREE.Group();
@@ -292,6 +294,7 @@ export class Car {
 
     // Blue Hover Glow Light beneath Car
     this.hoverGlowLight = new THREE.PointLight(0x00d4ff, 0.0, 10);
+    this.hoverGlowLight.visible = false;
     this.hoverGlowLight.position.set(0, 0.2, 0);
     this.carBodyGroup.add(this.hoverGlowLight);
   }
@@ -447,7 +450,7 @@ export class Car {
     this.health = VEHICLE_CONFIG.MAX_HEALTH;
     this.isDestroyed = false;
     this.physics.repairTires();
-    (this.bodyMesh.material as THREE.MeshStandardMaterial).color.setHex(0xd1d5db);
+    (this.bodyMesh.material as THREE.MeshStandardMaterial).color.setHex(this.baseColor);
   }
 
   public setUnderglowColor(colorHex: number): void {
@@ -455,7 +458,12 @@ export class Car {
   }
 
   public setColor(colorHex: number): void {
+    this.baseColor = colorHex;
     (this.bodyMesh.material as THREE.MeshStandardMaterial).color.setHex(colorHex);
+  }
+
+  public getColor(): number {
+    return this.baseColor;
   }
 
   public toggleHeadlights(): boolean {
@@ -543,6 +551,7 @@ export class Car {
     (this.rrThrusterDisk.material as THREE.MeshBasicMaterial).opacity = thrusterOpacity;
 
     this.hoverGlowLight.intensity = isHoverOrAir ? 4.5 : 0.0;
+    this.hoverGlowLight.visible = isHoverOrAir;
 
     // Hover downward particle emission
     const hoverMat = this.hoverParticles.material as THREE.PointsMaterial;

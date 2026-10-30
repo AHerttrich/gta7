@@ -99,8 +99,8 @@ export const TUNING_CATALOG: TuningUpgrade[] = [
 export class EconomySystem {
   public cash: number = 500; // Starter cash
   public activeJob: ActiveJob | null = null;
-  public cars: CarModelData[] = [...CAR_CATALOG];
-  public weapons: WeaponData[] = [...WEAPON_CATALOG];
+  public cars: CarModelData[] = CAR_CATALOG.map((c) => ({ ...c }));
+  public weapons: WeaponData[] = WEAPON_CATALOG.map((w) => ({ ...w }));
   public tuningUpgrades: TuningUpgrade[] = TUNING_CATALOG.map((u) => ({ ...u }));
   public selectedCarId: string = 'starter_muscle';
   public selectedWeaponId: string = 'fists';
@@ -113,11 +113,14 @@ export class EconomySystem {
   }
 
   public addCash(amount: number): void {
+    if (Number.isNaN(amount)) return;
     this.cash += amount;
     eventBus.emit(EVENTS.MONEY_CHANGE, { cash: this.cash });
   }
 
   public spendCash(amount: number): boolean {
+    if (Number.isNaN(amount) || amount < 0) return false;
+    if (amount === 0) return true;
     if (this.cash >= amount) {
       this.cash -= amount;
       eventBus.emit(EVENTS.MONEY_CHANGE, { cash: this.cash });
@@ -207,6 +210,31 @@ export class EconomySystem {
       this.selectedCarId = car.id;
       eventBus.emit(EVENTS.NOTIFICATION, {
         text: `🏎️ Neues Auto gekauft: ${car.name}!`,
+      });
+      return true;
+    }
+    return false;
+  }
+
+  public selectCar(carId: string): boolean {
+    const car = this.cars.find((c) => c.id === carId);
+    if (!car || !car.unlocked) return false;
+    this.selectedCarId = car.id;
+    eventBus.emit(EVENTS.NOTIFICATION, {
+      text: `🏎️ Fahrzeug ausgewählt: ${car.name}!`,
+    });
+    return true;
+  }
+
+  public buyAmmo(weaponId: string, amount: number = 30, price: number = 200): boolean {
+    const weapon = this.weapons.find((w) => w.id === weaponId);
+    if (!weapon || !weapon.unlocked) return false;
+    if (weapon.ammo === Infinity) return false;
+    if (this.spendCash(price)) {
+      weapon.ammo = Math.min(weapon.maxAmmo, weapon.ammo + amount);
+      eventBus.emit(EVENTS.WEAPON_CHANGE, weapon);
+      eventBus.emit(EVENTS.NOTIFICATION, {
+        text: `🔫 Munition gekauft für ${weapon.name}! (+${amount})`,
       });
       return true;
     }

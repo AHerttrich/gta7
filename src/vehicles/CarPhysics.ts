@@ -52,6 +52,7 @@ export class CarPhysics {
   public airtime: number = 0;
   public jumpStartX: number = 0;
   public jumpStartZ: number = 0;
+  public wasRampLaunched: boolean = false;
 
   // Performance Tuning & Spike Physics (Phase 9 & 10)
   public engineStage: number = 0; // 0: stock, 1: +25%, 2: +50%, 3: +85%
@@ -60,7 +61,13 @@ export class CarPhysics {
 
   // Smoothness & Dynamics (Sprint A)
   public prevX: number = 0;
+  public prevY: number = 0.5;
   public prevZ: number = 0;
+  public prevHeading: number = 0;
+  public renderX: number = 0;
+  public renderY: number = 0.5;
+  public renderZ: number = 0;
+  public renderHeading: number = 0;
   public roll: number = 0;
   public pitch: number = 0;
   public isFlipped: boolean = false;
@@ -72,7 +79,13 @@ export class CarPhysics {
     this.z = startZ;
     this.heading = initialHeading;
     this.prevX = startX;
+    this.prevY = 0.5;
     this.prevZ = startZ;
+    this.prevHeading = initialHeading;
+    this.renderX = startX;
+    this.renderY = 0.5;
+    this.renderZ = startZ;
+    this.renderHeading = initialHeading;
   }
 
   public reset(startX: number = 0, startZ: number = 0, initialHeading: number = 0): void {
@@ -81,7 +94,13 @@ export class CarPhysics {
     this.groundY = 0.5;
     this.z = startZ;
     this.prevX = startX;
+    this.prevY = 0.5;
     this.prevZ = startZ;
+    this.prevHeading = initialHeading;
+    this.renderX = startX;
+    this.renderY = 0.5;
+    this.renderZ = startZ;
+    this.renderHeading = initialHeading;
     this.vy = 0;
     this.heading = initialHeading;
     this.speed = 0;
@@ -99,6 +118,7 @@ export class CarPhysics {
     this.rpm = 0.2;
     this.gear = 1;
     this.airtime = 0;
+    this.wasRampLaunched = false;
     this.physicsAccumulator = 0;
   }
 
@@ -115,6 +135,7 @@ export class CarPhysics {
   public launchJump(upwardVelocity: number = 10.0): void {
     if (!this.isAirborne) {
       this.isAirborne = true;
+      this.wasRampLaunched = true;
       this.vy = upwardVelocity;
       this.airtime = 0;
       this.jumpStartX = this.x;
@@ -130,7 +151,9 @@ export class CarPhysics {
     if (dt <= 0 || dt > 0.5) return stuntResult;
 
     this.prevX = this.x;
+    this.prevY = this.y;
     this.prevZ = this.z;
+    this.prevHeading = this.heading;
 
     const FIXED_DT = 1 / 60;
     this.physicsAccumulator += dt;
@@ -161,6 +184,13 @@ export class CarPhysics {
     if (this.physicsAccumulator > FIXED_DT) {
       this.physicsAccumulator = 0;
     }
+
+    const alpha =
+      FIXED_DT > 0 ? Math.min(1.0, Math.max(0.0, this.physicsAccumulator / FIXED_DT)) : 1.0;
+    this.renderX = THREE.MathUtils.lerp(this.prevX, this.x, alpha);
+    this.renderY = THREE.MathUtils.lerp(this.prevY, this.y, alpha);
+    this.renderZ = THREE.MathUtils.lerp(this.prevZ, this.z, alpha);
+    this.renderHeading = THREE.MathUtils.lerp(this.prevHeading, this.heading, alpha);
 
     return stuntResult;
   }
@@ -216,6 +246,12 @@ export class CarPhysics {
     if (this.hasSpikePuncture) {
       accel *= 0.55;
       maxForward = Math.min(maxForward, 16.0); // max ~58 km/h on rims
+      if (this.speed > maxForward) {
+        this.speed = Math.max(
+          maxForward,
+          this.speed - VEHICLE_CONFIG.BRAKE_DECELERATION * 0.5 * dt,
+        );
+      }
       this.steerAngle += Math.sin(this.wheelRotation * 3.5) * 0.03;
     }
 
@@ -249,7 +285,7 @@ export class CarPhysics {
     }
 
     // Handbrake action
-    if (input.handbrake) {
+    if (input.handbrake && !this.isHoverMode && !this.isAirborne) {
       const hbDecel = VEHICLE_CONFIG.HANDBRAKE_DECELERATION * dt;
       if (Math.abs(this.speed) > 5.0 && Math.abs(this.steerAngle) > 0.15) {
         this.isDrifting = true;
@@ -276,7 +312,7 @@ export class CarPhysics {
     }
 
     // Normalize heading to [-PI, PI]
-    this.heading = ((this.heading + Math.PI) % (Math.PI * 2)) - Math.PI;
+    this.heading = THREE.MathUtils.euclideanModulo(this.heading + Math.PI, Math.PI * 2) - Math.PI;
 
     // 5. Position integration
     const forwardX = Math.sin(this.heading);
@@ -312,8 +348,9 @@ export class CarPhysics {
       this.y += this.vy * dt;
 
       // Maximum flight ceiling
-      if (this.y > 160.0) {
-        this.y = 160.0;
+      const maxFlightCeiling = this.groundY + 160.0;
+      if (this.y > maxFlightCeiling) {
+        this.y = maxFlightCeiling;
         this.vy = Math.min(0, this.vy);
       }
 
@@ -343,13 +380,14 @@ export class CarPhysics {
         this.isAirborne = false;
 
         const jumpDist = Math.hypot(this.x - this.jumpStartX, this.z - this.jumpStartZ);
-        if (jumpDist > 12.0 && this.airtime > 0.4) {
+        if (this.wasRampLaunched && jumpDist > 12.0 && this.airtime > 0.4) {
           stuntResult = {
             stuntCompleted: true,
             distance: Math.round(jumpDist),
             airtime: Number(this.airtime.toFixed(1)),
           };
         }
+        this.wasRampLaunched = false;
         this.airtime = 0;
       }
     } else {

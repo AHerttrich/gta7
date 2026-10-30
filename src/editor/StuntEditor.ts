@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { CarPhysics } from '../vehicles/CarPhysics';
 import { SoundManager } from '../audio/SoundManager';
+import { EconomySystem } from '../economy/EconomySystem';
 import { eventBus } from '../utils/EventBus';
 import { EVENTS } from '../utils/Constants';
+import { disposeObject3D } from '../utils/disposeObject';
 
 export type StuntPropType = 'rampe' | 'looping' | 'boost_pad' | 'feuerring' | 'kisten';
 
@@ -21,17 +23,24 @@ export class StuntEditor {
   public isBuildMode: boolean = false;
   public selectedProp: StuntPropType = 'rampe';
   public placedProps: StuntProp[] = [];
+  public placeCooldown: number = 0;
 
   private scene: THREE.Scene;
   private sound: SoundManager;
+  private economy: EconomySystem | null = null;
 
-  constructor(scene: THREE.Scene, sound: SoundManager) {
+  constructor(scene: THREE.Scene, sound: SoundManager, economy?: EconomySystem) {
     this.scene = scene;
     this.sound = sound;
+    this.economy = economy || null;
     this.group = new THREE.Group();
     this.scene.add(this.group);
 
     this.loadFromLocalStorage();
+  }
+
+  public setEconomy(economy: EconomySystem): void {
+    this.economy = economy;
   }
 
   public toggleBuildMode(): boolean {
@@ -66,10 +75,6 @@ export class StuntEditor {
       const pad = new THREE.Mesh(padGeo, padMat);
       pad.position.y = 0.08;
       propGroup.add(pad);
-
-      const light = new THREE.PointLight(0x00f0ff, 4, 10);
-      light.position.y = 0.5;
-      propGroup.add(light);
     } else if (type === 'feuerring') {
       // Burning Ring of Fire
       const ringGeo = new THREE.TorusGeometry(4.2, 0.35, 12, 24);
@@ -77,10 +82,6 @@ export class StuntEditor {
       const ring = new THREE.Mesh(ringGeo, ringMat);
       ring.position.y = 4.5;
       propGroup.add(ring);
-
-      const fireLight = new THREE.PointLight(0xf97316, 5, 16);
-      fireLight.position.y = 4.5;
-      propGroup.add(fireLight);
     } else if (type === 'looping') {
       // 360° Corkscrew Ring
       const loopGeo = new THREE.TorusGeometry(6.5, 0.5, 16, 32);
@@ -117,17 +118,39 @@ export class StuntEditor {
     };
 
     this.placedProps.push(prop);
+    this.placeCooldown = 0.2;
     this.saveToLocalStorage();
     this.sound.playCheckpointChime();
 
     return prop;
   }
 
+  public removeLastProp(): boolean {
+    if (this.placedProps.length === 0) return false;
+    const removed = this.placedProps.pop();
+    if (removed) {
+      this.group.remove(removed.group);
+      disposeObject3D(removed.group);
+      this.saveToLocalStorage();
+      return true;
+    }
+    return false;
+  }
+
+  public update(dt: number): void {
+    this.placeCooldown = Math.max(0, this.placeCooldown - dt);
+  }
+
   public checkCarInteraction(carX: number, carZ: number, physics: CarPhysics): void {
     for (const prop of this.placedProps) {
       const dist = Math.hypot(carX - prop.x, carZ - prop.z);
 
-      if (prop.type === 'boost_pad' && dist < 3.2) {
+      if (prop.type === 'rampe' && dist < 4.5) {
+        if (!physics.isAirborne && Math.abs(physics.speed) > 10.0) {
+          physics.launchJump(Math.max(10.0, Math.abs(physics.speed) * 0.45));
+          this.sound.playHoverEngage();
+        }
+      } else if (prop.type === 'boost_pad' && dist < 3.2) {
         // Boost pad shoots car forward at max turbo speed!
         physics.speed = Math.max(physics.speed, 68.0); // 245 km/h instant boost
         physics.isBoosting = true;
@@ -135,9 +158,17 @@ export class StuntEditor {
       } else if (prop.type === 'feuerring' && dist < 4.2) {
         // High air jump through ring of fire
         if (physics.isAirborne) {
+          if (this.economy) {
+            this.economy.addCash(500);
+          }
           eventBus.emit(EVENTS.NOTIFICATION, {
             text: '🔥 FEUERRING DURCHQUERT! Stunt-Meister! +$500!',
           });
+        }
+      } else if (prop.type === 'kisten' && dist < 3.0) {
+        if (Math.abs(physics.speed) > 5.0) {
+          physics.speed *= 0.6;
+          this.sound.playCrash(12);
         }
       }
     }
@@ -156,14 +187,24 @@ export class StuntEditor {
 
   public importTrackJSON(jsonStr: string): boolean {
     try {
-      const data = JSON.parse(jsonStr) as {
-        type: StuntPropType;
-        x: number;
-        z: number;
-        heading: number;
-      }[];
+      const data = JSON.parse(jsonStr);
+      if (!Array.isArray(data)) return false;
+      const validTypes: StuntPropType[] = ['rampe', 'looping', 'boost_pad', 'feuerring', 'kisten'];
+      const validItems = data.filter(
+        (d) =>
+          d &&
+          typeof d === 'object' &&
+          validTypes.includes(d.type) &&
+          typeof d.x === 'number' &&
+          !Number.isNaN(d.x) &&
+          typeof d.z === 'number' &&
+          !Number.isNaN(d.z) &&
+          typeof d.heading === 'number' &&
+          !Number.isNaN(d.heading),
+      );
+      if (validItems.length === 0 && data.length > 0) return false;
       this.clearAllProps();
-      data.forEach((d) => this.placeProp(d.type, d.x, d.z, d.heading));
+      validItems.forEach((d) => this.placeProp(d.type, d.x, d.z, d.heading));
       return true;
     } catch {
       return false;
@@ -173,6 +214,7 @@ export class StuntEditor {
   public clearAllProps(): void {
     for (const p of this.placedProps) {
       this.group.remove(p.group);
+      disposeObject3D(p.group);
     }
     this.placedProps = [];
     this.saveToLocalStorage();

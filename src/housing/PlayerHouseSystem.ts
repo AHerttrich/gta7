@@ -157,10 +157,10 @@ export class PlayerHouseSystem {
    */
   public petBolt(player: Player, hud: HUD, sound: SoundManager): void {
     player.speedMultiplier = 1.25;
-    this.petBuffTimer = 180; // 3 minutes
+    this.petBuffTimer = 60; // 60s sprint buff
     sound.playBlowOffValve();
     hud.showNotification(
-      '🐕 Du streichelst Bolt! Er wedelt mit der Antenne: "Wuff!" (+25% Sprint-Tempo für 3 Min)!',
+      '🐕 Du streichelst Bolt! Er wedelt mit der Antenne: "Wuff!" (+25% Sprint-Tempo für 60s)!',
     );
   }
 
