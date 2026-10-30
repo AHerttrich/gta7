@@ -42,6 +42,10 @@ export class Renderer {
   private slowFrames: number = 0;
   private fastFrames: number = 0;
   private governorCooldown: number = 0;
+  /** Pending check that a resolution reduction actually improved the frame time. */
+  private probe: { prevRatio: number; emaBefore: number; framesLeft: number } | null = null;
+  /** Seconds during which reductions are suppressed (set when the game proved CPU-bound). */
+  private reductionLockout: number = 0;
 
   // --- Shadow-pass cadence ---
   /** True when the sun currently contributes visible shadows (daytime, shadows enabled). */
@@ -811,8 +815,27 @@ export class Renderer {
   public adaptResolution(dt: number): void {
     if (!Number.isFinite(dt) || dt <= 0 || dt > 0.25) return; // ignore tab-switch / stall outliers
     this.frameTimeEma += (dt - this.frameTimeEma) * 0.08;
+    if (this.reductionLockout > 0) this.reductionLockout -= dt;
     if (this.governorCooldown > 0) {
       this.governorCooldown -= dt;
+      return;
+    }
+
+    // Verify that the last resolution reduction actually helped. If the frame time barely
+    // moved, the game is CPU-bound (not fill-rate bound): undo it, since a blurrier image
+    // buys nothing, and stop reducing for a while.
+    if (this.probe) {
+      this.probe.framesLeft--;
+      if (this.probe.framesLeft <= 0) {
+        const improved = this.frameTimeEma < this.probe.emaBefore * 0.9;
+        const prevRatio = this.probe.prevRatio;
+        this.probe = null;
+        if (!improved) {
+          this.reductionLockout = 60;
+          this.applyPixelRatio(prevRatio);
+          return;
+        }
+      }
       return;
     }
 
@@ -827,8 +850,15 @@ export class Renderer {
       this.fastFrames = 0;
     }
 
-    if (this.slowFrames >= 30 && this.currentPixelRatio > Renderer.MIN_PIXEL_RATIO) {
-      this.applyPixelRatio(Math.max(Renderer.MIN_PIXEL_RATIO, this.currentPixelRatio - 0.2));
+    if (
+      this.slowFrames >= 30 &&
+      this.currentPixelRatio > Renderer.MIN_PIXEL_RATIO &&
+      this.reductionLockout <= 0
+    ) {
+      const prevRatio = this.currentPixelRatio;
+      const emaBefore = this.frameTimeEma;
+      this.applyPixelRatio(Math.max(Renderer.MIN_PIXEL_RATIO, prevRatio - 0.2));
+      this.probe = { prevRatio, emaBefore, framesLeft: 60 };
     } else if (this.fastFrames >= 240 && this.currentPixelRatio < this.maxPixelRatio) {
       this.applyPixelRatio(Math.min(this.maxPixelRatio, this.currentPixelRatio + 0.1));
     }
@@ -911,6 +941,8 @@ export class Renderer {
     this.slowFrames = 0;
     this.fastFrames = 0;
     this.governorCooldown = 0;
+    this.probe = null;
+    this.reductionLockout = 0;
     if (this.postProcessing && typeof window !== 'undefined') {
       this.postProcessing.setSize(window.innerWidth, window.innerHeight);
     }

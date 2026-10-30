@@ -32,6 +32,15 @@ function makeRenderer(): Renderer {
 describe('Renderer frame-time governor & shadow cadence', () => {
   let renderer: Renderer;
 
+  /** Simulates a fill-rate bound GPU: frame time scales with the render resolution. */
+  const runGpuBound = (frames: number, msAtFullScale: number): void => {
+    const full = renderer.renderScale;
+    for (let i = 0; i < frames; i++) {
+      const ratio = renderer.renderScale / full;
+      renderer.adaptResolution((msAtFullScale / 1000) * ratio * ratio);
+    }
+  };
+
   beforeEach(() => {
     setPixelRatio.mockClear();
     renderer = makeRenderer();
@@ -39,13 +48,25 @@ describe('Renderer frame-time governor & shadow cadence', () => {
     setPixelRatio.mockClear();
   });
 
-  it('lowers the render scale after sustained slow frames, never below the floor', () => {
+  it('lowers the render scale on a fill-rate bound GPU, never below the floor', () => {
     const start = renderer.renderScale;
-    for (let i = 0; i < 400; i++) renderer.adaptResolution(0.04); // 25 fps
+    runGpuBound(600, 40); // 25 fps at full scale
     expect(renderer.renderScale).toBeLessThan(start);
     expect(renderer.renderScale).toBeGreaterThanOrEqual(0.6);
-    for (let i = 0; i < 4000; i++) renderer.adaptResolution(0.05);
-    expect(renderer.renderScale).toBeCloseTo(0.6, 5);
+  });
+
+  it('keeps resolution when the game is CPU-bound (reduction does not help) and backs off', () => {
+    const start = renderer.renderScale;
+    // Frame time is 45 ms no matter what the resolution is
+    for (let i = 0; i < 2000; i++) renderer.adaptResolution(0.045);
+    expect(renderer.renderScale).toBe(start);
+    // ...and it does not keep retrying (lockout): resolution never drops for a long stretch
+    let minScale = start;
+    for (let i = 0; i < 1500; i++) {
+      renderer.adaptResolution(0.045);
+      minScale = Math.min(minScale, renderer.renderScale);
+    }
+    expect(minScale).toBeGreaterThan(start - 0.21);
   });
 
   it('ignores one-off stalls (shader compile, tab switch) and keeps resolution', () => {
@@ -58,8 +79,10 @@ describe('Renderer frame-time governor & shadow cadence', () => {
   });
 
   it('restores resolution after sustained headroom, capped at the preset ceiling', () => {
-    for (let i = 0; i < 400; i++) renderer.adaptResolution(0.04);
+    const start = renderer.renderScale;
+    runGpuBound(600, 40);
     const reduced = renderer.renderScale;
+    expect(reduced).toBeLessThan(start);
     for (let i = 0; i < 5000; i++) renderer.adaptResolution(0.008); // 125 fps
     expect(renderer.renderScale).toBeGreaterThan(reduced);
     expect(renderer.renderScale).toBeLessThanOrEqual(2);

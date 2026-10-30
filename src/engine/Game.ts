@@ -165,6 +165,10 @@ export class Game {
     this.weapons.setAlienSystem(this.aliens);
     this.aliens.setDimensionVisibility(false);
     this.interiors = new InteriorSystem(this.renderer.scene);
+    // Exterior door frames/signs never move: merge them (~75 draw calls -> a handful).
+    batchStaticMeshes(this.interiors.exteriorDoorsGroup, {
+      cellSize: (CITY_CONFIG.BLOCK_SIZE + CITY_CONFIG.ROAD_WIDTH) * 2,
+    });
     this.playerHouse = new PlayerHouseSystem();
     this.syncWorldVisibility();
 
